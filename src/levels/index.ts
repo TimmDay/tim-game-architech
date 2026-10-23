@@ -6,6 +6,7 @@ import type {
   LoadProfile,
   PlacedComponent,
 } from "~/sim/types"
+import { withPractices } from "~/sim/practices"
 import { CLIENT_ID } from "~/sim/types"
 import type { ConceptId } from "./concepts"
 import type { Scenario } from "./roles"
@@ -114,6 +115,12 @@ const BUILD: Level[] = [
       budgetUsd: 400,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -159,6 +166,12 @@ const BUILD: Level[] = [
       budgetUsd: 750,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "cache" }],
@@ -212,6 +225,12 @@ const BUILD: Level[] = [
       budgetUsd: 100,
       writesReach: ["object-store"],
       noBacklog: false,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -259,6 +278,12 @@ const BUILD: Level[] = [
       budgetUsd: 650,
       writesReach: ["object-store", "sql-primary"],
       noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "worker" }],
@@ -316,6 +341,7 @@ const BUILD: Level[] = [
       budgetUsd: 650,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: { faults: [{ kind: "zone-outage" }], label: "Zone A loses power" },
     palette: [
@@ -368,6 +394,7 @@ const BUILD: Level[] = [
       budgetUsd: 800,
       writesReach: ["sql-primary", "search-index", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -442,6 +469,7 @@ const LATER_BUILD: Level[] = [
       budgetUsd: 1_300,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -512,6 +540,12 @@ const LATER_BUILD: Level[] = [
       budgetUsd: 600,
       writesReach: ["nosql", "search-index"],
       noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -586,6 +620,12 @@ const REPAIR: Level[] = [
       budgetUsd: 600,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -646,6 +686,7 @@ const REPAIR: Level[] = [
       budgetUsd: 700,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: true },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -713,6 +754,7 @@ const REPAIR: Level[] = [
       budgetUsd: 750,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -782,6 +824,7 @@ const REPAIR: Level[] = [
       budgetUsd: 600,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: { faults: [{ kind: "zone-outage" }], label: "Zone A loses power" },
     palette: [
@@ -844,6 +887,7 @@ const REPAIR: Level[] = [
       budgetUsd: 800,
       writesReach: ["sql-primary", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -913,6 +957,7 @@ const REPAIR: Level[] = [
       budgetUsd: 800,
       writesReach: ["sql-primary", "search-index", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -1000,6 +1045,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 850,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "cache" }],
@@ -1057,6 +1108,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 1_000,
       writesReach: ["nosql", "event-stream"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
     chaos: {
       faults: [{ kind: "zone-outage" }],
@@ -1120,6 +1172,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 1_050,
       writesReach: ["nosql"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -1190,6 +1243,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 1_350,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: true },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 3 }],
@@ -1262,6 +1316,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 700,
       writesReach: ["object-store"],
       noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -1334,6 +1394,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 950,
       writesReach: ["cache", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "zone-outage" }],
@@ -1397,6 +1458,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 600,
       writesReach: ["data-warehouse"],
       noBacklog: true,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -1477,6 +1544,7 @@ const CAP: Level[] = [
       budgetUsd: 500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: true },
       onSplit: "consistent",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1522,6 +1590,12 @@ const CAP: Level[] = [
       budgetUsd: 600,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
       onSplit: "available",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1587,6 +1661,12 @@ const CAP: Level[] = [
       budgetUsd: 1_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "sql-primary" }],
@@ -1657,6 +1737,12 @@ const CAP: Level[] = [
       budgetUsd: 1_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
       onSplit: "available",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1731,6 +1817,7 @@ const CAP: Level[] = [
       budgetUsd: 1_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
       onSplit: "consistent",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1756,13 +1843,28 @@ const CAP: Level[] = [
   },
 ]
 
+/**
+ * References and repair starters get every production practice their stakes
+ * call for. A reference shows the full answer; a starter's lesson is its root
+ * cause, not a missing setting.
+ */
+const hardened = (l: Level): Level => {
+  const stakes = l.targets.stakes
+  if (!stakes) return l
+  return {
+    ...l,
+    reference: withPractices(l.reference, stakes),
+    starter: l.starter && withPractices(l.starter, stakes),
+  }
+}
+
 export const LEVELS: Level[] = [
   ...BUILD,
   ...LATER_BUILD,
   ...CLASSICS,
   ...CAP,
   ...REPAIR,
-]
+].map(hardened)
 
 export const levelById = (id: string) => LEVELS.find((l) => l.id === id)
 

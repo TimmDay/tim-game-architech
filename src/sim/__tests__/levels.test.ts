@@ -58,6 +58,11 @@ describe.each(LEVELS)("$id", (level) => {
       if (!starter) return
       const g = grade(starter, level.load, level.targets, level.chaos.faults)
       expect(g.stars).toBeLessThan(3)
+      // Broken by its root cause, not by a missing production setting.
+      expect(
+        g.checks.filter((c) => !c.pass && c.id !== "practices").length,
+      ).toBeGreaterThan(0)
+      expect(g.checks.find((c) => c.id === "practices")?.pass).toBe(true)
     })
 
     it("names a root cause that exists in the starter", () => {

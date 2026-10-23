@@ -27,7 +27,7 @@
 
 **Achievements and ranks.** Thirteen achievements (20 points each), from "It's alive" to "Unbreakable" (wave 10 in Survival) and "Polyglot" (pass levels under all four naming schemes). Points carry you from Intern to Distinguished Architect. Achievements are derived from saved progress, so ones you'd already earned are granted on first load.
 
-Each level is worth three stars: **handles peak** (errors, latency, budget, data actually stored), **highly available** (the topology's availability arithmetic), and **survives chaos**.
+Each level is worth three stars: **handles peak** (errors, latency, budget, data actually stored), **highly available** (the topology's availability arithmetic), and **survives chaos, production-ready**. The third star also needs the production settings a load test can't see, set in each component's sidebar: backups (daily, or to the minute where money moves), encryption at rest for personal data, sign-in checks, a rate limit where traffic lands, timeouts and retries with backoff, dead-letter queues, idempotency keys for payments, and alerts. What's expected depends on what the system has at stake, and a missing one is named in the findings.
 
 ## Provider toggle
 

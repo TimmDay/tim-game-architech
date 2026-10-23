@@ -88,6 +88,28 @@ export type PlacedComponent = {
   partitionKey?: string
   /** What the store does when a network split leaves its copies apart. */
   consistency?: Consistency
+  /** Production settings from the sidebar. None change the simulation. */
+  practices?: Practices
+}
+
+/**
+ * The settings a real deployment needs that a load test can't see: backups,
+ * encryption, auth, rate limits, timeouts and retries, dead-letter queues,
+ * idempotency and alerts. Grading checks them against what the level's stakes
+ * call for (`~/sim/practices`).
+ */
+export type Practices = {
+  /** Unset: no backups. Daily restores to last night; point-in-time to the minute. */
+  backups?: "daily" | "point-in-time"
+  encrypted?: boolean
+  auth?: boolean
+  rateLimit?: boolean
+  timeouts?: boolean
+  /** Unset: no retries. Immediate retries pile onto a struggling dependency. */
+  retries?: "immediate" | "backoff"
+  dlq?: boolean
+  idempotency?: boolean
+  alerts?: boolean
 }
 
 /**

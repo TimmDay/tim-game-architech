@@ -10,6 +10,7 @@ import {
 } from "./simulate"
 import type { Graph, LoadProfile, PlacedComponent, SimResult } from "./types"
 import { CLIENT_ID } from "./types"
+import { missingPractices, type PracticeId } from "./practices"
 
 export type Finding = {
   severity: "error" | "warn"
@@ -24,6 +25,50 @@ const rps = (n: number) => `${Math.round(n).toLocaleString("en-US")}/s`
 const name = (c: PlacedComponent) => `{${c.kind}}`
 const ms = (n: number) =>
   n >= 1000 ? `${(n / 1000).toFixed(1)}s` : `${Math.round(n)}ms`
+
+/** Why each missing practice matters, after the component's name. */
+const PRACTICE_TEXT: Record<PracticeId, [ConceptId, string]> = {
+  backups: [
+    "backups-and-rpo",
+    "has no backups. A bad migration or a dropped table copies to every standby instantly; only a backup undoes it.",
+  ],
+  "point-in-time": [
+    "backups-and-rpo",
+    "needs point-in-time recovery. Money and bookings can't go back to last night's backup: a restore must reach the minute before the mistake.",
+  ],
+  encryption: [
+    "encryption-at-rest",
+    "isn't encrypted at rest, and it holds personal data. A leaked snapshot or disk would be readable.",
+  ],
+  auth: [
+    "authn-authz",
+    "is the first code on the request path and doesn't check who's calling. Anyone who finds the endpoint can read and write.",
+  ],
+  "rate-limit": [
+    "rate-limiting",
+    "is where traffic first lands and has no rate limit, so one attacker or runaway client can use capacity meant for everyone.",
+  ],
+  timeouts: [
+    "timeouts-and-retries",
+    "has no timeouts on its calls. One slow dependency would hold every request until it stops serving anyone.",
+  ],
+  backoff: [
+    "timeouts-and-retries",
+    "doesn't retry with backoff and jitter. Without retries a brief glitch fails users; with immediate retries a struggling dependency gets hit harder.",
+  ],
+  dlq: [
+    "dead-letter-queue",
+    "has no dead-letter queue. A message that fails every time is retried forever and holds up the work behind it.",
+  ],
+  idempotency: [
+    "idempotency",
+    "retries writes that move money without idempotency keys. A retry after a timeout could charge or book twice.",
+  ],
+  alerts: [
+    "alerting",
+    "has no alerts. If it fails or falls behind, nobody hears about it until users complain.",
+  ],
+}
 
 /**
  * What a load test tells you, in words. Symptoms, not answers: they point at
@@ -240,6 +285,19 @@ export function findings(
         text: `Availability works out at ${(peak.availability * 100).toFixed(3)}%, short of ${(targets.availability * 100).toFixed(2)}%.`,
       })
   }
+
+  if (targets?.stakes)
+    for (const x of missingPractices(graph, targets.stakes)) {
+      const c = graph.components.find((c) => c.id === x.componentId)
+      if (!c) continue
+      const [concept, why] = PRACTICE_TEXT[x.practice]
+      out.push({
+        severity: "warn",
+        componentId: c.id,
+        concept,
+        text: `${name(c)} ${why}`,
+      })
+    }
 
   const consistent = targets?.onSplit === "consistent"
   if (chaos && chaosLabel) {

@@ -383,6 +383,7 @@ export function Play({
     <InspectPanel
       graph={graph}
       load={level.load}
+      production
       provider={provider}
       selectedId={sel.node}
       selectedEdgeId={sel.edge}

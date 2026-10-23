@@ -1,6 +1,6 @@
 import { CATALOGUE } from "~/sim/catalogue"
 import { MAX_SHARDS } from "~/sim/simulate"
-import type { ComponentKind, Consistency, Graph } from "~/sim/types"
+import type { ComponentKind, Consistency, Graph, Practices } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import { CLIENT_TILE } from "~/levels"
 
@@ -24,6 +24,7 @@ export type Settings = {
   shards?: number
   partitionKey?: string
   consistency?: Consistency
+  practices?: Practices
 }
 
 export const inBounds = (x: number, y: number) =>
@@ -100,6 +101,7 @@ export function edit(g: Graph, a: Action): Graph {
             next.shards = Math.min(MAX_SHARDS, Math.max(1, a.shards))
           if (a.partitionKey !== undefined) next.partitionKey = a.partitionKey
           if (a.consistency !== undefined) next.consistency = a.consistency
+          if (a.practices !== undefined) next.practices = a.practices
           return next
         }),
       }

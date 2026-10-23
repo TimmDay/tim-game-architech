@@ -13,7 +13,11 @@ import { sfx } from "~/game/sound"
 import { FindingList, H } from "./panels"
 import { Rich } from "./Rich"
 
-const STAR_LABEL = ["Handles peak", "Highly available", "Survives chaos"]
+const STAR_LABEL = [
+  "Handles peak",
+  "Highly available",
+  "Survives chaos, production-ready",
+]
 
 function checkLabel(
   c: CheckT,
@@ -49,6 +53,8 @@ function checkLabel(
       return `Backlog growth ${rps(g.peak.backlogGrowthRps)} (must be 0)`
     case "availability":
       return `Availability ${nines(g.peak.availability)} (≥ ${nines(t.availability)})`
+    case "practices":
+      return `Production settings: ${g.practices.expected - g.practices.missing} of ${g.practices.expected} in place`
     case "chaos":
       if (t.onSplit === "consistent")
         return `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} refused (< 50%), ${rps(g.chaos.divergentRps)} conflicting writes (must be 0)`
@@ -89,7 +95,9 @@ export function Results({
     grade.stars === 3
       ? "Load bearing."
       : grade.stars === 2
-        ? "Solid, until something breaks."
+        ? grade.checks.find((c) => c.id === "chaos")?.pass
+          ? "Survives the chaos. Not ready to ship."
+          : "Solid, until something breaks."
         : grade.stars === 1
           ? "It works. For now."
           : "It fell over."

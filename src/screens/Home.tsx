@@ -6,6 +6,7 @@ import {
   Layers,
   BookOpen,
   FlaskConical,
+  GraduationCap,
   Hammer,
   Star,
   Stethoscope,
@@ -120,7 +121,11 @@ function LevelCard({
       >
         <div className="flex items-center justify-between">
           <span className="font-mono text-[11px] text-slate-500">
-            {level.mode === "build" ? "B" : "R"}
+            {level.track === "classic"
+              ? "C"
+              : level.mode === "build"
+                ? "B"
+                : "R"}
             {String(index + 1).padStart(2, "0")}
           </span>
           <span className="flex gap-0.5" aria-label={`${stars} of 3 stars`}>
@@ -183,7 +188,8 @@ export function Home({
   onRetention: () => void
   onSurvival: () => void
 }) {
-  const build = LEVELS.filter((l) => l.mode === "build")
+  const build = LEVELS.filter((l) => l.mode === "build" && !l.track)
+  const classics = LEVELS.filter((l) => l.track === "classic")
   const repair = LEVELS.filter((l) => l.mode === "repair")
   const total = LEVELS.reduce((s, l) => s + (progress[l.id]?.stars ?? 0), 0)
   const section = (
@@ -279,6 +285,13 @@ export function Home({
         "You get a brief and a palette. Design something that meets the targets, then survive the chaos round.",
         build,
         "text-cyan-200",
+      )}
+      {section(
+        "Interview classics",
+        <GraduationCap size={22} />,
+        "The questions interviewers ask most: a URL shortener, a chat app, a ticket sale and more. Each one hides the mistake that question is designed to catch.",
+        classics,
+        "text-violet-200",
       )}
       {section(
         "Repair",

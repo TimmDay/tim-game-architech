@@ -33,7 +33,7 @@ The **AWS / Azure / GCP / None** switch renames every component everywhere: the 
 
 ## What it teaches
 
-Eight build levels and six repair levels, covering horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, OLTP vs OLAP, rate-limited OCR APIs behind a queue, and micro-caching fast-changing data at the edge. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
+Eight build levels, seven interview classics and six repair levels. The classics are the questions interviewers ask most: a URL shortener, group chat, a home timeline, a ticket sale, video streaming, ride hailing and search autocomplete. Together they cover horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, OLTP vs OLAP, rate-limited OCR APIs behind a queue, micro-caching fast-changing data at the edge, partitioning write-heavy data, fan-out on write, waiting rooms for contended inventory, ephemeral state kept in memory, and latency budgets. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
 
 ## How the simulation works
 

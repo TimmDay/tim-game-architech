@@ -23,6 +23,11 @@ export type Scenario = {
   /** Slow work that shouldn't block a request. */
   job?: string
   events?: string
+  /**
+   * Why the hot data can live in memory with nothing behind it: it's rebuilt
+   * or replaced so often that losing it costs little.
+   */
+  memoryOnly?: string
 }
 
 export const GENERIC_SCENARIO: Scenario = {
@@ -123,18 +128,27 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
       "Cheap for spiky or low traffic. At steady high volume, always-on containers usually cost less.",
     ],
   }),
-  cache: ({ s, down }) => ({
-    role: `Keeps ${s.hot} in memory. Requests for them, from ${s.reads}, are answered from RAM in about a millisecond instead of with a query to ${list(down) || "a database"}. Writes (${s.writes}) pass through to ${list(down) || "the store behind it"}, and the cached copy is deleted or left to expire.`,
-    caution:
-      down.length === 0
-        ? "Nothing sits behind it, so every miss, and every write, has nowhere to go."
-        : undefined,
-    tradeoffs: [
-      `Stale reads: until an entry expires or is invalidated, someone can see ${s.hot} a little out of date.`,
-      `Cold start: after a restart every read misses at once and ${list(down) || "the database"} takes the full load. Run two nodes, or make sure the database can survive it.`,
-      "It only helps data that is shared and read often. Data each user reads once barely gets a hit.",
-    ],
-  }),
+  cache: ({ s, down }) =>
+    down.length === 0 && s.memoryOnly
+      ? {
+          role: `Holds ${s.hot}, in memory only, and answers ${s.reads} in about a millisecond. Nothing sits behind it on purpose: ${s.memoryOnly}`,
+          tradeoffs: [
+            "Losing a node loses its share of the data until it's rebuilt or replaced, so run two nodes in different zones.",
+            "Memory is the limit on how much it can hold, so keep only what's needed right now.",
+          ],
+        }
+      : {
+          role: `Keeps ${s.hot} in memory. Requests for them, from ${s.reads}, are answered from RAM in about a millisecond instead of with a query to ${list(down) || "a database"}. Writes (${s.writes}) pass through to ${list(down) || "the store behind it"}, and the cached copy is deleted or left to expire.`,
+          caution:
+            down.length === 0
+              ? "Nothing sits behind it, so every miss, and every write, has nowhere to go."
+              : undefined,
+          tradeoffs: [
+            `Stale reads: until an entry expires or is invalidated, someone can see ${s.hot} a little out of date.`,
+            `Cold start: after a restart every read misses at once and ${list(down) || "the database"} takes the full load. Run two nodes, or make sure the database can survive it.`,
+            "It only helps data that is shared and read often. Data each user reads once barely gets a hit.",
+          ],
+        },
   "sql-primary": ({ s, graph, id }) => {
     const c = graph.components.find((c) => c.id === id)
     // Read/write splitting: one of this primary's callers also reads replicas.

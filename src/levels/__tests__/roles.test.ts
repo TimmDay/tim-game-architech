@@ -31,6 +31,13 @@ describe("component discussion", () => {
     )
   })
 
+  it("explains a cache that's the only store on purpose, without a caution", () => {
+    const level = levelById("ride-hailing")!
+    const d = discuss(level.reference, "live", level.scenario, level.load)
+    expect(d?.role).toContain("in memory only")
+    expect(d?.caution).toBeUndefined()
+  })
+
   it("explains a standby on a SQL primary", () => {
     const level = levelById("zone-outage")!
     const d = discuss(level.reference, "db", level.scenario, level.load)

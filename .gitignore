@@ -7,3 +7,4 @@ coverage
 *.tsbuildinfo
 .env.local
 .env.*.local
+.firebase/

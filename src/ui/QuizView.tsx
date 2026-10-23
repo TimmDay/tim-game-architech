@@ -2,6 +2,8 @@ import clsx from "clsx"
 import { Check, Layers, Lock, RotateCcw, Unlock, X } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
+import { updateReview } from "~/game/points-store"
+import { answerQuestion } from "~/game/review"
 import { loadQuiz, saveQuiz } from "~/game/storage"
 import type { Level } from "~/levels"
 import type { Provider } from "~/providers/names"
@@ -81,7 +83,10 @@ export function QuizView({
   }
 
   const answer = (option: string) => {
-    if (chosen !== undefined) return
+    if (chosen !== undefined || !current) return
+    const qIndex = (QUIZZES[level.id] ?? []).indexOf(current.q)
+    const right = option === current.q.correct
+    updateReview((s) => answerQuestion(s, level.id, qIndex, right, Date.now()))
     setAttempt((a) => ({
       ...a,
       answers: a.answers.map((x, i) => (i === index ? option : x)),

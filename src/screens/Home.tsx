@@ -1,5 +1,6 @@
 import clsx from "clsx"
 import {
+  Brain,
   Lock,
   Layers,
   BookOpen,
@@ -9,7 +10,10 @@ import {
   Stethoscope,
   Wrench,
 } from "lucide-react"
+import { useState } from "react"
 import { DECKS } from "~/decks"
+import { useReview } from "~/game/points-store"
+import { dueQueue } from "~/game/review"
 import { missingPrereqs } from "~/game/progression"
 import type { Progress } from "~/game/storage"
 import { LEVELS, type Level } from "~/levels"
@@ -164,12 +168,14 @@ export function Home({
   onSandbox,
   onCodex,
   onDeck,
+  onRetention,
 }: {
   progress: Progress
   onPlay: (id: string) => void
   onSandbox: () => void
   onCodex: () => void
   onDeck: (id: string) => void
+  onRetention: () => void
 }) {
   const build = LEVELS.filter((l) => l.mode === "build")
   const repair = LEVELS.filter((l) => l.mode === "repair")
@@ -275,6 +281,49 @@ export function Home({
         repair,
         "text-rose-200",
       )}
+      <RetentionSection onOpen={onRetention} />
     </main>
+  )
+}
+
+/** The third mode: revising what you've already met, on a schedule. */
+function RetentionSection({ onOpen }: { onOpen: () => void }) {
+  const state = useReview()
+  // "Now" is fixed for the visit; reopening the page refreshes it.
+  const [now] = useState(() => Date.now())
+  const due = dueQueue(state, now, Infinity).length
+  const tracked = Object.keys(state.items).length
+  return (
+    <section className="mt-12">
+      <h2 className="font-display flex items-center gap-2 text-2xl font-bold text-emerald-200">
+        <Brain size={22} /> Retention
+      </h2>
+      <p className="mt-1 mb-4 max-w-xl text-[14px] text-slate-400">
+        Revise the cards, questions and scenarios you've already met. Ones you
+        know come back rarely; ones you missed come back tomorrow, worth double.
+      </p>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-emerald-300/25 bg-gradient-to-r from-emerald-400/[0.08] to-transparent p-5 text-left transition hover:border-emerald-300/50"
+      >
+        <span>
+          <span className="font-display block text-[28px] leading-none font-bold text-white">
+            {due}
+            <span className="ml-2 text-[15px] font-semibold text-emerald-200">
+              due now
+            </span>
+          </span>
+          <span className="mt-1.5 block text-[13px] text-slate-400">
+            {tracked === 0
+              ? "Nothing to revise yet: play a level, flip deck cards or take a quiz."
+              : `${tracked} things on your review schedule.`}
+          </span>
+        </span>
+        <span className="rounded-xl bg-emerald-300 px-4 py-2 text-[14px] font-bold text-slate-950">
+          {due > 0 ? "Start revising" : "Open"}
+        </span>
+      </button>
+    </section>
   )
 }

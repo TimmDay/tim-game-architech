@@ -11,6 +11,8 @@ import type { Provider } from "~/providers/names"
 import { GENERIC_SCENARIO } from "~/levels/roles"
 import { KINDS } from "~/sim/catalogue"
 import { Codex } from "~/screens/Codex"
+import { Retention } from "~/screens/Retention"
+import { PointsChip } from "~/ui/PointsChip"
 import { LockedLevel } from "~/screens/LockedLevel"
 import { isUnlocked, missingPrereqs } from "~/game/progression"
 import { Deck } from "~/screens/Deck"
@@ -47,11 +49,13 @@ type Route =
   | { screen: "codex" }
   | { screen: "play"; levelId: string }
   | { screen: "deck"; levelId: string }
+  | { screen: "retention" }
 
 /** Routes live in the hash so the back button and a home-screen PWA both behave. */
 function parse(hash: string): Route {
   const [screen, id] = hash.replace(/^#\/?/, "").split("/")
   if (screen === "codex") return { screen: "codex" }
+  if (screen === "retention") return { screen: "retention" }
   if (screen === "deck" && id && levelById(id))
     return { screen: "deck", levelId: id }
   if (screen === "play" && id && (id === "sandbox" || levelById(id)))
@@ -74,14 +78,18 @@ export function App() {
     window.scrollTo(0, 0)
   }
 
+  // Points travel with the provider toggle, so every screen's header shows both.
   const toggle = (
-    <ProviderToggle
-      value={provider}
-      onChange={(p) => {
-        setProvider(p)
-        saveProvider(p)
-      }}
-    />
+    <div className="flex items-center gap-2">
+      <PointsChip />
+      <ProviderToggle
+        value={provider}
+        onChange={(p) => {
+          setProvider(p)
+          saveProvider(p)
+        }}
+      />
+    </div>
   )
 
   if (route.screen === "play") {
@@ -122,6 +130,16 @@ export function App() {
     )
   }
 
+  if (route.screen === "retention")
+    return (
+      <Retention
+        provider={provider}
+        onBack={() => go("/")}
+        onPlay={(id) => go(`/play/${id}`)}
+        toggle={toggle}
+      />
+    )
+
   if (route.screen === "deck") {
     const level = levelById(route.levelId)
     if (!level) return null
@@ -154,6 +172,7 @@ export function App() {
           onSandbox={() => go("/play/sandbox")}
           onCodex={() => go("/codex")}
           onDeck={(id) => go(`/deck/${id}`)}
+          onRetention={() => go("/retention")}
         />
       )}
     </div>

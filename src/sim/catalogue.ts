@@ -212,6 +212,21 @@ export const CATALOGUE: Record<ComponentKind, ComponentSpec> = {
     costPerInstanceMonthUsd: 200,
     maxInstances: 1,
   },
+  "doc-ai": {
+    ...base,
+    kind: "doc-ai",
+    category: "compute",
+    // A managed OCR / document-extraction API. One "instance" is a block of
+    // throughput quota you've had raised, not a server: providers cap calls
+    // per second by default. Really it's billed per page; a flat monthly
+    // price per block is the game's simplification.
+    capacity: { readRps: 40, writeRps: 40 },
+    baseLatency: { p50Ms: 1_500, p99Ms: 4_000 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 120,
+    maxInstances: 10,
+  },
 }
 
 export const KINDS = Object.keys(CATALOGUE) as ComponentKind[]

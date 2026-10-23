@@ -1222,3 +1222,408 @@ export const FEED_THE_ANALYSTS = deck("feed-the-analysts", [
     ],
   ],
 ])
+
+export const SHOEBOX_RECEIPTS = deck("shoebox-receipts", [
+  [
+    "clarify",
+    "Before designing, what would you ask about the tax-deadline peak?",
+    [
+      "Which deadlines matter? The UK's is 31 January, the US mid-April, and other countries differ, so is there one peak or several?",
+      "How sharp is it: a gradual month-long rise, or most users in the final few days?",
+      "What's the peak upload rate per second, not per day? Daily totals hide the evening spike.",
+    ],
+    "If most users arrive in the last 48 hours, what changes in your plan?",
+  ],
+  [
+    "clarify",
+    "What would you ask about the OCR before choosing how to call it?",
+    [
+      "How long does a receipt take, and how variable is that?",
+      "What's our rate limit with the provider, and how long does an increase take to approve?",
+      "How accurate is it on crumpled, faded or foreign-language receipts, and does it return confidence scores?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about how much the extracted data matters?",
+    [
+      "Does it feed a tax return directly? Then a wrong amount is a real problem for the user.",
+      "Must the user confirm each receipt, or only flagged ones?",
+      "Do we need to keep the original image for audit, and for how long? Tax authorities can ask for records years later.",
+    ],
+  ],
+  [
+    "clarify",
+    "What's the split between typed-in and photographed receipts, and why ask?",
+    [
+      "Typed-in receipts are cheap and instant; photos need slow, metered OCR.",
+      "The split sizes the OCR quota and worker pool.",
+      "It also hints at product direction: if photos dominate, improving capture matters more than the form.",
+    ],
+  ],
+  [
+    "product",
+    "What should the user see the moment they upload a receipt photo?",
+    [
+      "The receipt in their list immediately, with the photo and a 'reading…' state.",
+      "Fields filling in a few seconds later, with low-confidence ones highlighted to check.",
+      "A way to type the fields themselves if they don't want to wait.",
+    ],
+  ],
+  [
+    "decision",
+    "Why do typed-in receipts and photos take different paths?",
+    [
+      "Typed-in receipts are a plain database write that finishes in milliseconds.",
+      "Photos need OCR, which takes seconds and is rate-limited by the provider.",
+      "Queueing only the slow work keeps the fast path fast and the queue small.",
+    ],
+  ],
+  [
+    "decision",
+    "Why do workers call the OCR service, rather than the app servers?",
+    [
+      "Workers can pace calls to stay within the provider's quota; a burst of users can't be paced.",
+      "A slow or throttled OCR call never holds up a user's request.",
+      "Retries on throttling happen in the background with backoff.",
+    ],
+    "What happens when the provider starts throttling you mid-peak?",
+  ],
+  [
+    "decision",
+    "How did you size the OCR quota?",
+    [
+      "120 photo jobs a second at peak, 180 on deadline day.",
+      "Each block of quota is 40 a second, so five blocks run at 60% normally and 90% on deadline day.",
+      "Three blocks would fall 60 jobs a second behind on deadline day, and the queue would never drain.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Low-confidence OCR results: auto-accept, or ask the user?",
+    [
+      "Auto-accepting is smoother but can put a wrong amount on a tax return.",
+      "Asking for every field is safe but tedious, and users stop using photos.",
+      "Middle ground: accept high-confidence fields, highlight the rest, and require confirmation above a certain amount.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "OCR is billed per page. Where can costs run away?",
+    [
+      "Duplicate uploads of the same receipt, each billed.",
+      "Retries after timeouts that actually succeeded.",
+      "Multi-page PDFs uploaded as receipts. Cap pages per upload, and detect duplicates (an image hash) before calling OCR.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Store the original photos forever, or delete them after extraction?",
+    [
+      "Tax records often must be kept for years, so originals may be needed as evidence.",
+      "Keeping them costs storage and increases what a breach exposes.",
+      "Move old originals to cheaper archive storage, and let users choose deletion where the law allows.",
+    ],
+  ],
+  [
+    "alternative",
+    "On-device OCR in the mobile app instead of a cloud service?",
+    [
+      "Instant and free per scan, and it works offline.",
+      "Usually less accurate on difficult receipts, and you still need a server path for web uploads.",
+      "A hybrid works well: read on the device for an instant preview, confirm in the cloud.",
+    ],
+  ],
+  [
+    "alternative",
+    "Email-in receipts (forward your receipt to an address): how would that fit the design?",
+    [
+      "An inbound email service drops each message onto the same queue as photo jobs.",
+      "Attachments go to the object store; the email body can often be parsed without OCR.",
+      "It adds abuse risk: verify the sender is a known user.",
+    ],
+  ],
+  [
+    "scale",
+    "The deadline is three weeks away. What do you do now?",
+    [
+      "Request the OCR quota increase and confirm it's applied.",
+      "Load test the photo path at deadline-day volume, including the database's write load.",
+      "Pre-scale workers, and set autoscaling on queue age so they grow with the backlog.",
+    ],
+  ],
+  [
+    "scale",
+    "On deadline day the database reaches 96% on writes. What are your options?",
+    [
+      "Batch the OCR result writes, or write extracted fields to a separate table or store.",
+      "Defer non-urgent writes (analytics, audit copies) through a queue.",
+      "Longer term: partition by user, since receipts never cross users.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The same receipt is uploaded twice. How do you handle it?",
+    [
+      "Hash the image (or compare merchant, date and amount after OCR) to spot duplicates.",
+      "Warn the user rather than silently merging: two identical coffees on the same day are possible.",
+      "Skip the second OCR call if the hash matches exactly.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The OCR provider has an outage on deadline day. What happens?",
+    [
+      "Photo jobs wait in the queue; uploads still succeed and show as processing.",
+      "Users who can't wait can type the fields in.",
+      "When the provider recovers, workers drain the backlog, within the quota.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A job keeps failing because the photo is unreadable. Then what?",
+    [
+      "Retry a limited number of times, then mark it failed.",
+      "Ask the user for a clearer photo or to type the details.",
+      "Don't leave it in 'processing' forever: users will assume it worked.",
+    ],
+  ],
+  [
+    "security",
+    "Receipts contain sensitive data. What do you protect, and how?",
+    [
+      "Card numbers (often partly printed), addresses and spending patterns.",
+      "Encrypt photos and data at rest; serve images only through short-lived signed links.",
+      "Check what the OCR provider does with your data, and in which region it's processed.",
+    ],
+  ],
+  [
+    "security",
+    "Uploads come from the public internet. What could go wrong?",
+    [
+      "Malicious files: validate type and size, and scan before processing.",
+      "Abuse of a paid API: rate-limit uploads per user so one account can't run up your OCR bill.",
+      "Pre-signed upload URLs should be short-lived and limited to one object.",
+    ],
+  ],
+  [
+    "observability",
+    "What would you watch on deadline day?",
+    [
+      "Queue age: how long the oldest photo has been waiting.",
+      "OCR throttling responses and latency from the provider.",
+      "Database write utilisation, which is the next ceiling.",
+    ],
+  ],
+  [
+    "observability",
+    "How would you know OCR quality is getting worse?",
+    [
+      "Track how often users correct extracted fields, by field.",
+      "Track the share of low-confidence results over time.",
+      "A rising correction rate after a provider model update is a signal to investigate.",
+    ],
+  ],
+])
+
+export const PLUG_FINDER = deck("plug-finder", [
+  [
+    "clarify",
+    "What would you ask about where availability data comes from?",
+    [
+      "Do charging networks give us live status, or is it only what drivers report?",
+      "If networks do, do they push changes to us or must we poll them?",
+      "How fresh is each source, and how much do we trust it?",
+    ],
+    "If operator data and a driver's report disagree, which wins?",
+  ],
+  [
+    "clarify",
+    "What would you ask about how drivers use the map?",
+    [
+      "Mostly 'near me now' while driving, or route planning days ahead?",
+      "Are they on poor mobile signal, at rural chargers and on motorways?",
+      "Do they need turn-by-turn, or just a list and a pin?",
+    ],
+  ],
+  [
+    "clarify",
+    "How stale can 'available' be before it's useless?",
+    [
+      "A charger status 30 seconds old is fine; 30 minutes old sends someone to an occupied bay.",
+      "It decides whether edge caching is allowed, and for how long.",
+      "It also decides how fast check-ins must reach every other driver.",
+    ],
+  ],
+  [
+    "clarify",
+    "What's the traffic shape, and what drives the peaks?",
+    [
+      "Daily commute peaks, and much bigger holiday road-trip peaks.",
+      "Peaks are geographic: motorway corridors and city centres light up, not the whole map.",
+      "Ask for peak per area as well as overall: the hot areas are what break caches and indexes.",
+    ],
+  ],
+  [
+    "product",
+    "A driver arrives and the 'available' charger is taken. How does the product limit the damage?",
+    [
+      "Show how old the status is, and its source (operator feed or driver report).",
+      "Suggest the nearest alternative instantly.",
+      "Let them correct the status in one tap, which helps the next driver.",
+    ],
+  ],
+  [
+    "decision",
+    "Why put a CDN in front of data that changes every few minutes?",
+    [
+      "Thousands of drivers ask the same question about the same area every few seconds.",
+      "A 30-second cache answers most of them from the edge: about 1,600 of 2,850 map views a second here.",
+      "The cost is up to 30 seconds of staleness, which drivers can live with.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a key-value store for live status rather than the relational database?",
+    [
+      "Status is a simple lookup by station ID, updated often.",
+      "A key-value store scales those reads and writes horizontally and is managed across zones.",
+      "Relational fits better for users, accounts and moderation, which have relationships and lower volume.",
+    ],
+  ],
+  [
+    "decision",
+    "Why does the search index get status changes from an event stream?",
+    [
+      "The index needs 'available now' to filter results, but writing to it on every check-in would slow the request.",
+      "The app publishes one event; the index, notifications and analytics can each consume it.",
+      "If the index lags a few seconds, the detail fetch still shows the live status.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How long should a crowd-reported 'in use' flag last?",
+    [
+      "Forever, and forgotten check-outs make chargers look busy all day.",
+      "Too short, and a charger looks free while someone is still charging.",
+      "Expire it after a typical session (say 45 minutes for fast chargers) unless renewed, and clear it when an operator feed says free.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Operator feeds vs crowd reports: what does each give you?",
+    [
+      "Operator feeds: accurate and fast where they exist, but coverage and quality vary by network.",
+      "Crowd reports: work everywhere and capture things feeds miss (a blocked bay, a broken card reader), but can be wrong or stale.",
+      "Combine them, show the source, and weigh by freshness.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Live updates over websockets vs a short-lived cache?",
+    [
+      "Websockets: near-instant updates, but millions of idle open connections to hold and scale.",
+      "A short cache: far cheaper, up to 30 seconds stale.",
+      "A middle ground: push only for the station a driver is navigating to.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you skip the search index and query the key-value store by location?",
+    [
+      "Yes, with geohash or S2 cell keys: query the driver's cell and its neighbours.",
+      "It's more code to get right at cell boundaries and for 'within 5km' radius queries.",
+      "A search index with geo support does it natively, at the cost of another component.",
+    ],
+  ],
+  [
+    "alternative",
+    "Should the app poll charging networks for status, or have them push to you?",
+    [
+      "Polling hundreds of thousands of chargers every minute is wasteful and slow.",
+      "Push is fresher and cheaper; the OCPI roaming protocol lets operators push location and status changes to apps.",
+      "Many networks also go through roaming hubs, which saves integrating with each one.",
+    ],
+  ],
+  [
+    "scale",
+    "Holiday traffic doubles. What breaks first, and why?",
+    [
+      "Not the CDN: it scales with the edge.",
+      "The search index, if it's undersized, because every cache miss does a geo query.",
+      "The app tier next. Hot areas concentrate load, so watch per-region cache hit rates.",
+    ],
+  ],
+  [
+    "scale",
+    "How would you design cache keys for map views?",
+    [
+      "Key on a map tile or geohash cell plus the filters, not the driver's exact coordinates.",
+      "Exact coordinates make every request unique, so the cache never hits.",
+      "Coarser cells hit more but return more data; pick the cell size to match a typical view.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A driver at a rural charger has almost no signal. What should still work?",
+    [
+      "The last known nearby stations, cached on the device.",
+      "Check-ins queued on the device and sent when signal returns.",
+      "Small payloads: list results before the map imagery.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two drivers mark the same single charger 'in use' within seconds. What do you show?",
+    [
+      "Last write wins on the status: it's in use either way.",
+      "Keep both check-ins in the history; one may have been mistaken.",
+      "If a check-in contradicts a fresh operator feed, show the conflict rather than hiding it.",
+    ],
+  ],
+  [
+    "edge-case",
+    "An operator's feed starts reporting every charger as available, even busy ones. How would you notice and limit the damage?",
+    [
+      "Compare with crowd reports: a sudden mismatch across one network is a signal.",
+      "Track each feed's error rate and freshness, and down-weight a feed that's misbehaving.",
+      "Let a person disable a feed quickly.",
+    ],
+  ],
+  [
+    "security",
+    "Notes are written by anyone. What do you need to defend against?",
+    [
+      "Spam, abuse and fake reports, especially from competitors.",
+      "Rate limits per account, reputation for long-standing reporters, and a report button.",
+      "Escape notes on display to block script injection.",
+    ],
+  ],
+  [
+    "security",
+    "Location data is sensitive. What do you collect, and what do you avoid?",
+    [
+      "You need the driver's location to find chargers nearby, but not a stored history of their trips.",
+      "Don't log precise coordinates with user IDs longer than necessary.",
+      "Aggregate analytics by area, not by person.",
+    ],
+  ],
+  [
+    "observability",
+    "What would you put on the dashboard for this system?",
+    [
+      "CDN hit rate, overall and for the busiest regions.",
+      "Search index latency and saturation, the likely bottleneck.",
+      "Freshness: the age of status data shown to drivers, by source.",
+    ],
+  ],
+  [
+    "observability",
+    "How would you know drivers are being sent to busy chargers?",
+    [
+      "Track check-ins that arrive at a station shown as available a few minutes earlier.",
+      "Track 'status was wrong' corrections by area and by data source.",
+      "That rate is the product's real quality metric.",
+    ],
+  ],
+])

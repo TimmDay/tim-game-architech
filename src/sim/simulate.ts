@@ -40,6 +40,9 @@ export function carries(graph: Graph, edge: Edge): Carries {
   if (from && CATALOGUE[from.kind].async) return "writes"
   if (to && CATALOGUE[to.kind].async) return "writes"
   if (to && CATALOGUE[to.kind].readOnly) return "reads"
+  // A search index is fed by events and queried by apps. A synchronous write
+  // to it from the request path is never the intent of drawing that line.
+  if (to?.kind === "search-index") return "reads"
   // Read/write splitting: once a caller has replicas, its primary takes writes.
   if (
     to?.kind === "sql-primary" &&
@@ -82,9 +85,11 @@ export function failureDomains(c: PlacedComponent): number {
  * Does this compute tier do heavy jobs inline, while the user waits?
  * It doesn't if it hands writes to a queue or stream.
  */
+/** The tiers that run request code: where an inline slow job would land. */
+const REQUEST_TIERS = new Set(["app-server", "serverless"])
+
 export function doesHeavyWorkInline(graph: Graph, c: PlacedComponent): boolean {
-  const spec = CATALOGUE[c.kind]
-  if (spec.category !== "compute" || c.kind === "worker") return false
+  if (!REQUEST_TIERS.has(c.kind)) return false
   return !graph.edges.some((e) => {
     if (e.from !== c.id) return false
     const to = graph.components.find((t) => t.id === e.to)
@@ -178,9 +183,20 @@ export function simulate(
               : 1
       const writeShare =
         c === "reads" ? 0 : routes ? 1 / Math.max(1, writers.length) : 1
+      // When only some writes are slow jobs (receipt photos among typed-in
+      // receipts), a request tier queues just those and does the rest itself.
+      // Only queues: an event stream carries every write as an event.
+      const target = byId.get(e.to)
+      const jobShare =
+        load.heavyWriteFraction > 0 &&
+        source !== undefined &&
+        REQUEST_TIERS.has(source.kind) &&
+        target?.kind === "queue"
+          ? load.heavyWriteFraction
+          : 1
       const f: Flow = {
         reads: flow.reads * readShare,
-        writes: flow.writes * writeShare,
+        writes: flow.writes * writeShare * jobShare,
         cacheable: flow.cacheable * readShare,
       }
       if (f.reads + f.writes <= 0) continue

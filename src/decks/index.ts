@@ -3,6 +3,8 @@ import {
   FIRST_CUSTOMERS,
   FRONT_PAGE,
   GOING_VIRAL,
+  PLUG_FINDER,
+  SHOEBOX_RECEIPTS,
   UPLOAD_RUSH,
   ZONE_OUTAGE,
 } from "./build"
@@ -23,6 +25,8 @@ export const DECKS: Record<string, DeckCard[]> = {
   "upload-rush": UPLOAD_RUSH,
   "zone-outage": ZONE_OUTAGE,
   "feed-the-analysts": FEED_THE_ANALYSTS,
+  "shoebox-receipts": SHOEBOX_RECEIPTS,
+  "plug-finder": PLUG_FINDER,
   "lost-writes": LOST_WRITES,
   "black-friday": BLACK_FRIDAY,
   "slow-checkout": SLOW_CHECKOUT,

@@ -166,3 +166,45 @@ it("an empty board serves nothing", () => {
   expect(r.errorRate).toBe(1)
   expect(r.availability).toBe(0)
 })
+
+describe("partial slow jobs", () => {
+  const g = (target: "queue" | "event-stream") =>
+    graph(
+      [
+        ["app", "app-server", 0, 0, 4],
+        ["db", "sql-primary", 0, 0],
+        ["m", target, 0, 0],
+        ["w", "worker", 0, 0, 10],
+      ],
+      [`${C}>app`, "app>db", "app>m", "m>w"],
+    )
+
+  it("queues only the slow share of writes, and still stores every write", () => {
+    const r = simulate(g("queue"), load({ heavyWriteFraction: 0.6 }))
+    expect(r.perComponent.m?.writeRps).toBeCloseTo(200 * 0.6)
+    expect(r.perComponent.db?.writeRps).toBeCloseTo(200)
+  })
+
+  it("never thins an event stream: every write is an event", () => {
+    const r = simulate(g("event-stream"), load({ heavyWriteFraction: 0.6 }))
+    expect(r.perComponent.m?.writeRps).toBeCloseTo(200)
+  })
+
+  it("queues every write when there are no slow jobs at all", () => {
+    const r = simulate(g("queue"), load({ heavyWriteFraction: 0 }))
+    expect(r.perComponent.m?.writeRps).toBeCloseTo(200)
+  })
+})
+
+it("only queries a search index from the request path, never writes to it", () => {
+  const g = graph(
+    [
+      ["app", "app-server", 0, 0, 4],
+      ["s", "search-index", 0, 0],
+    ],
+    [`${C}>app`, "app>s"],
+  )
+  const r = simulate(g, load())
+  expect(r.perComponent.s?.readRps).toBeCloseTo(800)
+  expect(r.perComponent.s?.writeRps).toBe(0)
+})

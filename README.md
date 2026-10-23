@@ -25,7 +25,7 @@ The **AWS / Azure / GCP / None** switch renames every component everywhere: the 
 
 ## What it teaches
 
-Six build levels and six repair levels, covering horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, and OLTP vs OLAP. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
+Eight build levels and six repair levels, covering horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, OLTP vs OLAP, rate-limited OCR APIs behind a queue, and micro-caching fast-changing data at the edge. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
 
 ## How the simulation works
 

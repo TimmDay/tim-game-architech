@@ -399,6 +399,157 @@ const BUILD: Level[] = [
   },
 ]
 
+/**
+ * Added after the original six, so they live in their own list but play as
+ * build levels: see BUILD below.
+ */
+const LATER_BUILD: Level[] = [
+  {
+    id: "shoebox-receipts",
+    mode: "build",
+    requires: ["upload-rush"],
+    title: "Shoebox of Receipts",
+    tagline:
+      "Everyone remembers their receipts the week before the tax deadline.",
+    scenario: {
+      product: "the receipts app",
+      reads: "freelancers reviewing their expenses and running reports",
+      writes: "receipts typed into a form or photographed",
+      hot: "this year's expense categories and totals",
+      records: "receipts: merchant, date, amount, tax and category",
+      files: "receipt photos",
+      job: "reading each receipt photo with OCR",
+    },
+    brief:
+      "Freelancers log expenses for their tax return. They can type a receipt into a form, or photograph it and let OCR fill in merchant, date, amount and tax. Usage piles up before the filing deadline: the UK tax authority has had more than 600,000 returns filed on deadline day alone. Peak is 800 requests a second; a quarter are new receipts, and 60% of those are photos. The {doc-ai} takes seconds per receipt and caps how many calls you make each second.",
+    load: {
+      peakRps: 800,
+      readFraction: 0.75,
+      cacheableFraction: 0.2,
+      heavyWriteFraction: 0.6,
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 1_300,
+      writesReach: ["sql-primary", "object-store"],
+      noBacklog: true,
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
+      label: "Deadline day (1.5x traffic)",
+    },
+    palette: [
+      "load-balancer",
+      "app-server",
+      "sql-primary",
+      "object-store",
+      "queue",
+      "worker",
+      "doc-ai",
+      "cache",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 4, 2],
+        ["db", "sql-primary", 7, 6, 2, 2],
+        ["blobs", "object-store", 5, 7],
+        ["q", "queue", 6, 2],
+        ["workers", "worker", 8, 2, 4, 2],
+        ["ocr", "doc-ai", 10, 2, 5],
+      ],
+      [
+        `${C}>lb`,
+        "lb>app",
+        "app>db",
+        "app>blobs",
+        "app>q",
+        "q>workers",
+        "workers>ocr",
+        "workers>db",
+      ],
+    ),
+    concepts: ["provider-quotas", "async-processing", "backpressure"],
+    hint: "Typed-in receipts can be saved straight away. Photos go on a {queue}, and {worker} instances call the {doc-ai} at a pace its quota allows. Size both for deadline day, not a normal Tuesday.",
+  },
+  {
+    id: "plug-finder",
+    mode: "build",
+    requires: ["going-viral", "feed-the-analysts"],
+    title: "Plug Finder",
+    tagline:
+      "Every EV on the road is looking for a free charger at the same time.",
+    scenario: {
+      product: "the charger-finding app",
+      reads: "drivers panning the map for chargers near them",
+      writes: "check-ins, 'in use' flags and notes for other drivers",
+      hot: "station availability in busy areas and along motorways",
+      records: "stations, their live status, check-ins and notes",
+      events:
+        "a status-changed event each time a charger is marked in use or free",
+    },
+    brief:
+      "Drivers open the map to find a free charger nearby. They can mark a charger as in use while they charge, and leave notes for others ('bay 3 is blocked', 'card reader broken'). The US alone has over 250,000 public charging ports, and holiday road trips are the peak: Tesla reported more than two million Supercharger sessions over Thanksgiving 2025. Peak is 3,000 requests a second, nearly all map views; availability changes every few minutes.",
+    load: {
+      peakRps: 3_000,
+      readFraction: 0.95,
+      cacheableFraction: 0.6,
+      heavyWriteFraction: 0,
+    },
+    targets: {
+      p99Ms: 400,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 600,
+      writesReach: ["nosql", "search-index"],
+      noBacklog: true,
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 2 }],
+      label: "Holiday road trip (2x traffic)",
+    },
+    palette: [
+      "dns",
+      "cdn",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "nosql",
+      "sql-primary",
+      "search-index",
+      "event-stream",
+      "queue",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["cdn", "cdn", 2, 3],
+        ["lb", "load-balancer", 3, 2],
+        ["app", "app-server", 5, 4, 8, 2],
+        ["cache", "cache", 7, 4, 2, 2],
+        ["kv", "nosql", 9, 5],
+        ["geo", "search-index", 7, 1],
+        ["stream", "event-stream", 6, 6],
+      ],
+      [
+        `${C}>dns`,
+        "dns>cdn",
+        "cdn>lb",
+        "lb>app",
+        "app>cache",
+        "cache>kv",
+        "app>geo",
+        "app>stream",
+        "stream>geo",
+      ],
+    ),
+    concepts: ["micro-caching", "geospatial-indexing", "fan-out"],
+    hint: "Most map views ask the same question about the same area. A {cdn} that caches each answer for even 30 seconds takes most of the load off your servers. Keep live status in a fast {nosql} store, and feed the {search-index} with events.",
+  },
+]
+
 const REPAIR: Level[] = [
   {
     id: "lost-writes",
@@ -808,7 +959,7 @@ const REPAIR: Level[] = [
   },
 ]
 
-export const LEVELS: Level[] = [...BUILD, ...REPAIR]
+export const LEVELS: Level[] = [...BUILD, ...LATER_BUILD, ...REPAIR]
 
 export const levelById = (id: string) => LEVELS.find((l) => l.id === id)
 

@@ -210,6 +210,17 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
       "Indexes are expensive to run. Keep only the fields people actually search.",
     ],
   }),
+  "doc-ai": ({ s, up }) => ({
+    role: `Reads ${s.files ?? "uploaded documents"} and returns structured fields. Each call takes seconds and the provider caps calls per second, so it's called by ${list(up) || "something"} at a steady pace rather than by users directly.`,
+    caution: up.some((k) => k === "app-server" || k === "serverless")
+      ? `It's called straight from ${list(up.filter((k) => k === "app-server" || k === "serverless"))}, so every upload waits seconds for it and a burst runs straight into the rate limit.`
+      : undefined,
+    tradeoffs: [
+      "Throughput is a quota you request from the provider, and raising it takes time. Ask before the peak, not during it.",
+      "Results come with confidence scores. Low-confidence fields need a human to check them, which is a product decision as much as a technical one.",
+      "It's billed per page, so duplicate uploads and retries cost real money.",
+    ],
+  }),
   "data-warehouse": ({ s, up }) => ({
     role: `Keeps the full history of ${s.events ?? s.records} in columnar storage, built for analysts' big queries over months of data.`,
     caution: up.some((k) => CATALOGUE[k].category === "compute")

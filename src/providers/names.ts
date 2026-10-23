@@ -143,6 +143,13 @@ export const SERVICE_NAMES: Record<
     },
     gcp: { name: "Document AI", short: "Document AI" },
   },
+  // Not a cloud product: it's someone else's API, whichever cloud you're on.
+  "third-party-api": {
+    generic: { name: "Third-party API", short: "Partner API" },
+    aws: { name: "Third-party API", short: "Partner API" },
+    azure: { name: "Third-party API", short: "Partner API" },
+    gcp: { name: "Third-party API", short: "Partner API" },
+  },
   "data-warehouse": {
     generic: { name: "Columnar Data Warehouse (OLAP)", short: "Warehouse" },
     aws: { name: "Amazon Redshift", short: "Redshift" },

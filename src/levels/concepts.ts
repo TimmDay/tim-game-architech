@@ -452,6 +452,12 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
     interview:
       "Treat it as a slow, rate-limited dependency: call it from workers behind a queue, never from the request path, and plan for low-confidence results.",
   },
+  "third-party-api": {
+    title: "{third-party-api}",
+    body: "Someone else's service: a payment provider, a carrier's shipping rates, an email sender. You can't scale it, fix it or see inside it. It has a quota on calls per second, and some days it's slow.",
+    interview:
+      "Keep it off the request path where you can, put a timeout on every call, retry with backoff, and send an idempotency key with anything that charges or books.",
+  },
   "data-warehouse": {
     title: "{data-warehouse}",
     body: "Columnar storage for analytics over huge datasets. Brilliant at big scans, slow for small lookups, and loaded in bulk or from a stream.",

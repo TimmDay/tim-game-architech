@@ -8,6 +8,7 @@ import {
   FlaskConical,
   GraduationCap,
   Hammer,
+  Siren,
   Split,
   Star,
   Stethoscope,
@@ -126,9 +127,11 @@ function LevelCard({
               ? "C"
               : level.track === "cap"
                 ? "P"
-                : level.mode === "build"
-                  ? "B"
-                  : "R"}
+                : level.track === "ops"
+                  ? "O"
+                  : level.mode === "build"
+                    ? "B"
+                    : "R"}
             {String(index + 1).padStart(2, "0")}
           </span>
           <span className="flex gap-0.5" aria-label={`${stars} of 3 stars`}>
@@ -194,6 +197,7 @@ export function Home({
   const build = LEVELS.filter((l) => l.mode === "build" && !l.track)
   const classics = LEVELS.filter((l) => l.track === "classic")
   const cap = LEVELS.filter((l) => l.track === "cap")
+  const ops = LEVELS.filter((l) => l.track === "ops")
   const repair = LEVELS.filter((l) => l.mode === "repair")
   const total = LEVELS.reduce((s, l) => s + (progress[l.id]?.stars ?? 0), 0)
   const section = (
@@ -303,6 +307,13 @@ export function Home({
         "When a network split leaves copies of your data apart, do you refuse requests or let the copies disagree? Choose per store, then shard the data by a partition key that spreads the load.",
         cap,
         "text-indigo-200",
+      )}
+      {section(
+        "Production incidents",
+        <Siren size={22} />,
+        "The failures a load test never shows: a partner that slows to a crawl, a message that fails forever, a login flood, a bad migration, a worker that hangs without crashing. Only the production settings in each component's sidebar get you through.",
+        ops,
+        "text-emerald-200",
       )}
       {section(
         "Repair",

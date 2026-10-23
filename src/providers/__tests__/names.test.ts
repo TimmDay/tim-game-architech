@@ -52,6 +52,7 @@ const allRawText = (): string[] => {
         l.targets,
         r.chaos,
         l.chaos.label,
+        l.chaos.faults,
       ))
         out.push(f.text)
       for (const c of g.components) {

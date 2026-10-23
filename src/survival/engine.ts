@@ -166,8 +166,10 @@ export function playWave(graph: Graph, w: Wave): WaveOutcome {
 export const canLaunch = (graph: Graph, w: Wave) =>
   monthlyCost(graph) <= w.budget
 
-/** Every component, available from the start. */
-export const SURVIVAL_PALETTE = Object.keys(CATALOGUE) as ComponentKind[]
+/** Every component you run yourself, available from the start. */
+export const SURVIVAL_PALETTE = (
+  Object.keys(CATALOGUE) as ComponentKind[]
+).filter((k) => k !== "third-party-api")
 
 /** Survival opens once these levels have a star: it assumes their ideas. */
 export const SURVIVAL_REQUIRES = ["front-page", "upload-rush"]

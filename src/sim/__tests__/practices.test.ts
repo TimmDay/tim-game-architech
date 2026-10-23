@@ -38,9 +38,11 @@ describe.each(LEVELS)("$id", (l) => {
   it("has stakes, and its reference without production settings earns two stars, not three", () => {
     expect(l.targets.stakes).toBeDefined()
     const g = grade(bare(l.reference), l.load, l.targets, l.chaos.faults)
-    expect(g.checks.filter((c) => !c.pass).map((c) => c.id)).toEqual([
-      "practices",
-    ])
+    const failed = g.checks.filter((c) => !c.pass).map((c) => c.id)
+    // On the incidents shelf, the chaos round is what the settings are for.
+    expect(failed).toEqual(
+      l.track === "ops" ? ["chaos", "practices"] : ["practices"],
+    )
     expect(g.stars).toBe(2)
   })
 

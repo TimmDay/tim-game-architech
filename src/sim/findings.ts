@@ -8,9 +8,15 @@ import {
   failureDomains,
   partitionKeyOf,
 } from "./simulate"
-import type { Graph, LoadProfile, PlacedComponent, SimResult } from "./types"
+import type {
+  Fault,
+  Graph,
+  LoadProfile,
+  PlacedComponent,
+  SimResult,
+} from "./types"
 import { CLIENT_ID } from "./types"
-import { missingPractices, type PracticeId } from "./practices"
+import { missingPractices, rateLimitPoints, type PracticeId } from "./practices"
 
 export type Finding = {
   severity: "error" | "warn"
@@ -82,6 +88,8 @@ export function findings(
   targets?: Targets,
   chaos?: SimResult,
   chaosLabel?: string,
+  /** The chaos round's faults, so a finding can say what each one did. */
+  chaosFaults?: Fault[],
 ): Finding[] {
   const out: Finding[] = []
   if (!peak.connected) {
@@ -339,6 +347,100 @@ export function findings(
             : `${chaosLabel}: ${name(c)} keeps accepting writes on both sides (${rps(m.divergentRps ?? 0)} on the cut-off one). They'll need merging when it heals.`,
         })
     }
+    const faults = chaosFaults ?? []
+    const slow = faults.find((f) => f.kind === "slow-dependency")
+    if (slow)
+      for (const c of graph.components) {
+        const calls = graph.edges.some(
+          (e) =>
+            e.from === c.id &&
+            graph.components.find((t) => t.id === e.to)?.kind === slow.target,
+        )
+        if (!calls) continue
+        const p = c.practices ?? {}
+        if (!p.timeouts)
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "timeouts-and-retries",
+            text: `${chaosLabel}: ${name(c)} has no timeout, so it waits the whole ${ms(slow.extraMs)} on every call and runs out of capacity for anything else.`,
+          })
+        if (p.retries === "immediate")
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "timeouts-and-retries",
+            text: `${chaosLabel}: ${name(c)} retries straight away, so a slow {${slow.target}} gets three calls for every one.`,
+          })
+        if (p.retries && !p.idempotency && chaos.duplicateRps > 0.5)
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "idempotency",
+            text: `${chaosLabel}: ${name(c)} retries without idempotency keys, so about ${rps(chaos.duplicateRps)} writes are applied twice.`,
+          })
+      }
+    if (faults.some((f) => f.kind === "poison-message"))
+      for (const q of graph.components)
+        if (q.kind === "queue" && !q.practices?.dlq && reachable.has(q.id))
+          out.push({
+            severity: "error",
+            componentId: q.id,
+            concept: "dead-letter-queue",
+            text: `${chaosLabel}: ${name(q)} hands the failing messages back forever, so its consumers spend most of their time on work that will never succeed.`,
+          })
+    if (faults.some((f) => f.kind === "credential-stuffing"))
+      for (const c of rateLimitPoints(graph))
+        if (!c.practices?.rateLimit)
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "rate-limiting",
+            text: `${chaosLabel}: ${name(c)} has no rate limit, so every password guess goes through to the servers behind it.`,
+          })
+    for (const id of chaos.exposed) {
+      const c = graph.components.find((c) => c.id === id)
+      if (c)
+        out.push({
+          severity: "error",
+          componentId: c.id,
+          concept: "authn-authz",
+          text: `${chaosLabel}: ${name(c)} answered someone who never signed in.`,
+        })
+    }
+    if (faults.some((f) => f.kind === "bad-migration")) {
+      const limit = targets?.rpoMinutes ?? Infinity
+      for (const c of graph.components) {
+        if (!DURABLE_KINDS.includes(c.kind) || !reachable.has(c.id)) continue
+        const b = c.practices?.backups
+        const loss =
+          b === "point-in-time" ? 5 : b === "daily" ? 24 * 60 : Infinity
+        if (loss <= limit) continue
+        out.push({
+          severity: "error",
+          componentId: c.id,
+          concept: "backups-and-rpo",
+          text: b
+            ? `${chaosLabel}: ${name(c)} can only go back to last night's backup, losing up to a day, against a ${Number.isFinite(limit) ? `${limit}-minute` : ""} limit.`
+            : `${chaosLabel}: ${name(c)} has no backups, so the deleted data is gone. Its standby copied the mistake.`,
+        })
+      }
+    }
+    const stall = faults.find((f) => f.kind === "silent-stall")
+    if (stall)
+      for (const c of graph.components)
+        if (
+          c.kind === stall.target &&
+          (chaos.perComponent[c.id]?.aliveInstances ?? 1) === 0 &&
+          c.instances > 0
+        )
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "alerting",
+            text: `${chaosLabel}: nothing is watching ${name(c)} or its queue, so the hung instances stay hung and the work piles up.`,
+          })
+
     // A consistent design is meant to refuse the minority side.
     const refusingIsTheJob =
       consistent &&

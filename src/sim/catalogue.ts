@@ -227,6 +227,19 @@ export const CATALOGUE: Record<ComponentKind, ComponentSpec> = {
     costPerInstanceMonthUsd: 120,
     maxInstances: 10,
   },
+  "third-party-api": {
+    ...base,
+    kind: "third-party-api",
+    category: "compute",
+    // Someone else's service: a payment provider, a carrier's rates API. One
+    // "instance" is a block of the call quota your contract allows.
+    capacity: { readRps: 300, writeRps: 300 },
+    baseLatency: { p50Ms: 150, p99Ms: 600 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 50,
+    maxInstances: 10,
+  },
 }
 
 export const KINDS = Object.keys(CATALOGUE) as ComponentKind[]

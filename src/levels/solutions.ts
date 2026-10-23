@@ -18,6 +18,144 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "slow-partner": {
+    overview:
+      "Orders are saved straight away and charged later. The {app-server} writes the order to the {sql-primary} and puts a charge on a {queue}; {worker} instances call the payment provider. When the provider slows down, customers don't notice: workers give up on slow calls after half a second, retry with backoff, and send an idempotency key so a retried charge is never taken twice.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Browsing reads menus and order status from the {sql-primary}.",
+      "Placing an order writes it to the {sql-primary} as 'awaiting payment', puts a charge message on the {queue}, and tells the customer it's being confirmed.",
+      "A {worker} takes the message and calls the {third-party-api} with the order's ID as the idempotency key. On success it marks the order paid.",
+      "If the call takes longer than its timeout, the worker gives up and the message comes back later, with a growing delay between attempts. If the provider had in fact charged the card, the retry sends the same key and gets the original result back.",
+    ],
+    numbers: [
+      "1,200 requests a second: 1,080 browsing and 120 orders.",
+      "Five {app-server} instances run at 60%; the {sql-primary} at 54%.",
+      "Seven workers run at 34% normally. When the provider slows by five seconds, each call holds a worker for at most half a second, and backoff adds a fifth more calls: they run at 86%, and the queue keeps up.",
+      "With no timeout, each call holds its worker for five seconds and the queue falls 98 orders a second behind. With immediate retries, the provider gets three calls for each charge and the queue falls 106 a second behind.",
+      "Retries with no idempotency key charge about 14 orders a second twice.",
+      "Calling the provider from the {app-server} instead puts its slowness on every customer: the app tier runs out of capacity and every request fails.",
+      "Cost: $20 + 5 × $30 + 2 × $120 + $10 + 7 × $40 + $50 = $750 of $800.",
+    ],
+    tradeoffs: [
+      "The customer sees 'confirming payment' instead of an instant answer. Most of the time it's seconds; on a bad day it's minutes, and the app should say so.",
+      "A failed charge is found out after the order is placed, so the product needs a way to ask for another card.",
+      "Seven workers is more than normal traffic needs: the spare is what survives the provider's bad days.",
+    ],
+    alternatives: [
+      "A circuit breaker stops calling the provider entirely once it's clearly failing, and checks again every so often. It saves the provider's quota and the workers' time.",
+      "A second payment provider to fail over to removes the single dependency, at the cost of two integrations to keep working.",
+      "Charging synchronously with a short timeout is simpler, but every slow call becomes an error the customer sees.",
+    ],
+  },
+  "poison-pill": {
+    overview:
+      "Uploads go to the {object-store}, and preview jobs go on a {queue} that {worker} instances drain. The queue has a dead-letter queue: a message that fails three times is moved aside, an alert fires, and the work behind it carries on. Once the converter bug is fixed, the parked messages are replayed.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Opening a document reads it and its previews from the {object-store}.",
+      "An upload stores the original in the {object-store} and puts a preview job on the {queue}.",
+      "A {worker} takes a job, makes the page previews and saves them next to the original.",
+      "A corrupt file crashes the converter. After the third failed attempt, the queue moves that message to the dead-letter queue instead of handing it out again.",
+    ],
+    numbers: [
+      "800 requests a second: 640 document views and 160 uploads.",
+      "Four {app-server} instances run at 50%. Five workers at 50 jobs a second each run at 64%.",
+      "With no dead-letter queue, the corrupt files keep coming back and the workers lose more than half their time to them: the queue falls 60 jobs a second behind.",
+      "Buying through it takes nine workers, which costs $525 against a $420 budget, and still spends most of their time failing.",
+      "Cost: $20 + 4 × $30 + $15 + $10 + 5 × $40 = $365 of $420.",
+    ],
+    tradeoffs: [
+      "A parked message is a document without previews until someone acts. The alert on the dead-letter queue is what makes it a short wait.",
+      "Three attempts is a guess: too few parks messages that failed for a passing reason, too many wastes workers on ones that never will.",
+      "Replaying from the dead-letter queue needs the fix deployed first, or the messages come straight back.",
+    ],
+    alternatives: [
+      "Validating files at upload catches some corrupt ones before they're queued, but not the ones that only fail deep inside the converter.",
+      "Running each conversion with a time and memory limit stops one file from taking a worker down, which helps alongside the dead-letter queue.",
+      "Dropping failed messages keeps the queue moving, but loses uploads silently.",
+    ],
+  },
+  "login-flood": {
+    overview:
+      "The same small design as any read-heavy app, with two settings that matter here: a rate limit on the {load-balancer}, so password guesses from each source are capped where they land, and a sign-in check on the {app-server}, so a request without a valid session gets nothing.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. The balancer counts requests per source and per account, and turns away anything over the limit with a 'slow down' answer.",
+      "The {app-server} checks the session on every request before reading anything.",
+      "Catalogue reads come from the {cache}; accounts and watch history from the {sql-primary}.",
+      "Sign-in attempts are also limited per account, so one account can't be guessed at slowly from thousands of addresses.",
+    ],
+    numbers: [
+      "2,000 requests a second: 1,800 reads and 200 writes.",
+      "The {cache} answers 1,026 reads a second; the {sql-primary} sees 774 reads and runs at 40%.",
+      "Eight {app-server} instances run at 63%.",
+      "Without the rate limit, the attack brings 8,000 requests a second and 60% of them fail, real users included. Twenty servers cost $910 and still fail 17%.",
+      "Without the sign-in check, the probe's requests are answered.",
+      "Cost: $20 + 8 × $30 + 2 × $25 + 2 × $120 = $550 of $600.",
+    ],
+    tradeoffs: [
+      "Limits per source can block a whole office or university behind one address. Limit per account as well, and raise limits for known good sources.",
+      "Too strict a limit turns a busy evening into errors for real users. Set it from normal traffic, with headroom.",
+      "Checking sessions on every request costs a little CPU, which a cache of valid sessions mostly removes.",
+    ],
+    alternatives: [
+      "A CAPTCHA after a few failed sign-ins stops automated guessing without blocking people outright.",
+      "Checking new passwords against lists of leaked ones, and offering passkeys, makes stolen passwords far less useful.",
+      "An {api-gateway} can do both the limit and the sign-in check in one place, in front of every service.",
+    ],
+  },
+  "bad-migration": {
+    overview:
+      "A standby protects against a machine failing, not against a mistake: it copies the bad migration instantly. Point-in-time recovery on the {sql-primary}, and versioning on the {object-store}, let both be restored to the minute before the migration ran, inside the labs' 15-minute limit.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Results are read and written in the {sql-primary}; attached files in the {object-store}.",
+      "The database keeps its log of changes, so a restore can replay to any minute. The {object-store} keeps old versions of every file.",
+      "When the migration runs, the standby copies it. Nothing on the live system still has the data.",
+      "Restore a copy of the database to the minute before the migration, check it, then switch over to it. The files are rolled back to the same moment.",
+    ],
+    numbers: [
+      "600 requests a second: 420 reads and 180 writes.",
+      "Three {app-server} instances run at 50%; the {sql-primary} at 36%.",
+      "Point-in-time recovery restores to within about five minutes. A nightly backup could lose up to a day of results, against a 15-minute limit; with no backups, the deleted column is gone.",
+      "The standby costs $120 a month and copies the mistake within a second: it's for uptime, not for this.",
+      "Cost: $20 + 3 × $30 + 2 × $120 + $15 = $365 of $400.",
+    ],
+    tradeoffs: [
+      "A restore takes time (the RTO): the notebook is read-only or down while it runs. Practise it, and time it.",
+      "Writes made after the migration are lost by the restore unless they're replayed from logs by hand.",
+      "Keeping the log for point-in-time recovery costs storage. Keep it as long as you might take to notice a mistake.",
+    ],
+    alternatives: [
+      "A delayed replica, kept an hour behind, is a quick way back from a mistake noticed in time, but it's useless for one noticed later.",
+      "Testing migrations on a copy of production data first catches most of these before they run.",
+      "Migrations that add a new column and remove the old one later make most mistakes reversible without a restore.",
+    ],
+  },
+  "nobody-noticed": {
+    overview:
+      "Invoices go on a {queue} that {worker} instances drain, and the queue has an alert on the age of its oldest message. When the workers hang, they look healthy, but the queue starts getting older, and the alert gets someone to replace the stuck worker. Six workers mean five can carry the load while that happens.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Usage records and invoice requests are written to the {sql-primary}.",
+      "Each invoice request also goes on the {queue}. A {worker} renders the PDF and saves it to the {object-store}.",
+      "The queue's alert fires when its oldest message is more than a few minutes old: the sign that workers have stopped, whatever the health checks say.",
+      "Whoever is paged restarts the stuck worker, and the backlog drains.",
+    ],
+    numbers: [
+      "400 requests a second: 200 reads and 200 invoices.",
+      "Six workers at 50 a second each run at 67%. With one replaced at a time, five run at 80% and keep up.",
+      "With no alerts on the workers or the queue, every worker stays hung and the queue grows by 200 invoices a second until someone notices.",
+      "Two {app-server} instances run at 50%; the {sql-primary} at 40%.",
+      "Cost: $20 + 2 × $30 + 2 × $120 + $10 + 6 × $40 + $15 = $585 of $650.",
+    ],
+    tradeoffs: [
+      "Health checks that only ask 'are you running?' miss this. A check that does a little real work catches more, but costs more to run.",
+      "An alert on queue age catches any stopped consumer, whatever the cause, which makes it one of the most useful alerts there is.",
+      "Every alert needs an owner and a first step, or it gets ignored.",
+    ],
+    alternatives: [
+      "A timeout on each job, after which the worker kills it and moves on, stops one stuck job taking a worker for good.",
+      "Restarting workers automatically when the queue ages helps at 3am, but can hide a bug that should be fixed.",
+      "Tracing a sample of invoices end to end shows where they stop, which makes the fix faster.",
+    ],
+  },
   "balance-sheet": {
     overview:
       "A ledger, where a wrong answer is worse than no answer. The {sql-primary} runs three copies in three zones and commits a transfer only once a majority have it. During a split, the two connected zones still hold a majority and keep working; the cut-off zone refuses until the network heals.",

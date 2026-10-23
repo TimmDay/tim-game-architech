@@ -58,7 +58,17 @@ function checkLabel(
     case "chaos":
       if (t.onSplit === "consistent")
         return `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} refused (< 50%), ${rps(g.chaos.divergentRps)} conflicting writes (must be 0)`
-      return `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} errors`
+      return [
+        `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} errors`,
+        t.noBacklog && `backlog growth ${rps(g.chaos.backlogGrowthRps)}`,
+        g.chaos.duplicateRps > 0.5 &&
+          `${rps(g.chaos.duplicateRps)} applied twice`,
+        g.chaos.exposed.length > 0 && "answered an unsigned caller",
+        t.rpoMinutes !== undefined &&
+          `restore loses ${Number.isFinite(g.chaos.dataLossMinutes) ? `${Math.round(g.chaos.dataLossMinutes)} min` : "everything"} (≤ ${t.rpoMinutes} min)`,
+      ]
+        .filter(Boolean)
+        .join(", ")
   }
 }
 

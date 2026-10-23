@@ -154,33 +154,45 @@ export function expectedPractices(graph: Graph, stakes: Stakes): Expectation[] {
       want(c, "alerts")
   }
 
-  // Per path from the users: the first place that can rate-limit, and the
-  // first that can check who's calling.
-  const firstOnPaths = (pick: (c: PlacedComponent) => boolean) => {
-    const found = new Set<string>()
-    const walk = (id: string, seen: Set<string>) => {
-      for (const e of graph.edges) {
-        if (e.from !== id || seen.has(e.to)) continue
-        const c = byId.get(e.to)
-        if (!c) continue
-        if (CATALOGUE[c.kind].async) continue
-        if (pick(c)) found.add(c.id)
-        else walk(c.id, new Set([...seen, c.id]))
-      }
-    }
-    walk(CLIENT_ID, new Set())
-    return [...found].flatMap((id) => byId.get(id) ?? [])
-  }
   if (stakes.abuse)
-    for (const c of firstOnPaths((c) => ENTRY_KINDS.includes(c.kind)))
-      want(c, "rate-limit")
-  if (stakes.signedIn)
-    for (const c of firstOnPaths(
-      (c) => c.kind === "api-gateway" || REQUEST_TIERS.includes(c.kind),
-    ))
-      want(c, "auth")
+    for (const c of rateLimitPoints(graph)) want(c, "rate-limit")
+  if (stakes.signedIn) for (const c of authPoints(graph)) want(c, "auth")
   return out
 }
+
+/**
+ * On each synchronous path from the users, the first component that matches.
+ * Hand-offs end a path: what's behind a queue isn't reachable from outside.
+ */
+function firstOnPaths(
+  graph: Graph,
+  pick: (c: PlacedComponent) => boolean,
+): PlacedComponent[] {
+  const byId = new Map(graph.components.map((c) => [c.id, c]))
+  const found = new Set<string>()
+  const walk = (id: string, seen: Set<string>) => {
+    for (const e of graph.edges) {
+      if (e.from !== id || seen.has(e.to)) continue
+      const c = byId.get(e.to)
+      if (!c || CATALOGUE[c.kind].async) continue
+      if (pick(c)) found.add(c.id)
+      else walk(c.id, new Set([...seen, c.id]))
+    }
+  }
+  walk(CLIENT_ID, new Set())
+  return [...found].flatMap((id) => byId.get(id) ?? [])
+}
+
+/** Where traffic first lands, past DNS: where a rate limit belongs. */
+export const rateLimitPoints = (graph: Graph) =>
+  firstOnPaths(graph, (c) => ENTRY_KINDS.includes(c.kind))
+
+/** The first code (or gateway) on each path: where sign-in is checked. */
+export const authPoints = (graph: Graph) =>
+  firstOnPaths(
+    graph,
+    (c) => c.kind === "api-gateway" || REQUEST_TIERS.includes(c.kind),
+  )
 
 /** Does this component have the practice it's expected to have? */
 export function has(c: PlacedComponent, practice: PracticeId): boolean {
@@ -237,12 +249,17 @@ const SATISFY: Record<PracticeId, Practices> = {
  * its root cause rather than a missing checkbox.
  */
 export function withPractices(graph: Graph, stakes: Stakes): Graph {
+  const byId = new Map(graph.components.map((c) => [c.id, c]))
   const add = new Map<string, Practices>()
-  for (const x of expectedPractices(graph, stakes))
+  for (const x of expectedPractices(graph, stakes)) {
+    // Keep anything stronger the design already chose.
+    const c = byId.get(x.componentId)
+    if (c && has(c, x.practice)) continue
     add.set(x.componentId, {
       ...add.get(x.componentId),
       ...SATISFY[x.practice],
     })
+  }
   return {
     ...graph,
     components: graph.components.map((c) => {

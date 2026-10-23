@@ -290,6 +290,17 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
       "It's billed per page, so duplicate uploads and retries cost real money.",
     ],
   }),
+  "third-party-api": ({ s, up }) => ({
+    role: `Someone else's service that ${s.product} depends on, called by ${list(up) || "nothing yet"}. ${s.job ? `It's used for ${s.job}. ` : ""}You don't run it, so its speed and its quota are outside your control.`,
+    caution: up.some((k) => k === "app-server" || k === "serverless")
+      ? `It's called straight from ${list(up.filter((k) => k === "app-server" || k === "serverless"))}, so when it slows down, users wait for it.`
+      : undefined,
+    tradeoffs: [
+      "Its quota is a contract: raising it takes a conversation, not a setting.",
+      "When it's slow, timeouts decide whether that's your problem too. Without them, every caller waits.",
+      "A retried charge needs an idempotency key, or a timeout can turn into a double payment.",
+    ],
+  }),
   "data-warehouse": ({ s, up }) => ({
     role: `Keeps the full history of ${s.events ?? s.records} in columnar storage, built for analysts' big queries over months of data.`,
     caution: up.some((k) => CATALOGUE[k].category === "compute")

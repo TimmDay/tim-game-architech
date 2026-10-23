@@ -38,6 +38,11 @@ export type Targets = {
    * needs for the third star. Absent (sandbox, tests), nothing is checked.
    */
   stakes?: Stakes
+  /**
+   * How much recent data a restore may lose, in minutes. Checked when the
+   * chaos round is a bad migration.
+   */
+  rpoMinutes?: number
 }
 
 /** A consistent design may refuse the minority side, never the majority. */
@@ -130,7 +135,10 @@ export function grade(
           ? chaos.divergentRps <= 0.5 && chaos.errorRate < MAJORITY_SERVES
           : chaos.errorRate <=
             Math.max(targets.maxErrorRate, CHAOS_ERROR_BUDGET)) &&
-        (!targets.noBacklog || chaos.backlogGrowthRps <= 0.5),
+        (!targets.noBacklog || chaos.backlogGrowthRps <= 0.5) &&
+        chaos.duplicateRps <= 0.5 &&
+        chaos.exposed.length === 0 &&
+        chaos.dataLossMinutes <= (targets.rpoMinutes ?? Infinity),
       star: 3,
     },
   )

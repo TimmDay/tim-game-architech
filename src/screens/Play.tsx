@@ -553,6 +553,7 @@ export function Play({
           level.targets,
           graded.chaos,
           level.chaos.label,
+          level.chaos.faults,
         ),
       )}
       onClose={() => setGraded(null)}

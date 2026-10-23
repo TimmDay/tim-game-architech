@@ -6,6 +6,7 @@ import {
   SlidersHorizontal,
   X,
   RotateCcw,
+  Lightbulb,
 } from "lucide-react"
 import {
   useCallback,
@@ -30,9 +31,12 @@ import { plain } from "~/text"
 import { Board } from "~/ui/Board"
 import { CardView } from "~/ui/CardView"
 import { DiscussView } from "~/ui/DiscussView"
+import { SolutionView } from "~/ui/SolutionView"
+import { SOLUTIONS } from "~/levels/solutions"
 import { ms, pct } from "~/ui/format"
 import { Modal } from "~/ui/Modal"
 import {
+  H,
   BriefPanel,
   DiagnoseBox,
   InspectPanel,
@@ -51,7 +55,10 @@ type Tool =
 type Tab = "brief" | "build" | "inspect" | "test"
 type Phase = "idle" | "ramp" | "hold" | "chaos"
 type Info =
-  { concept: ConceptId } | { kind: ComponentKind } | { discuss: string }
+  | { concept: ConceptId }
+  | { kind: ComponentKind }
+  | { discuss: string }
+  | { solution: true }
 
 const EMPTY: Graph = { components: [], edges: [] }
 
@@ -341,6 +348,23 @@ export function Play({
       onInfo={(kind) => setInfo({ kind })}
     />
   )
+  const solution =
+    sandbox || !SOLUTIONS[level.id] ? null : (
+      <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-3">
+        <H>Stuck?</H>
+        <button
+          type="button"
+          onClick={() => setInfo({ solution: true })}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300/40 py-2 text-[14px] font-semibold text-amber-100 hover:bg-amber-300/10"
+        >
+          <Lightbulb size={15} /> See suggested solution
+        </button>
+        <p className="mt-2 text-[12px] leading-snug text-slate-500">
+          Shows a three-star design, running, with the reasoning and trade-offs
+          written out. It gives the answer away.
+        </p>
+      </div>
+    )
   const inspect = (
     <InspectPanel
       graph={graph}
@@ -530,9 +554,14 @@ export function Play({
       onConcept={(c) => setInfo({ concept: c })}
     />
   ) : info ? (
-    <Modal onClose={() => setInfo(null)}>
+    <Modal
+      onClose={() => setInfo(null)}
+      wide={"solution" in info ? "xl" : false}
+    >
       {"concept" in info ? (
         <CardView card={CONCEPTS[info.concept]} provider={provider} />
+      ) : "solution" in info ? (
+        <SolutionView level={level} provider={provider} />
       ) : "discuss" in info ? (
         <DiscussView
           graph={graph}
@@ -562,6 +591,7 @@ export function Play({
           <aside className="w-80 shrink-0 space-y-6 overflow-y-auto border-r border-white/5 bg-slate-950/40 p-4">
             {sandbox ? sandboxBrief : brief}
             {palette}
+            {solution}
           </aside>
           {board}
           <aside className="w-80 shrink-0 space-y-6 overflow-y-auto border-l border-white/5 bg-slate-950/40 p-4">
@@ -592,7 +622,12 @@ export function Play({
         {sheetOpen && (
           <div className="max-h-[44dvh] overflow-y-auto px-4 pt-3 pb-2">
             {tab === "brief" && (sandbox ? sandboxBrief : brief)}
-            {tab === "build" && palette}
+            {tab === "build" && (
+              <div className="space-y-4">
+                {palette}
+                {solution}
+              </div>
+            )}
             {tab === "inspect" && inspect}
             {tab === "test" && test}
           </div>

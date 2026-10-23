@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 import { LEVELS } from "~/levels"
 import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
+import { monthlyCost } from "../simulate"
+import { SOLUTIONS } from "~/levels/solutions"
 
 describe.each(LEVELS)("$id", (level) => {
   it("has a reference solution that earns three stars", () => {
@@ -24,6 +26,18 @@ describe.each(LEVELS)("$id", (level) => {
       }),
     ).toEqual([])
     expect(g.stars).toBe(3)
+  })
+
+  it("has a written walkthrough of its solution", () => {
+    const sol = SOLUTIONS[level.id]
+    expect(sol?.overview.length).toBeGreaterThan(50)
+    expect(sol?.walkthrough.length).toBeGreaterThanOrEqual(2)
+    expect(sol?.tradeoffs.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it("quotes the reference's real monthly cost", () => {
+    const cost = `$${monthlyCost(level.reference)}`
+    expect(SOLUTIONS[level.id]?.numbers.join(" ")).toContain(cost)
   })
 
   it("only uses palette components in its reference", () => {
@@ -86,4 +100,20 @@ describe.each(LEVELS)("$id", (level) => {
       }
     })
   }
+})
+
+describe("lessons the levels are built around", () => {
+  it("first customers: two app servers handle peak but not losing one", () => {
+    const level = LEVELS.find((l) => l.id === "first-customers")
+    if (!level) throw new Error("missing level")
+    const two = {
+      ...level.reference,
+      components: level.reference.components.map((c) =>
+        c.kind === "app-server" ? { ...c, instances: 2 } : c,
+      ),
+    }
+    const g = grade(two, level.load, level.targets, level.chaos.faults)
+    expect(g.checks.find((c) => c.id === "traffic")?.pass).toBe(true)
+    expect(g.checks.find((c) => c.id === "chaos")?.pass).toBe(false)
+  })
 })

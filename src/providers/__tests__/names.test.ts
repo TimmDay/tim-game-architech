@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { COMPONENT_CARDS, CONCEPTS } from "~/levels/concepts"
 import { LEVELS } from "~/levels"
 import { discuss, liveFacts } from "~/levels/roles"
+import { SOLUTIONS } from "~/levels/solutions"
 import { KINDS } from "~/sim/catalogue"
 import { findings } from "~/sim/findings"
 import { grade } from "~/sim/grade"
@@ -26,6 +27,15 @@ const allRawText = (): string[] => {
   for (const l of LEVELS) {
     out.push(l.title, l.tagline, l.brief, l.hint, l.chaos.label)
     if (l.rootCause) out.push(l.rootCause.explanation)
+    const sol = SOLUTIONS[l.id]
+    if (sol)
+      out.push(
+        sol.overview,
+        ...sol.walkthrough,
+        ...sol.numbers,
+        ...sol.tradeoffs,
+        ...sol.alternatives,
+      )
     for (const g of [l.reference, l.starter]) {
       if (!g) continue
       const r = grade(g, l.load, l.targets, l.chaos.faults)

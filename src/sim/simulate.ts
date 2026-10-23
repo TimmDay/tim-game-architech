@@ -241,10 +241,13 @@ export function simulate(
     const writeCap = (spec.capacity.writeRps * units) / writeCost
     const rho = (load: number, cap: number) =>
       load <= 0 ? 0 : cap <= 0 ? Infinity : load / cap
-    const utilization = Math.max(
-      rho(flow.reads, readCap),
-      rho(flow.writes, writeCap),
-    )
+    // Servers and balancers spend one pool of CPU on reads and writes alike,
+    // so the two add up. Stores keep separate budgets, which is the
+    // simplification that lets a replica absorb reads but never writes.
+    const shared = spec.category === "compute" || spec.category === "edge"
+    const utilization = shared
+      ? rho(flow.reads, readCap) + rho(flow.writes, writeCap)
+      : Math.max(rho(flow.reads, readCap), rho(flow.writes, writeCap))
     const inflation =
       utilization >= 1
         ? LATENCY_INFLATION_CAP
@@ -255,8 +258,12 @@ export function simulate(
       writeRps: flow.writes,
       utilization,
       p99Ms: spec.baseLatency.p99Ms * inflation + heavyP99,
-      droppedRps:
-        Math.max(0, flow.reads - readCap) + Math.max(0, flow.writes - writeCap),
+      droppedRps: shared
+        ? utilization > 1
+          ? (flow.reads + flow.writes) * (1 - 1 / utilization)
+          : 0
+        : Math.max(0, flow.reads - readCap) +
+          Math.max(0, flow.writes - writeCap),
       aliveInstances: up,
       behindAsync: isAsync,
     }

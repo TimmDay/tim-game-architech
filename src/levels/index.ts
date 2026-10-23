@@ -231,7 +231,7 @@ const BUILD: Level[] = [
     title: "Upload Rush",
     tagline: "Every upload needs resizing, and resizing takes two seconds.",
     brief:
-      "A photo app: 600 requests a second, half of them uploads. Every upload must be resized into four sizes, which takes about two seconds of CPU. Users won't wait two seconds for a button to respond, and the resizing has to keep up with the uploads, or the backlog grows forever.",
+      "A photo app: 600 requests a second, half of them uploads. Every upload must be resized into four sizes, which takes about two seconds of CPU. Users won't wait two seconds for a button to respond, and the resizing has to keep up with the uploads, or the backlog grows forever. The other half of the traffic is people browsing albums, which reads the photo details from the database. This level is about the uploads, so it leaves out how the photo files reach their screens.",
     scenario: {
       product: "the photo app",
       reads: "people browsing albums",

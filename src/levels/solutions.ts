@@ -360,6 +360,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "The app writes the photo's metadata to the {sql-primary}, puts a resize job on the {queue}, and responds straight away.",
       "{worker} instances pull jobs off the {queue}, resize each photo into four sizes, and save them to the {object-store}.",
       "The app shows a 'processing' state until the resized copies exist.",
+      "Browsing an album, the other half of the traffic, reads its photo details from the {sql-primary}. The page links to the resized copies, which browsers fetch straight from the {object-store}, usually through a {cdn}. This level leaves that path out: Going Viral is about it.",
     ],
     numbers: [
       "Done inline, each upload costs the {app-server} about 20 requests' worth of capacity and adds 1.8 seconds to the user's wait. That fails the 300ms target however many servers you add.",

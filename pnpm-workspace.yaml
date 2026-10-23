@@ -4,3 +4,8 @@ allowBuilds:
   '@firebase/util': false
   protobufjs: false
   re2: false
+
+# Firestore's Node transport pulls in an old grpc-js (GHSA-f596-whhp-79r4).
+# It never ships to browsers, but there's no reason to keep it.
+overrides:
+  '@grpc/grpc-js': ^1.13.6

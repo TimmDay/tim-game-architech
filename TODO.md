@@ -1,5 +1,7 @@
 # TODO
 
+Security posture and its to-dos are in [docs/SECURITY.md](docs/SECURITY.md).
+
 ## Done
 
 - Sign-in with GitHub and Google (Firebase Auth), plus "continue as guest" (sessionStorage, this tab only).

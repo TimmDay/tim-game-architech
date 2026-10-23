@@ -208,3 +208,120 @@ it("only queries a search index from the request path, never writes to it", () =
   expect(r.perComponent.s?.readRps).toBeCloseTo(800)
   expect(r.perComponent.s?.writeRps).toBe(0)
 })
+
+describe("sharding", () => {
+  const keys = {
+    partitionKeys: [
+      { id: "even", label: "Account ID", hotShare: 0, scatterReads: 0 },
+      { id: "hot", label: "Day", hotShare: 0.9, scatterReads: 0 },
+      { id: "wide", label: "User ID", hotShare: 0, scatterReads: 0.5 },
+    ],
+  }
+  const db = (key: string, shards: number) =>
+    graph(
+      [
+        ["app", "app-server", 0, 0, 10],
+        ["db", "sql-primary", 0, 0, 1, 1, { shards, partitionKey: key }],
+      ],
+      [`${C}>app`, "app>db"],
+    )
+  const writes = load({ peakRps: 1_600, readFraction: 0.5, ...keys })
+
+  it("ignores shards in a level that offers no partition keys", () => {
+    const r = simulate(
+      db("even", 4),
+      load({ peakRps: 1_600, readFraction: 0.5 }),
+    )
+    expect(r.perComponent.db?.utilization).toBeCloseTo(800 / 500)
+    expect(r.perComponent.db?.shards).toBeUndefined()
+  })
+
+  it("an even key spreads writes, so four shards take four primaries' writes", () => {
+    const r = simulate(db("even", 4), writes)
+    expect(r.perComponent.db?.utilization).toBeCloseTo(200 / 500)
+    expect(r.errorRate).toBe(0)
+  })
+
+  it("a hot key overloads one shard however many there are", () => {
+    for (const n of [2, 4, 8]) {
+      const r = simulate(db("hot", n), writes)
+      expect(r.perComponent.db?.hotShardShare).toBeCloseTo(0.9)
+      expect(r.perComponent.db?.utilization).toBeGreaterThan(1)
+    }
+  })
+
+  it("reads that don't name the key go to every shard and wait for the slowest", () => {
+    const even = simulate(db("even", 4), writes)
+    const wide = simulate(db("wide", 4), writes)
+    expect(wide.perComponent.db?.readRps).toBe(even.perComponent.db?.readRps)
+    expect(wide.perComponent.db?.p99Ms).toBeGreaterThan(
+      even.perComponent.db?.p99Ms ?? 0,
+    )
+    expect(wide.availability).toBeLessThan(even.availability)
+  })
+
+  it("pays for every shard's primary and standbys", () => {
+    expect(simulate(db("even", 4), writes).monthlyCostUsd).toBe(
+      30 * 10 + 120 * 4,
+    )
+  })
+
+  it("uses the level's first key until the player picks one", () => {
+    const g = db("even", 4)
+    const c = g.components[1]
+    if (c) delete c.partitionKey
+    expect(simulate(g, writes).perComponent.db?.utilization).toBeCloseTo(0.4)
+  })
+})
+
+describe("consistency during a network split", () => {
+  const split = [{ kind: "network-split" as const }]
+  const tunable = load({
+    peakRps: 300,
+    readFraction: 0.5,
+    tunableConsistency: true,
+  })
+  const db = (mode: "strong" | "eventual", copies: number) =>
+    graph(
+      [
+        ["app", "app-server", 0, 0, 4, 2],
+        ["db", "sql-primary", 0, 0, copies, copies, { consistency: mode }],
+      ],
+      [`${C}>app`, "app>db"],
+    )
+
+  it("changes nothing in a level without tunable consistency", () => {
+    const plain = load({ peakRps: 300, readFraction: 0.5 })
+    const a = simulate(db("strong", 3), plain)
+    const b = simulate(db("strong", 3), plain, split)
+    expect(b.errorRate).toBe(a.errorRate)
+    expect(b.p99Ms).toBe(a.p99Ms)
+  })
+
+  it("strong: the minority side is refused, the majority carries on", () => {
+    const r = simulate(db("strong", 3), tunable, split)
+    expect(r.errorRate).toBeCloseTo(1 / 3)
+    expect(r.divergentRps).toBe(0)
+  })
+
+  it("strong with two copies: neither side has a majority, so everything is refused", () => {
+    expect(simulate(db("strong", 2), tunable, split).errorRate).toBeCloseTo(1)
+  })
+
+  it("eventual: nobody is refused, and the cut-off side's writes diverge", () => {
+    const r = simulate(db("eventual", 3), tunable, split)
+    expect(r.errorRate).toBe(0)
+    expect(r.divergentRps).toBeCloseTo(150 / 3)
+  })
+
+  it("strong costs a cross-zone round trip on every request, split or not", () => {
+    const strong = simulate(db("strong", 3), tunable)
+    const eventual = simulate(db("eventual", 3), tunable)
+    expect(strong.p99Ms - eventual.p99Ms).toBeCloseTo(25)
+  })
+
+  it("one copy has nowhere to fail over to, whichever mode it's in", () => {
+    for (const mode of ["strong", "eventual"] as const)
+      expect(simulate(db(mode, 1), tunable, split).errorRate).toBeCloseTo(1)
+  })
+})

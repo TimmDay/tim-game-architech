@@ -9,9 +9,11 @@
   <img src="docs/img/repair.jpg" alt="A repair level under load: the data warehouse is wired onto the request path and glows red" width="100%">
 </p>
 
-## Two modes
+## Modes
 
 **Build.** You get a brief (500 requests a second, p99 under 300ms, 99.9% available, $400 a month) and a palette. Place components on an isometric board, wire them together, size each tier, then run the load test. Traffic ramps to peak, then a chaos round fires: an instance crashes, a cache restarts cold, a whole availability zone goes dark.
+
+**CAP trade-offs.** Five build levels where the chaos round is a network split: every machine stays up, but copies of the data can't reach each other. Each store gets a choice in the sidebar, refuse (consistent) or keep serving (available), and the right answer depends on the data: a payments ledger, a shopping basket, like counts, unique usernames. The same shelf adds sharding: set a SQL database's shard count and pick its partition key from the scenario's options, then watch for the key that piles every write onto one shard or sends every read to all of them. A sharded store is drawn sliced, with the busiest shard in its own colour.
 
 **Repair.** You inherit somebody else's production system and it's on fire. Load test it, read the symptoms, tap the component you think is really to blame, then fix it. Getting the diagnosis right first time earns a badge.
 
@@ -33,7 +35,7 @@ The **AWS / Azure / GCP / None** switch renames every component everywhere: the 
 
 ## What it teaches
 
-Eight build levels, seven interview classics and six repair levels. The classics are the questions interviewers ask most: a URL shortener, group chat, a home timeline, a ticket sale, video streaming, ride hailing and search autocomplete. Together they cover horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, OLTP vs OLAP, rate-limited OCR APIs behind a queue, micro-caching fast-changing data at the edge, partitioning write-heavy data, fan-out on write, waiting rooms for contended inventory, ephemeral state kept in memory, and latency budgets. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
+Eight build levels, seven interview classics, five CAP trade-off levels and six repair levels. The classics are the questions interviewers ask most: a URL shortener, group chat, a home timeline, a ticket sale, video streaming, ride hailing and search autocomplete. Together they cover horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, OLTP vs OLAP, rate-limited OCR APIs behind a queue, micro-caching fast-changing data at the edge, partitioning write-heavy data, fan-out on write, waiting rooms for contended inventory, ephemeral state kept in memory, latency budgets, the CAP theorem and PACELC, quorums, merging conflicting writes, partition keys, hot keys and scatter-gather reads. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
 
 ## How the simulation works
 

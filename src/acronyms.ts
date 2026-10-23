@@ -7,6 +7,14 @@
 export type Acronym = { expansion: string; note?: string }
 
 export const ACRONYMS: Record<string, Acronym> = {
+  ACID: {
+    expansion: "Atomicity, Consistency, Isolation, Durability",
+    note: "What a database transaction promises. Its C means rules are kept, not the C in CAP.",
+  },
+  AP: {
+    expansion: "Available under a Partition",
+    note: "A store that keeps answering during a network split, and lets its copies disagree.",
+  },
   API: {
     expansion: "Application Programming Interface",
     note: "How one program asks another to do something.",
@@ -14,6 +22,10 @@ export const ACRONYMS: Record<string, Acronym> = {
   AVIF: {
     expansion: "AV1 Image File Format",
     note: "A modern image format, much smaller than JPEG.",
+  },
+  CAP: {
+    expansion: "Consistency, Availability, Partition tolerance",
+    note: "During a network split, a store can refuse requests or let its copies disagree, not neither.",
   },
   CD: {
     expansion: "Continuous Delivery",
@@ -30,6 +42,14 @@ export const ACRONYMS: Record<string, Acronym> = {
   CI: {
     expansion: "Continuous Integration",
     note: "Every change is built and tested automatically.",
+  },
+  CRDT: {
+    expansion: "Conflict-free Replicated Data Type",
+    note: "Data designed to merge cleanly, whatever order the copies' changes arrive in.",
+  },
+  CP: {
+    expansion: "Consistent under a Partition",
+    note: "A store that refuses requests during a network split rather than give an answer that might be wrong.",
   },
   CPU: {
     expansion: "Central Processing Unit",
@@ -74,6 +94,11 @@ export const ACRONYMS: Record<string, Acronym> = {
   OLTP: {
     expansion: "Online Transaction Processing",
     note: "Many small, fast reads and writes: the live app.",
+  },
+  PACELC: {
+    expansion:
+      "Partition: Availability or Consistency; Else: Latency or Consistency",
+    note: "CAP, plus the trade-off that applies when nothing is broken.",
   },
   PDF: { expansion: "Portable Document Format" },
   PII: {

@@ -5,11 +5,14 @@ import {
   LATENCY_INFLATION_CAP,
 } from "./catalogue"
 import type {
+  ComponentKind,
   ComponentMetrics,
+  Consistency,
   Edge,
   Fault,
   Graph,
   LoadProfile,
+  PartitionKey,
   PlacedComponent,
   SimResult,
 } from "./types"
@@ -118,9 +121,68 @@ export function behindAsync(graph: Graph): Set<string> {
   return out
 }
 
+/** Stores that can be split by one of a level's partition keys. */
+const SHARDABLE = new Set<ComponentKind>(["sql-primary", "nosql"])
+/** Stores whose replication mode is the player's choice. */
+const TUNABLE = new Set<ComponentKind>(["sql-primary", "nosql"])
+export const MAX_SHARDS = 8
+/** A strong write waits for a copy in another zone to confirm it. */
+export const QUORUM_P99_MS = 25
+/** A read that asks every shard waits for the slowest: this share of p99 per doubling. */
+export const SCATTER_P99_FACTOR = 0.5
+
+/**
+ * The partition key a store's data is split by: its own choice, or the
+ * level's first key until the player picks one. The sidebar shows this same
+ * value, so it never claims a key the engine isn't using.
+ */
+export function partitionKeyOf(
+  c: PlacedComponent,
+  load: LoadProfile,
+): PartitionKey | undefined {
+  const keys = load.partitionKeys
+  if (!SHARDABLE.has(c.kind) || !keys?.length) return undefined
+  return keys.find((k) => k.id === c.partitionKey) ?? keys[0]
+}
+
+/**
+ * Shards a store is split into. A {sql-primary} chooses: each shard is its own
+ * primary with its own standbys. A {nosql} store splits across its instances.
+ */
+export function shardsOf(c: PlacedComponent, load: LoadProfile): number {
+  if (!partitionKeyOf(c, load)) return 1
+  if (c.kind === "nosql") return Math.max(1, c.instances)
+  return Math.min(MAX_SHARDS, Math.max(1, c.shards ?? 1))
+}
+
+/** Undefined where the level doesn't make consistency a choice. */
+export function consistencyOf(
+  c: PlacedComponent,
+  load: LoadProfile,
+): Consistency | undefined {
+  if (!load.tunableConsistency || !TUNABLE.has(c.kind)) return undefined
+  return c.consistency ?? "strong"
+}
+
+/**
+ * Copies of the data a network split can separate. A managed store keeps
+ * three, one per zone; a self-run one has one per zone it really occupies.
+ */
+export function copies(c: PlacedComponent): number {
+  return CATALOGUE[c.kind].managed ? 3 : failureDomains(c)
+}
+
+/** Only a {sql-primary} pays per shard: a {nosql} store's shards are its instances. */
+const paidShards = (c: PlacedComponent) =>
+  c.kind === "sql-primary"
+    ? Math.min(MAX_SHARDS, Math.max(1, c.shards ?? 1))
+    : 1
+
 export function monthlyCost(graph: Graph): number {
   return graph.components.reduce(
-    (sum, c) => sum + CATALOGUE[c.kind].costPerInstanceMonthUsd * c.instances,
+    (sum, c) =>
+      sum +
+      CATALOGUE[c.kind].costPerInstanceMonthUsd * c.instances * paidShards(c),
     0,
   )
 }
@@ -144,6 +206,7 @@ export function simulate(
     1,
   )
   const offered = load.peakRps * multiplier
+  const split = faults.some((f) => f.kind === "network-split")
   const edgeCarries = new Map(graph.edges.map((e) => [e.id, carries(graph, e)]))
 
   const nodeFlow = new Map<string, Flow>()
@@ -269,7 +332,7 @@ export function simulate(
         ? LATENCY_INFLATION_CAP
         : Math.min(LATENCY_INFLATION_CAP, 1 / (1 - utilization))
     const heavyP99 = inline && flow.writes > 0 ? HEAVY_JOB_P99_MS : 0
-    perComponent[c.id] = {
+    const m: ComponentMetrics = {
       readRps: flow.reads,
       writeRps: flow.writes,
       utilization,
@@ -283,6 +346,11 @@ export function simulate(
       aliveInstances: up,
       behindAsync: isAsync,
     }
+    const key = partitionKeyOf(c, load)
+    if (key) shard(m, c, key, flow, up)
+    const mode = consistencyOf(c, load)
+    if (mode) replicate(m, c, mode, flow, split)
+    perComponent[c.id] = m
   }
 
   const perEdge: SimResult["perEdge"] = {}
@@ -321,15 +389,19 @@ export function simulate(
     if (f) backlog += f.writes
   }
 
+  let divergent = 0
+  for (const m of Object.values(perComponent)) divergent += m.divergentRps ?? 0
+
   return {
     perComponent,
     perEdge,
     offeredRps: offered,
+    divergentRps: divergent,
     p99Ms: connected
       ? criticalPathP99(graph, perComponent, perEdge, offered)
       : 0,
     errorRate,
-    availability: topologyAvailability(graph, asyncSet),
+    availability: topologyAvailability(graph, asyncSet, load),
     monthlyCostUsd: monthlyCost(graph),
     backlogGrowthRps: backlog,
     connected,
@@ -374,6 +446,7 @@ function criticalPathP99(
 export function topologyAvailability(
   graph: Graph,
   asyncSet = behindAsync(graph),
+  load?: LoadProfile,
 ): number {
   const reachable = new Set<string>()
   const walk = (id: string) => {
@@ -390,7 +463,100 @@ export function topologyAvailability(
     if (!reachable.has(c.id) || asyncSet.has(c.id)) continue
     const spec = CATALOGUE[c.kind]
     if (spec.optionalOnPath) continue
-    a *= 1 - Math.pow(1 - spec.baselineAvailability, failureDomains(c))
+    const one = 1 - Math.pow(1 - spec.baselineAvailability, failureDomains(c))
+    // A read that asks every shard needs every shard up. One that names its
+    // key needs only the shard holding it.
+    const key = load && partitionKeyOf(c, load)
+    const n =
+      key && key.scatterReads > 0 && c.kind === "sql-primary"
+        ? shardsOf(c, load)
+        : 1
+    a *= Math.pow(one, n)
   }
   return a
+}
+
+/**
+ * A sharded store, judged by its busiest shard. Each shard has one shard's
+ * capacity, so a key that puts most of the traffic in one place saturates it
+ * however many shards there are. Reads that don't name the key go to all of
+ * them, and wait for the slowest.
+ */
+function shard(
+  m: ComponentMetrics,
+  c: PlacedComponent,
+  key: PartitionKey,
+  flow: Flow,
+  up: number,
+) {
+  const spec = CATALOGUE[c.kind]
+  const n = c.kind === "nosql" ? Math.max(1, up) : Math.max(1, c.shards ?? 1)
+  const units = up > 0 ? 1 : 0
+  const hot = n === 1 ? 1 : Math.max(1 / n, Math.min(1, key.hotShare))
+  const rest = n === 1 ? 0 : (1 - hot) / (n - 1)
+  const s = key.scatterReads
+  const readCap = spec.capacity.readRps * units
+  const writeCap = spec.capacity.writeRps * units
+  const at = (share: number) => ({
+    reads: flow.reads * ((1 - s) * share + s),
+    writes: flow.writes * share,
+  })
+  const over = (share: number) => {
+    const l = at(share)
+    return Math.max(0, l.reads - readCap) + Math.max(0, l.writes - writeCap)
+  }
+  const busiest = at(hot)
+  const rho = (load: number, cap: number) =>
+    load <= 0 ? 0 : cap <= 0 ? Infinity : load / cap
+  const utilization = Math.max(
+    rho(busiest.reads, readCap),
+    rho(busiest.writes, writeCap),
+  )
+  const inflation =
+    utilization >= 1
+      ? LATENCY_INFLATION_CAP
+      : Math.min(LATENCY_INFLATION_CAP, 1 / (1 - utilization))
+  const scatter =
+    n > 1 && s >= P99_PATH_SHARE
+      ? spec.baseLatency.p99Ms * SCATTER_P99_FACTOR * Math.log2(n)
+      : 0
+  m.utilization = utilization
+  m.p99Ms = spec.baseLatency.p99Ms * inflation + scatter
+  m.droppedRps = over(hot) + (n - 1) * over(rest)
+  const quiet = at(rest)
+  m.shards = n
+  m.hotShardShare = hot
+  m.restShardUtilization =
+    n === 1
+      ? utilization
+      : Math.max(rho(quiet.reads, readCap), rho(quiet.writes, writeCap))
+}
+
+/**
+ * Replication under the level's consistency choice. Normally, strong costs a
+ * round trip to a second zone on every write. During a network split, the
+ * side holding a majority of the copies carries on; strong refuses the rest,
+ * eventual accepts them and lets the copies disagree.
+ */
+function replicate(
+  m: ComponentMetrics,
+  c: PlacedComponent,
+  mode: Consistency,
+  flow: Flow,
+  split: boolean,
+) {
+  const d = copies(c)
+  if (mode === "strong" && d >= 2) m.p99Ms += QUORUM_P99_MS
+  if (!split) return
+  const all = flow.reads + flow.writes
+  // The split cuts off the zone holding a single copy, as an outage would.
+  // With two copies, neither side holds a majority.
+  if (d === 1 || (mode === "strong" && d === 2)) {
+    m.refusedRps = all
+  } else if (mode === "strong") {
+    m.refusedRps = all / d
+  } else {
+    m.divergentRps = flow.writes / d
+  }
+  m.droppedRps = Math.min(all, m.droppedRps + (m.refusedRps ?? 0))
 }

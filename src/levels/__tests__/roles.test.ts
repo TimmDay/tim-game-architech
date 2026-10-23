@@ -38,6 +38,17 @@ describe("component discussion", () => {
     expect(d?.caution).toBeUndefined()
   })
 
+  it("explains a store's shards, key and split behaviour where the level offers them", () => {
+    const level = levelById("claim-your-name")!
+    const d = discuss(level.reference, "db", level.scenario, level.load)
+    expect(d?.role).toContain("3 shards by Username")
+    expect(d?.role).toContain("majority of its 3 copies")
+    const plain = levelById("zone-outage")!
+    const p = discuss(plain.reference, "db", plain.scenario, plain.load)
+    expect(p?.role).not.toContain("shard")
+    expect(p?.role).not.toContain("majority")
+  })
+
   it("explains a standby on a SQL primary", () => {
     const level = levelById("zone-outage")!
     const d = discuss(level.reference, "db", level.scenario, level.load)

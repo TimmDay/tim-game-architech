@@ -50,6 +50,8 @@ function checkLabel(
     case "availability":
       return `Availability ${nines(g.peak.availability)} (≥ ${nines(t.availability)})`
     case "chaos":
+      if (t.onSplit === "consistent")
+        return `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} refused (< 50%), ${rps(g.chaos.divergentRps)} conflicting writes (must be 0)`
       return `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} errors`
   }
 }

@@ -1,7 +1,13 @@
 import type { ConceptId } from "~/levels/concepts"
 import { CATALOGUE, SATURATION_WARN } from "./catalogue"
-import { DURABLE_KINDS, type Targets, writesAt } from "./grade"
-import { behindAsync, doesHeavyWorkInline, failureDomains } from "./simulate"
+import { DURABLE_KINDS, MAJORITY_SERVES, type Targets, writesAt } from "./grade"
+import {
+  behindAsync,
+  copies,
+  doesHeavyWorkInline,
+  failureDomains,
+  partitionKeyOf,
+} from "./simulate"
 import type { Graph, LoadProfile, PlacedComponent, SimResult } from "./types"
 import { CLIENT_ID } from "./types"
 
@@ -135,6 +141,26 @@ export function findings(
       })
     }
 
+    const key = partitionKeyOf(c, load)
+    const shards = m.shards ?? 1
+    if (key && shards > 1) {
+      const hot = m.hotShardShare ?? 1 / shards
+      if (hot > 1 / shards + 1e-9 && m.utilization >= SATURATION_WARN)
+        out.push({
+          severity: m.utilization >= 1 ? "error" : "warn",
+          componentId: c.id,
+          concept: "hot-keys",
+          text: `${name(c)}'s busiest shard takes ${pct(hot)} of the traffic, not ${pct(1 / shards)}: split by ${key.label}, one key is far busier than the rest. More shards won't spread it.`,
+        })
+      if (key.scatterReads >= 0.01)
+        out.push({
+          severity: "warn",
+          componentId: c.id,
+          concept: "scatter-gather",
+          text: `${pct(key.scatterReads)} of reads don't name the ${key.label}, so each one asks all ${shards} shards of ${name(c)} and waits for the slowest.`,
+        })
+    }
+
     if (c.kind === "data-warehouse" && !m.behindAsync && m.readRps > 0) {
       out.push({
         severity: "error",
@@ -215,13 +241,57 @@ export function findings(
       })
   }
 
+  const consistent = targets?.onSplit === "consistent"
   if (chaos && chaosLabel) {
+    for (const c of graph.components) {
+      const m = chaos.perComponent[c.id]
+      if (!m) continue
+      const all = m.readRps + m.writeRps
+      if ((m.refusedRps ?? 0) > 0) {
+        const d = copies(c)
+        if (d === 1)
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "single-point-of-failure",
+            text: `${chaosLabel}: ${name(c)} keeps its only copy in the zone that was cut off, so nobody else can reach it.`,
+          })
+        else if ((m.refusedRps ?? 0) >= all - 1e-6)
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "quorum",
+            text: `${chaosLabel}: ${name(c)} has ${d} copies, so neither side holds a majority, and it refuses everything until the split heals.`,
+          })
+        else if (!consistent)
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "cap-theorem",
+            text: `${chaosLabel}: ${name(c)} refuses the cut-off side's requests (${rps(m.refusedRps ?? 0)}) rather than risk two answers. That's right for some data, but here people need to keep going.`,
+          })
+      }
+      if ((m.divergentRps ?? 0) > 0.5)
+        out.push({
+          severity: consistent ? "error" : "warn",
+          componentId: c.id,
+          concept: consistent ? "cap-theorem" : "conflict-resolution",
+          text: consistent
+            ? `${chaosLabel}: ${name(c)} accepts ${rps(m.divergentRps ?? 0)} writes on the cut-off side that the rest can't see. When the split heals, some of them contradict each other.`
+            : `${chaosLabel}: ${name(c)} keeps accepting writes on both sides (${rps(m.divergentRps ?? 0)} on the cut-off one). They'll need merging when it heals.`,
+        })
+    }
+    // A consistent design is meant to refuse the minority side.
+    const refusingIsTheJob =
+      consistent &&
+      chaos.errorRate < MAJORITY_SERVES &&
+      chaos.divergentRps <= 0.5
     const dead = graph.components.filter(
       (c) =>
         (chaos.perComponent[c.id]?.aliveInstances ?? 1) === 0 &&
         !CATALOGUE[c.kind].optionalOnPath,
     )
-    if (chaos.errorRate > 0.01 || dead.length > 0) {
+    if ((chaos.errorRate > 0.01 && !refusingIsTheJob) || dead.length > 0) {
       out.push({
         severity: "error",
         concept:

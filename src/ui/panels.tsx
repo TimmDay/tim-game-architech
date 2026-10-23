@@ -26,8 +26,21 @@ import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
 import { CATALOGUE } from "~/sim/catalogue"
 import type { Finding } from "~/sim/findings"
 import type { Targets } from "~/sim/grade"
-import { carries } from "~/sim/simulate"
-import type { ComponentKind, Graph, SimResult } from "~/sim/types"
+import type { Settings } from "~/game/edit"
+import {
+  carries,
+  consistencyOf,
+  copies,
+  MAX_SHARDS,
+  partitionKeyOf,
+} from "~/sim/simulate"
+import type {
+  ComponentKind,
+  Graph,
+  LoadProfile,
+  PlacedComponent,
+  SimResult,
+} from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import { plain } from "~/text"
 import { ms, nines, pct, rps, usd } from "./format"
@@ -307,8 +320,106 @@ const Stat = ({ k, v, bad }: { k: string; v: string; bad?: boolean }) => (
   </div>
 )
 
+/**
+ * Sharding and consistency, for levels that make them a choice. Every value
+ * shown comes from the engine's own helpers, so the sidebar shows what the
+ * simulation is actually using.
+ */
+function DataOptions({
+  c,
+  load,
+  onSet,
+}: {
+  c: PlacedComponent
+  load: LoadProfile
+  onSet: (v: Settings) => void
+}) {
+  const key = partitionKeyOf(c, load)
+  const mode = consistencyOf(c, load)
+  if (!key && !mode) return null
+  const d = copies(c)
+  return (
+    <div className="space-y-3 rounded-xl border border-indigo-300/20 bg-indigo-300/[0.04] p-3">
+      {key && c.kind === "sql-primary" && (
+        <Stepper
+          label="Shards"
+          value={c.shards ?? 1}
+          min={1}
+          max={MAX_SHARDS}
+          onChange={(v) => onSet({ shards: v })}
+          note="Each shard is its own primary and standbys"
+        />
+      )}
+      {key && (
+        <label className="block">
+          <div className="text-[13px] text-slate-200">Partition key</div>
+          <div className="mb-1.5 text-[11px] text-slate-500">
+            {c.kind === "nosql"
+              ? `Splits the data across its ${c.instances} instance${c.instances === 1 ? "" : "s"}`
+              : "Which shard each record lives on"}
+          </div>
+          <select
+            value={key.id}
+            onChange={(e) => onSet({ partitionKey: e.target.value })}
+            className="w-full rounded-lg border border-white/10 bg-slate-900 px-2.5 py-2 text-[13px] text-slate-100"
+          >
+            {(load.partitionKeys ?? []).map((k) => (
+              <option key={k.id} value={k.id}>
+                {k.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {mode && (
+        <div>
+          <div className="text-[13px] text-slate-200">
+            During a network split
+          </div>
+          <div className="mb-1.5 text-[11px] text-slate-500">
+            {c.kind === "nosql" || CATALOGUE[c.kind].managed
+              ? "Three copies, one per zone"
+              : `${d} cop${d === 1 ? "y" : "ies"}: one per zone it's spread over`}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5" role="radiogroup">
+            {(
+              [
+                ["strong", "Refuse", "Consistent"],
+                ["eventual", "Keep serving", "Available"],
+              ] as const
+            ).map(([value, label, sub]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={mode === value}
+                onClick={() => onSet({ consistency: value })}
+                className={clsx(
+                  "rounded-lg border px-2 py-1.5 text-left",
+                  mode === value
+                    ? "border-indigo-300 bg-indigo-300/15 text-white"
+                    : "border-white/10 text-slate-400 hover:text-slate-200",
+                )}
+              >
+                <div className="text-[13px] font-semibold">{label}</div>
+                <div className="text-[11px] opacity-80">{sub}</div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-1.5 text-[11px] text-slate-500">
+            {mode === "strong"
+              ? "Writes wait for a majority of copies, so each one waits on another zone."
+              : "Writes return once one copy has them. The others catch up, or disagree during a split."}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function InspectPanel({
   graph,
+  load,
   provider,
   selectedId,
   selectedEdgeId,
@@ -323,6 +434,8 @@ export function InspectPanel({
   onDiscuss,
 }: {
   graph: Graph
+  /** The level's load: what decides whether sharding and consistency show. */
+  load?: LoadProfile
   provider: Provider
   selectedId?: string
   selectedEdgeId?: string
@@ -330,7 +443,7 @@ export function InspectPanel({
   live: boolean
   connecting: boolean
   onConnect: (id: string) => void
-  onSet: (id: string, v: { instances?: number; zones?: number }) => void
+  onSet: (id: string, v: Settings) => void
   onRemove: (id: string) => void
   onRemoveEdge: (id: string) => void
   onLearn: (kind: ComponentKind) => void
@@ -520,6 +633,8 @@ export function InspectPanel({
         />
       )}
 
+      {load && <DataOptions c={c} load={load} onSet={(v) => onSet(c.id, v)} />}
+
       {live && m && (
         <div className="grid grid-cols-3 gap-1.5">
           <Stat k="Load" v={pct(m.utilization, 0)} bad={m.utilization >= 1} />
@@ -532,6 +647,13 @@ export function InspectPanel({
             v={`${m.aliveInstances}/${c.instances}`}
             bad={m.aliveInstances === 0}
           />
+          {(m.shards ?? 1) > 1 && (
+            <Stat
+              k="Busiest shard"
+              v={pct(m.hotShardShare ?? 0, 0)}
+              bad={m.utilization >= 1}
+            />
+          )}
         </div>
       )}
 

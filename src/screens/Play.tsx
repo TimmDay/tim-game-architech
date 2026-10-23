@@ -382,6 +382,7 @@ export function Play({
   const inspect = (
     <InspectPanel
       graph={graph}
+      load={level.load}
       provider={provider}
       selectedId={sel.node}
       selectedEdgeId={sel.edge}

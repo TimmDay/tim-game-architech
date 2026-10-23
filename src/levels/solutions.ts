@@ -18,6 +18,149 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "balance-sheet": {
+    overview:
+      "A ledger, where a wrong answer is worse than no answer. The {sql-primary} runs three copies in three zones and commits a transfer only once a majority have it. During a split, the two connected zones still hold a majority and keep working; the cut-off zone refuses until the network heals.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. The app checks the balance and writes the transfer in one transaction.",
+      "The {sql-primary} sends the write to its other copies and commits once two of the three have it. Only then does the app say the money has moved.",
+      "During a split, the side with two copies has a majority, so it carries on. The cut-off copy can't reach a majority, so it refuses: people there see an error and try again in a minute.",
+      "Nobody on either side can commit a transfer the other side doesn't know about, so the same money can't be spent twice.",
+    ],
+    numbers: [
+      "600 requests a second: 360 balance checks and 240 transfers.",
+      "Three {app-server} instances run at 50%.",
+      "The {sql-primary} is 48% busy on writes. Its p99 of 83ms includes 25ms of waiting for a second zone to confirm each write.",
+      "During the split, the cut-off zone's 200 requests a second are refused: 33% of traffic, and no conflicting transfers.",
+      "Two copies cost $120 less, but a split leaves neither side with a majority, so every transfer is refused until it heals.",
+      "Keep-serving mode accepts 80 transfers a second on the cut-off side that the rest can't see. Some of them spend money that's already gone.",
+      "Cost: $20 + 3 × $30 + 3 × $120 = $470 of $500.",
+    ],
+    tradeoffs: [
+      "Refusing is a visible failure: the cut-off zone's users can't pay for a minute. That's the price of never being wrong.",
+      "Every write waits for another zone, split or not. That's the other half of the trade (PACELC): latency for consistency, all the time.",
+      "Three copies cost 50% more than two, and the third exists only to break ties.",
+    ],
+    alternatives: [
+      "Reading balances from a replica would be cheaper, but it can show money that was just spent. Fine for a statement page, not for the check before a transfer.",
+      "Five copies survive two zones failing, but cost more and add latency for a risk the business may not need to cover.",
+      "Keep-serving with a rule to undo overdrafts afterwards is what some card networks do for small amounts: the business accepts a little risk to never decline a coffee.",
+    ],
+  },
+  "full-basket": {
+    overview:
+      "The opposite of a ledger: refusing an add-to-basket loses a sale, and two slightly different baskets can be merged. A {nosql} store keeps three copies and lets every copy accept writes. During a split, both sides keep working, and the baskets are merged when it heals.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. The app reads and writes the shopper's basket by its basket ID.",
+      "Each write returns as soon as one copy has it; the other copies catch up within milliseconds.",
+      "During a split, the cut-off zone keeps taking adds and removals for its shoppers. The other zones don't see them yet.",
+      "When the split heals, each basket's two versions are merged: every item added on either side is kept.",
+    ],
+    numbers: [
+      "3,000 requests a second: 2,100 basket views and 900 adds and removals.",
+      "900 writes a second is 180% of what one {sql-primary} can take, so the basket lives in {nosql}, which runs at 42% on one instance.",
+      "Twelve {app-server} instances run at 63%.",
+      "During the split, 300 writes a second land on the cut-off side and are merged later. Nobody is refused.",
+      "Refuse mode turns the same split into errors for 33% of shoppers, and adds 25ms to every request even without a split.",
+      "Cost: $20 + 12 × $30 + $70 = $450 of $600.",
+    ],
+    tradeoffs: [
+      "Merging adds keeps everything, which means a removed item can come back. Recording removals as well as adds fixes it, at the cost of more data per basket.",
+      "Shoppers can briefly see an older basket on another device. Few notice; everyone notices a failed add.",
+      "Checkout is different: the payment and stock check must be consistent even if the basket isn't.",
+    ],
+    alternatives: [
+      "A {sql-primary} with standbys would keep one true basket, but it can't take the writes here, and a split would refuse a third of shoppers.",
+      "Keeping the basket in the browser avoids the server entirely, but it's lost between devices and can't be seen by support.",
+      "Last-writer-wins is simpler than merging, but it silently drops one side's changes.",
+    ],
+  },
+  "tenant-split": {
+    overview:
+      "Writes outgrew one {sql-primary}, so the data is split into four shards by company. Each company's projects, tasks and comments live together, so almost every request goes to exactly one shard, and the biggest customer still fits inside one shard's quarter of the traffic.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Every request belongs to a signed-in user, who belongs to one company.",
+      "The app works out the company's shard from its ID and sends the query there. Joins between tasks, comments and projects stay inside one database.",
+      "Each shard is a primary with a standby in a second zone, so a crashed primary fails over without losing its companies.",
+      "The rare report across every company (an admin dashboard) asks all four shards and merges the answers.",
+    ],
+    numbers: [
+      "3,000 requests a second: 1,800 reads and 1,200 writes. One {sql-primary} would run at 240%.",
+      "Four shards by company ID: the busiest takes 25% of the traffic, 300 writes a second, and runs at 60%. The biggest customer is 12%, which fits.",
+      "By created date, 95% of writes are new rows on the newest shard: 1,140 a second, 228% of what it can take, however many shards there are.",
+      "By task ID, writes spread evenly, but opening a task list doesn't name a task, so 85% of reads ask all four shards. The busiest runs at 80% and p99 reaches 348ms.",
+      "Fifteen {app-server} instances run at 50%. Three shards would leave the busiest at 80% and miss the p99 target.",
+      "Cost: $20 + 15 × $30 + 4 × 2 × $120 = $1,430 of $1,500.",
+    ],
+    tradeoffs: [
+      "A company that grows past one shard's capacity needs moving to a shard of its own, which is a planned migration, not a setting.",
+      "Reports across companies are slow and depend on every shard being up. Feed them from a copy built for analytics instead.",
+      "Keeping each company's data together also keeps it apart from others, which helps with data residency and noisy neighbours.",
+    ],
+    alternatives: [
+      "Project ID also works here: projects are small and even. But a company's dashboard then asks several shards, and one company's data is spread across all of them.",
+      "Hashing a key spreads writes perfectly but loses locality: queries that span related rows go everywhere.",
+      "A distributed SQL database shards for you, but you still choose the key, and the same rules about hot keys and cross-shard queries apply.",
+    ],
+  },
+  "like-storm": {
+    overview:
+      "One post is a hot key: keyed by post, all its likes land on one shard, which no shard count can fix. Splitting the hot post's likes across many sub-keys (the post ID plus a random suffix) spreads them over four shards. Reading a count means adding up the sub-keys, so counts are cached. During a split, both sides keep taking likes and the counts are added up when it heals.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. A like is written to the shard for its post ID plus a random suffix from 0 to 9.",
+      "A count is read from the {cache} first. On a miss, the app asks each sub-key's shard, adds them up, and caches the total for a few seconds.",
+      "Each shard keeps two copies in two zones, and each copy accepts likes on its own.",
+      "During a split, likes keep landing on both sides. Counts and the set of who liked what merge cleanly when it heals, because adding likes up gives the same answer in any order.",
+    ],
+    numbers: [
+      "3,000 requests a second: 1,500 count reads and 1,500 likes.",
+      "The {cache} answers 1,140 count reads a second. 360 reach the database.",
+      "By post ID, the singer's post is 40% of likes: 600 a second on one shard, 120% of what it can write. Eight shards don't help.",
+      "With the suffix, the busiest of the four shards takes 25%: 375 likes a second, at 75%.",
+      "During the split, 750 likes a second land on the cut-off side and are added in later. Nobody's like fails. Refuse mode fails 62% of requests instead.",
+      "Twelve {app-server} instances run at 63%.",
+      "Cost: $20 + 12 × $30 + 2 × $25 + 4 × 2 × $120 = $1,390 of $1,500.",
+    ],
+    tradeoffs: [
+      "Only hot posts need the suffix. Applying it to every post makes every count read ask ten places for no reason.",
+      "Counts lag by a few seconds and can differ between two people looking at once. For likes, nobody minds.",
+      "A like and an unlike on different sides of a split need a rule: storing each user's latest choice, not a running total, avoids counting both.",
+    ],
+    alternatives: [
+      "Keying by the user who liked spreads writes too, but every count read then asks every shard. It works here only because the {cache} answers most of them.",
+      "Sending likes through a {queue} and adding them up in batches cuts writes further, at the cost of counts that lag more.",
+      "A single counter in memory is fastest, but it's lost on a restart unless something durable records the likes.",
+    ],
+  },
+  "claim-your-name": {
+    overview:
+      "Uniqueness is a consistency problem: a name can only be checked and claimed safely in one place. Sharding by username sends each name to exactly one shard, and each shard keeps three copies in three zones and refuses during a split unless it holds a majority. Two people can never both get the same name.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Signing up as a name goes to the shard that owns that name.",
+      "The shard inserts the name only if it isn't there, and commits once two of its three copies have it.",
+      "During a split, the two connected zones keep signing people up. The cut-off zone refuses until it heals, so it can't give away a name the others just gave out.",
+      "Logging in by email doesn't name the username, so those few reads ask every shard. A second table keyed by email would make them single-shard.",
+    ],
+    numbers: [
+      "2,400 requests a second: 1,440 name checks and profile reads, and 960 sign-ups and edits. One {sql-primary} would run at 192%.",
+      "Three shards by username: the busiest takes 320 writes a second, at 64%. Its p99 of 132ms includes the 25ms quorum wait.",
+      "By sign-up time, 90% of writes hit the newest shard: 864 a second, 173% of what it can take. By email domain, one big mail provider puts 55% on one shard.",
+      "During the split, 33% of requests (the cut-off zone's) are refused, and no name is given out twice.",
+      "Two copies per shard cost $360 less, but refuse everything during a split. Keep-serving accepts 320 writes a second on the cut-off side, some of them names already taken.",
+      "Ten {app-server} instances run at 60%.",
+      "Cost: $20 + 10 × $30 + 3 × 3 × $120 = $1,400 of $1,500.",
+    ],
+    tradeoffs: [
+      "Sign-ups pause for a minute in the cut-off zone. A clear 'try again shortly' is better than giving the name away twice.",
+      "A shard per name range makes popular short names land together. Hashing the name spreads them, at the cost of not being able to list names in order.",
+      "Every sign-up waits for a second zone to confirm. On a launch day that's a few milliseconds on a form people fill in once.",
+    ],
+    alternatives: [
+      "Reserving a name in a {cache} first is fast, but a cache can lose the reservation. The claim itself must be in the system of record.",
+      "Letting both sides accept and renaming one person afterwards is a real strategy, but it means telling someone their name is gone.",
+      "A single primary for names alone, with everything else sharded, works while sign-ups are within one primary's limit.",
+    ],
+  },
   "short-links": {
     overview:
       "A read-heavy key lookup: short code in, long URL out. A {cache} answers the popular links, so the {sql-primary} only sees misses and new links. The catch is that the database is now sized for the misses, so the cache gets a second node.",

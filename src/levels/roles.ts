@@ -1,6 +1,18 @@
 import { CATALOGUE } from "~/sim/catalogue"
-import { doesHeavyWorkInline } from "~/sim/simulate"
-import type { ComponentKind, Graph, LoadProfile, SimResult } from "~/sim/types"
+import {
+  consistencyOf,
+  copies,
+  doesHeavyWorkInline,
+  partitionKeyOf,
+  shardsOf,
+} from "~/sim/simulate"
+import type {
+  ComponentKind,
+  Graph,
+  LoadProfile,
+  PlacedComponent,
+  SimResult,
+} from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 
 /**
@@ -60,6 +72,40 @@ const list = (kinds: ComponentKind[]) => {
   return `${t.slice(0, -1).join(", ")} and ${t[t.length - 1]}`
 }
 const isData = (k: ComponentKind) => CATALOGUE[k].category === "data"
+
+/**
+ * What sharding and the consistency choice add to a store's story, in levels
+ * that offer them. Empty everywhere else.
+ */
+function dataChoices(c: PlacedComponent | undefined, load: LoadProfile) {
+  if (!c) return { role: "", tradeoffs: [] as string[] }
+  const key = partitionKeyOf(c, load)
+  const mode = consistencyOf(c, load)
+  const n = shardsOf(c, load)
+  const d = copies(c)
+  let role = ""
+  const tradeoffs: string[] = []
+  if (key) {
+    role +=
+      n > 1
+        ? ` Its data is split into ${n} shards by ${key.label}, so each shard takes only its share of the writes.`
+        : ` It's one shard: everything lives together until you split it.`
+    tradeoffs.push(
+      "A partition key is hard to change later: moving to a new one means copying every record to a new home while the system keeps running.",
+    )
+  }
+  if (mode === "strong")
+    role += ` A write commits only once a majority of its ${d} cop${d === 1 ? "y has" : "ies have"} it.${d === 2 ? " With two copies, a split leaves neither side with a majority." : ""}`
+  if (mode === "eventual")
+    role += ` Each of its ${d} cop${d === 1 ? "y" : "ies"} accepts writes on its own and passes them on, so during a split every side keeps working, and they disagree until it heals.`
+  if (mode)
+    tradeoffs.push(
+      mode === "strong"
+        ? "Consistent: during a split the side without a majority refuses requests, and every write waits for another zone to confirm it."
+        : "Available: nobody is refused, but readers can see old data, and conflicting writes need a rule for which one wins.",
+    )
+  return { role, tradeoffs }
+}
 
 const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
   dns: ({ s, down }) => ({
@@ -149,8 +195,9 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
             "It only helps data that is shared and read often. Data each user reads once barely gets a hit.",
           ],
         },
-  "sql-primary": ({ s, graph, id }) => {
+  "sql-primary": ({ s, graph, id, load }) => {
     const c = graph.components.find((c) => c.id === id)
+    const extra = dataChoices(c, load)
     // Read/write splitting: one of this primary's callers also reads replicas.
     const callers = graph.edges.filter((e) => e.to === id).map((e) => e.from)
     const replicas = graph.edges.some(
@@ -159,8 +206,9 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
         graph.components.find((t) => t.id === e.to)?.kind === "sql-replica",
     )
     return {
-      role: `The system of record for ${s.records}. Every write (${s.writes}) lands here inside a transaction, so it's the one place that's always correct.${replicas ? " Reads have been moved to replicas, so here it mostly takes writes." : ""}${c && c.instances > 1 ? ` The ${c.instances - 1} extra instance${c.instances > 2 ? "s are standbys" : " is a standby"}: a copy in another zone, ready to take over if this one fails, but serving nothing until then.` : ""}`,
+      role: `The system of record for ${s.records}. Every write (${s.writes}) lands here inside a transaction, so it's the one place that's always correct.${replicas ? " Reads have been moved to replicas, so here it mostly takes writes." : ""}${c && c.instances > 1 ? ` The ${c.instances - 1} extra instance${c.instances > 2 ? "s are standbys" : " is a standby"}: a copy in another zone, ready to take over if this one fails, but serving nothing until then.` : ""}${extra.role}`,
       tradeoffs: [
+        ...extra.tradeoffs,
         "Writes don't scale out: one primary takes them all. Past that, you shard the data or move it to a store built to partition.",
         "A standby doubles the cost and adds no capacity. You pay it for availability, not speed.",
         "Backups protect against losing data; standbys protect against downtime. You need both.",
@@ -175,13 +223,20 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
       "It can't take writes at all. Point writes at it and they fail.",
     ],
   }),
-  nosql: ({ s }) => ({
-    role: `Stores ${s.records} as items looked up by key, split across partitions so writes scale out by adding capacity.`,
-    tradeoffs: [
-      "You design tables around your access patterns up front. Ad-hoc queries and joins are hard or impossible.",
-      "A hot key (one very popular item) lands on one partition and can throttle however much capacity you buy.",
-    ],
-  }),
+  nosql: ({ s, graph, id, load }) => {
+    const extra = dataChoices(
+      graph.components.find((c) => c.id === id),
+      load,
+    )
+    return {
+      role: `Stores ${s.records} as items looked up by key, split across partitions so writes scale out by adding capacity.${extra.role}`,
+      tradeoffs: [
+        ...extra.tradeoffs,
+        "You design tables around your access patterns up front. Ad-hoc queries and joins are hard or impossible.",
+        "A hot key (one very popular item) lands on one partition and can throttle however much capacity you buy.",
+      ],
+    }
+  },
   queue: ({ s, down }) => ({
     role: `Holds a message for each piece of slow work (${s.job ?? s.writes}) until ${list(down) || "a consumer"} is free to take it. The user's request finishes as soon as the message is safely queued. Each message goes to exactly one consumer.`,
     caution:

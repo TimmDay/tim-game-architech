@@ -43,8 +43,11 @@ export type Level = {
   reference: Graph
   concepts: ConceptId[]
   hint: string
-  /** Build levels based on a classic interview question get their own shelf. */
-  track?: "classic"
+  /**
+   * Build levels with their own shelf: classic interview questions, and the
+   * CAP trade-offs (network splits, consistency and sharding).
+   */
+  track?: "classic" | "cap"
 }
 
 type Row = [
@@ -54,18 +57,20 @@ type Row = [
   y: number,
   instances?: number,
   zones?: number,
+  data?: Pick<PlacedComponent, "shards" | "partitionKey" | "consistency">,
 ]
 
 /** Terse graph literal: components as rows, edges as `from>to` strings. */
 export function graph(rows: Row[], edges: string[]): Graph {
   const components: PlacedComponent[] = rows.map(
-    ([id, kind, x, y, instances = 1, zones = 1]) => ({
+    ([id, kind, x, y, instances = 1, zones = 1, data]) => ({
       id,
       kind,
       x,
       y,
       instances,
       zones,
+      ...data,
     }),
   )
   return {
@@ -1434,10 +1439,328 @@ const CLASSICS: Level[] = [
   },
 ]
 
+const SPLIT: Fault[] = [{ kind: "network-split" }]
+const SPLIT_LABEL = "A network split cuts one zone off"
+
+/**
+ * The CAP shelf. Each level turns on the sidebar's consistency choice, its
+ * partition keys, or both, and none of them changes how any other level runs.
+ */
+const CAP: Level[] = [
+  {
+    id: "balance-sheet",
+    mode: "build",
+    track: "cap",
+    requires: ["zone-outage"],
+    title: "Balance Sheet",
+    tagline: "A refused transfer beats a wrong balance.",
+    scenario: {
+      product: "the payments app",
+      reads: "people checking balances and statements",
+      writes: "transfers between accounts",
+      hot: "account balances",
+      records: "accounts, balances and the ledger of every transfer",
+    },
+    brief:
+      "A payments app moves money between friends. Peak is 600 requests a second, and four in ten are transfers. Every copy of the ledger must agree: if two copies both accept a withdrawal during a network split, someone spends the same money twice. The chaos round cuts one zone off from the others. Nothing crashes, but the copies can't talk. Refusing transfers on the cut-off side is fine. Accepting a transfer the rest of the system can't see is not.",
+    load: {
+      peakRps: 600,
+      readFraction: 0.6,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 500,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      onSplit: "consistent",
+    },
+    chaos: { faults: SPLIT, label: SPLIT_LABEL },
+    palette: ["dns", "load-balancer", "app-server", "sql-primary"],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 3, 2],
+        ["db", "sql-primary", 7, 4, 3, 3, { consistency: "strong" }],
+      ],
+      [`${C}>lb`, "lb>app", "app>db"],
+    ),
+    concepts: ["cap-theorem", "quorum", "pacelc"],
+    hint: "Set the {sql-primary} to refuse during a split, then count its copies: a side can keep writing only if it holds a majority of them. Is there a majority on either side of two?",
+  },
+  {
+    id: "full-basket",
+    mode: "build",
+    track: "cap",
+    requires: ["balance-sheet"],
+    title: "Full Basket",
+    tagline: "Never refuse an add-to-basket.",
+    scenario: {
+      product: "the online shop",
+      reads: "shoppers viewing their basket",
+      writes: "items added to and removed from baskets",
+      hot: "each shopper's basket",
+      records: "every shopper's basket",
+    },
+    brief:
+      "An online shop's basket takes 3,000 requests a second at peak, three in ten of them adds and removals. Each refused add is a sale lost, so the business's rule is that the basket always works. If two copies disagree for a while, the shop can merge them later: showing an item someone removed is annoying, refusing their purchase is worse. A {sql-primary} manages about 500 writes a second. The chaos round cuts one zone off from the others.",
+    load: {
+      peakRps: 3_000,
+      readFraction: 0.7,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 600,
+      writesReach: ["durable"],
+      noBacklog: false,
+      onSplit: "available",
+    },
+    chaos: { faults: SPLIT, label: SPLIT_LABEL },
+    palette: ["dns", "load-balancer", "app-server", "sql-primary", "nosql"],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 12, 2],
+        ["baskets", "nosql", 7, 4, 1, 1, { consistency: "eventual" }],
+      ],
+      [`${C}>lb`, "lb>app", "app>baskets"],
+    ),
+    concepts: ["cap-theorem", "conflict-resolution", "pacelc"],
+    hint: "Here it's the opposite of a bank: during a split, every side should keep taking writes. Then think about how two versions of a basket become one.",
+  },
+  {
+    id: "tenant-split",
+    mode: "build",
+    track: "cap",
+    requires: ["balance-sheet"],
+    title: "Tenant Split",
+    tagline: "One database can't take the writes. How do you cut it?",
+    scenario: {
+      product: "the project-management tool",
+      reads: "people opening projects and task lists",
+      writes: "new tasks, comments and status changes",
+      hot: "each company's active projects",
+      records: "companies, projects, tasks and comments",
+    },
+    brief:
+      "A project-management tool serves 5,000 companies. Peak is 3,000 requests a second and 1,200 of them are writes, more than double what one {sql-primary} takes. You'll split the data into shards, and the partition key decides which shard each record lives on. A good key spreads the writes evenly and lets the common reads go to a single shard. The biggest customer is about an eighth of all traffic. Pick the shard count and the key in the sidebar.",
+    load: {
+      peakRps: 3_000,
+      readFraction: 0.6,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      partitionKeys: [
+        {
+          id: "created",
+          label: "Created date",
+          hotShare: 0.95,
+          scatterReads: 0,
+        },
+        { id: "task", label: "Task ID", hotShare: 0, scatterReads: 0.85 },
+        {
+          id: "project",
+          label: "Project ID",
+          hotShare: 0.05,
+          scatterReads: 0.35,
+        },
+        {
+          id: "tenant",
+          label: "Company ID",
+          hotShare: 0.12,
+          scatterReads: 0.02,
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 1_500,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+    },
+    chaos: {
+      faults: [{ kind: "kill-instance", target: "sql-primary" }],
+      label: "A primary crashes",
+    },
+    palette: ["dns", "load-balancer", "app-server", "sql-primary"],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 15, 2],
+        [
+          "db",
+          "sql-primary",
+          7,
+          4,
+          2,
+          2,
+          { shards: 4, partitionKey: "tenant" },
+        ],
+      ],
+      [`${C}>lb`, "lb>app", "app>db"],
+    ),
+    concepts: ["partitioning", "scatter-gather", "hot-keys"],
+    hint: "For each key, ask two things: does every new write land on the same shard, and does opening a task list name the key? A key the common reads don't name sends them to every shard.",
+  },
+  {
+    id: "like-storm",
+    mode: "build",
+    track: "cap",
+    requires: ["full-basket", "tenant-split"],
+    title: "Like Storm",
+    tagline: "One post is getting four in ten of all likes.",
+    scenario: {
+      product: "the social app",
+      reads: "people seeing like counts",
+      writes: "likes and unlikes",
+      hot: "like counts on popular posts",
+      records: "every like, by post and by user",
+    },
+    brief:
+      "A singer with a hundred million followers posts a photo, and four in ten of the app's likes now go to it. Peak is 3,000 requests a second, half of them likes. Counts can be a few seconds stale, and a like must never fail: if a split leaves the copies apart, they can be added up later. Likes live in sharded {sql-primary} storage. Watch the busiest shard: one post on one shard is more than any single primary can take.",
+    load: {
+      peakRps: 3_000,
+      readFraction: 0.5,
+      cacheableFraction: 0.8,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+      partitionKeys: [
+        { id: "post", label: "Post ID", hotShare: 0.4, scatterReads: 0 },
+        {
+          id: "salted",
+          label: "Post ID + random suffix",
+          hotShare: 0.04,
+          scatterReads: 0.3,
+        },
+        {
+          id: "user",
+          label: "ID of who liked",
+          hotShare: 0.002,
+          scatterReads: 0.95,
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 400,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 1_500,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      onSplit: "available",
+    },
+    chaos: { faults: SPLIT, label: SPLIT_LABEL },
+    palette: ["dns", "load-balancer", "app-server", "cache", "sql-primary"],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 12, 2],
+        ["cache", "cache", 6, 3, 2, 2],
+        [
+          "db",
+          "sql-primary",
+          8,
+          4,
+          2,
+          2,
+          { shards: 4, partitionKey: "salted", consistency: "eventual" },
+        ],
+      ],
+      [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
+    ),
+    concepts: ["hot-keys", "conflict-resolution", "scatter-gather"],
+    hint: "No key that keeps one post's likes together can spread them. Split the hot post's likes across several keys, cache the counts, and let a split be reconciled afterwards.",
+  },
+  {
+    id: "claim-your-name",
+    mode: "build",
+    track: "cap",
+    requires: ["like-storm"],
+    title: "Claim Your Name",
+    tagline: "Launch day: everybody wants a short username.",
+    scenario: {
+      product: "the new social network",
+      reads: "username checks and profile lookups",
+      writes: "sign-ups and profile changes",
+      hot: "profiles being looked up",
+      records: "accounts and their usernames",
+    },
+    brief:
+      "A new social network opens sign-ups. Peak is 2,400 requests a second and 960 of them are writes, so one {sql-primary} isn't enough: shard it. Usernames must be unique. If both sides of a network split accept the same name, two people end up with it, and one of them loses it later. Refusing sign-ups on the cut-off side for a minute is fine. Pick the key, the shard count, the copies per shard and what each shard does during a split.",
+    load: {
+      peakRps: 2_400,
+      readFraction: 0.6,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+      partitionKeys: [
+        {
+          id: "signup",
+          label: "Sign-up time",
+          hotShare: 0.9,
+          scatterReads: 0,
+        },
+        {
+          id: "domain",
+          label: "Email domain",
+          hotShare: 0.55,
+          scatterReads: 0,
+        },
+        {
+          id: "username",
+          label: "Username",
+          hotShare: 0.01,
+          scatterReads: 0.05,
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 400,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 1_500,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      onSplit: "consistent",
+    },
+    chaos: { faults: SPLIT, label: SPLIT_LABEL },
+    palette: ["dns", "load-balancer", "app-server", "sql-primary"],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 10, 2],
+        [
+          "db",
+          "sql-primary",
+          7,
+          4,
+          3,
+          3,
+          { shards: 3, partitionKey: "username", consistency: "strong" },
+        ],
+      ],
+      [`${C}>lb`, "lb>app", "app>db"],
+    ),
+    concepts: ["quorum", "partitioning", "cap-theorem"],
+    hint: "A uniqueness check is only safe if the name's shard can't be written on both sides of a split. And a key that sends every new sign-up to the same place doesn't spread anything.",
+  },
+]
+
 export const LEVELS: Level[] = [
   ...BUILD,
   ...LATER_BUILD,
   ...CLASSICS,
+  ...CAP,
   ...REPAIR,
 ]
 

@@ -31,6 +31,7 @@ const CATEGORY_TONE: Record<CardCategory, string> = {
   alternative: "bg-sky-300/15 text-sky-200",
   scale: "bg-emerald-300/15 text-emerald-200",
   "edge-case": "bg-orange-300/15 text-orange-200",
+  resilience: "bg-teal-300/15 text-teal-200",
   security: "bg-rose-300/15 text-rose-200",
   observability: "bg-lime-300/15 text-lime-200",
 }

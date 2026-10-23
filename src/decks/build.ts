@@ -177,7 +177,7 @@ export const FIRST_CUSTOMERS = deck("first-customers", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The database fails over mid-request. What does the user see, and how do you make it graceful?",
     [
       "A burst of errors or timeouts for seconds to a minute while the standby is promoted.",
@@ -186,7 +186,7 @@ export const FIRST_CUSTOMERS = deck("first-customers", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A deploy goes out with a bug that crashes every app server on startup. How do you limit the damage?",
     [
       "Rolling deploys with health checks: the load balancer won't send traffic to instances that fail.",
@@ -383,7 +383,7 @@ export const FRONT_PAGE = deck("front-page", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The cache cluster goes completely down. What's your plan?",
     [
       "The database can't take 2,850 reads a second, so you must shed or degrade.",
@@ -435,6 +435,16 @@ export const FRONT_PAGE = deck("front-page", [
       "Synthetic checks: publish a test article and measure how long until it appears.",
       "Compare a sample of cached reads with the database.",
     ],
+  ],
+  [
+    "resilience",
+    "Someone runs a bad migration that deletes half the articles. How do you get them back?",
+    [
+      "The standby copies the deletion instantly, so it can't help: replication is not a backup.",
+      "Restore from point-in-time backups to just before the migration, into a separate database.",
+      "Copy the missing rows back, then clear the {cache} so readers stop seeing the gaps.",
+    ],
+    "How much data could you lose, and how long would the restore take? Those are your recovery targets.",
   ],
 ])
 
@@ -567,7 +577,7 @@ export const GOING_VIRAL = deck("going-viral", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The origin object store has a regional outage. What do users see?",
     [
       "Images already cached at the edge keep working until their TTL.",
@@ -638,6 +648,15 @@ export const GOING_VIRAL = deck("going-viral", [
       "Anything dynamic, like comments, likes or sign-in, needs an API behind the edge, sized for far less traffic than the images.",
     ],
     "If the page itself needed to be personalised, what would change?",
+  ],
+  [
+    "resilience",
+    "A bug in a cleanup script deletes a batch of original images. Can you get them back?",
+    [
+      "The {cdn} may still have copies, but only until they expire: don't count on it.",
+      "Turn on versioning in the {object-store}, so a delete keeps the previous version recoverable.",
+      "Replicate originals to a second region, and protect deletes with a retention lock.",
+    ],
   ],
 ])
 
@@ -771,7 +790,7 @@ export const UPLOAD_RUSH = deck("upload-rush", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A corrupt image makes the worker crash every time. What happens to that job?",
     [
       "Without protection, it's retried forever, and might take a worker down each time.",
@@ -780,7 +799,7 @@ export const UPLOAD_RUSH = deck("upload-rush", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The upload succeeds but queueing the job fails. Now what?",
     [
       "The photo exists but is never processed.",
@@ -832,6 +851,45 @@ export const UPLOAD_RUSH = deck("upload-rush", [
       "Trace the job: was it queued, picked up, did it fail, is it in the dead-letter queue?",
       "Propagate a trace or correlation ID from upload through the queue to the worker so this is one query.",
     ],
+  ],
+  [
+    "resilience",
+    "A worker crashes halfway through resizing a photo. What stops the job being lost, or done twice?",
+    [
+      "The message isn't deleted until the worker finishes, so after a visibility timeout it reappears for another worker.",
+      "Make the job idempotent: write each size to a fixed key (photo ID plus size), so doing it twice just overwrites the same files.",
+      "Set the timeout longer than a normal job, or a slow job gets picked up twice while it's still running.",
+    ],
+    "What happens if the worker finished the resize but crashed before deleting the message?",
+  ],
+  [
+    "resilience",
+    "The fix for the corrupt-image crash ships. What happens to everything in the dead-letter queue?",
+    [
+      "Nothing, unless you redrive it: move the messages back onto the main queue once the fix is live.",
+      "Alarm on the dead-letter queue's depth. A growing one means users are waiting on photos that will never finish.",
+      "Retry with growing delays before dead-lettering, so a brief outage downstream doesn't send good jobs there.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {queue} service has a regional outage for twenty minutes. What do users see?",
+    [
+      "Uploads can still be stored and recorded; only resizing stops.",
+      "Write a 'pending' row with every upload, and have a sweeper re-queue anything pending too long once the queue is back.",
+      "Users see 'processing' for longer. That's the whole cost, if the system was designed for it.",
+    ],
+    "Which part of the design would turn this into lost uploads instead of slow ones?",
+  ],
+  [
+    "decision",
+    "How do the photos themselves reach people browsing albums?",
+    [
+      "Not through the app servers: the album page carries links to the resized copies, and the browser fetches those itself.",
+      "They come from the {object-store}, through a {cdn}, so popular photos are served from the edge.",
+      "That's why resizing matters: a phone gets a small thumbnail, not the 12-megapixel original.",
+    ],
+    "Private albums: how do you stop someone sharing a photo's link?",
   ],
 ])
 
@@ -984,7 +1042,7 @@ export const ZONE_OUTAGE = deck("zone-outage", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The zone isn't down, just very slow. Is that worse?",
     [
       "Often, yes: health checks may still pass, so traffic keeps going to slow instances.",
@@ -993,7 +1051,7 @@ export const ZONE_OUTAGE = deck("zone-outage", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A refund request arrives just as the database fails over. What goes wrong, and how do you stop it?",
     [
       "The client times out and retries, and the refund could happen twice.",
@@ -1178,7 +1236,7 @@ export const FEED_THE_ANALYSTS = deck("feed-the-analysts", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "You ship a bug that indexes orders wrongly for a day. How do you fix the data?",
     [
       "Fix the consumer, then replay the stream from before the bug.",
@@ -1187,7 +1245,7 @@ export const FEED_THE_ANALYSTS = deck("feed-the-analysts", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A malformed event crashes the search consumer every time it reads it. What now?",
     [
       "A poison message blocks that partition.",
@@ -1381,7 +1439,7 @@ export const SHOEBOX_RECEIPTS = deck("shoebox-receipts", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The OCR provider has an outage on deadline day. What happens?",
     [
       "Photo jobs wait in the queue; uploads still succeed and show as processing.",
@@ -1390,7 +1448,7 @@ export const SHOEBOX_RECEIPTS = deck("shoebox-receipts", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A job keeps failing because the photo is unreadable. Then what?",
     [
       "Retry a limited number of times, then mark it failed.",
@@ -1592,7 +1650,7 @@ export const PLUG_FINDER = deck("plug-finder", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "An operator's feed starts reporting every charger as available, even busy ones. How would you notice and limit the damage?",
     [
       "Compare with crowd reports: a sudden mismatch across one network is a signal.",
@@ -1634,6 +1692,15 @@ export const PLUG_FINDER = deck("plug-finder", [
       "Track check-ins that arrive at a station shown as available a few minutes earlier.",
       "Track 'status was wrong' corrections by area and by data source.",
       "That rate is the product's real quality metric.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {nosql} store holding live status has an outage. What do drivers see?",
+    [
+      "The {cdn} keeps serving recent map answers for a while, so most drivers notice nothing at first.",
+      "Show chargers with status 'unknown, last seen 10 minutes ago' rather than an error.",
+      "Queue check-ins on the phone and send them when the store is back.",
     ],
   ],
 ])

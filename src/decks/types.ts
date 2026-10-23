@@ -12,6 +12,7 @@ export type CardCategory =
   | "tradeoff"
   | "alternative"
   | "edge-case"
+  | "resilience"
   | "scale"
   | "security"
   | "observability"
@@ -35,6 +36,7 @@ export const CATEGORY_ORDER: CardCategory[] = [
   "alternative",
   "scale",
   "edge-case",
+  "resilience",
   "security",
   "observability",
 ]
@@ -47,6 +49,7 @@ export const CATEGORY_LABEL: Record<CardCategory, string> = {
   alternative: "Alternative",
   scale: "Scale",
   "edge-case": "Edge case",
+  resilience: "Failure & recovery",
   security: "Security",
   observability: "Observability",
 }

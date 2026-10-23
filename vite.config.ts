@@ -15,8 +15,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
-        name: "Load Bearing",
-        short_name: "Load Bearing",
+        name: "Architech",
+        short_name: "Architech",
         description:
           "Design, break and repair system architectures. A diagramming game about load.",
         start_url: "/",

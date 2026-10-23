@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display:
+    "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+:root {
+  color-scheme: dark;
+  background: #070a12;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(
+      1200px 600px at 75% -10%,
+      hsl(270 80% 30% / 0.25),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 0% 20%,
+      hsl(190 90% 30% / 0.18),
+      transparent 60%
+    ),
+    #070a12;
+  background-attachment: fixed;
+  overscroll-behavior: none;
+}
+
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+
+/* Board animation. All of these honour reduced motion. */
+@keyframes pulse-ring {
+  50% {
+    opacity: 0.45;
+  }
+}
+.pulse {
+  animation: pulse-ring 1.4s ease-in-out infinite;
+}
+@keyframes throb {
+  50% {
+    opacity: 0.25;
+  }
+}
+.throb {
+  animation: throb 0.7s ease-in-out infinite;
+}
+@keyframes march {
+  to {
+    stroke-dashoffset: -26;
+  }
+}
+.march {
+  animation: march 1s linear infinite;
+}
+@keyframes float {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.float > * {
+  animation: float 3.2s ease-in-out infinite;
+  animation-delay: inherit;
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.pop {
+  animation: pop 0.22s ease-out;
+}
+@keyframes star-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3) rotate(-40deg);
+  }
+}
+.star-in {
+  animation: star-in 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+@keyframes chaos-flash {
+  50% {
+    box-shadow: 0 0 30px hsl(352 100% 60% / 0.7);
+  }
+}
+.chaos-flash {
+  animation: chaos-flash 0.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .throb,
+  .march,
+  .float > *,
+  .chaos-flash {
+    animation: none;
+  }
+}

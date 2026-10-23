@@ -8,8 +8,9 @@ on:
 
 permissions:
   contents: read
+  # Mints the short-lived token Google exchanges for deploy rights (no stored key).
+  id-token: write
   pull-requests: write
-  checks: write
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -28,7 +29,8 @@ jobs:
       VITE_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.VITE_FIREBASE_APPCHECK_SITE_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      # Third-party actions are pinned to a commit, not a movable tag.
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -36,20 +38,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+      # Workload Identity Federation: only this repository can act as the
+      # Hosting-only deploy account, and only for the length of this job.
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/175902897070/locations/global/workloadIdentityPools/github/providers/tim-game-architech
+          service_account: github-deploy@tim-game-architech.iam.gserviceaccount.com
+
       - name: Preview
         if: github.event_name == 'pull_request'
-        uses: FirebaseExtended/action-hosting-deploy@v0.11.0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: tim-game-architech
-          expires: 7d
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(pnpm exec firebase hosting:channel:deploy "pr-${{ github.event.number }}" \
+            --expires 7d --project tim-game-architech --json \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s).result;console.log(Object.values(r)[0].url)})')
+          echo "Preview: $url"
+          gh pr comment "${{ github.event.number }}" --edit-last --body "Preview: $url (expires in 7 days; sign-in only works on the live site)" \
+            || gh pr comment "${{ github.event.number }}" --body "Preview: $url (expires in 7 days; sign-in only works on the live site)"
 
       - name: Live
         if: github.event_name == 'push'
-        uses: FirebaseExtended/action-hosting-deploy@v0.11.0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: tim-game-architech
-          channelId: live
+        run: pnpm exec firebase deploy --only hosting --project tim-game-architech --non-interactive

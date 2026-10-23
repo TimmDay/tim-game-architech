@@ -37,6 +37,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Firebase serves its sign-in pages under /__/ on this domain. The
+        // offline fallback must never answer those with the app's page, or
+        // returning visitors' sign-in frames load the game instead.
+        navigateFallbackDenylist: [/^\/__\//],
       },
     }),
   ],

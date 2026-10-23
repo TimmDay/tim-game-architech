@@ -42,6 +42,10 @@ export function backend(key: string, profile: string | null = uid): Storage {
   return profile === GUEST && isPerPlayer(key) ? sessionStorage : localStorage
 }
 
+/** Per-player keys that sync (in-progress builds stay on the device). */
+export const isSynced = (key: string) =>
+  isPerPlayer(key) && !key.startsWith("lb.build.")
+
 // --- "the save changed" signal, for cloud sync -------------------------------
 const changeListeners = new Set<() => void>()
 export const notifySaveChanged = () => {

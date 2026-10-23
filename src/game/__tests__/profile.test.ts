@@ -11,3 +11,12 @@ describe("profiles", () => {
     expect(scoped("lb.progress", GUEST)).toBe("lb.progress")
   })
 })
+
+it("only wakes sync for data that syncs", async () => {
+  const { isSynced } = await import("../profile")
+  expect(isSynced("lb.review")).toBe(true)
+  expect(isSynced("lb.quiz.front-page")).toBe(true)
+  expect(isSynced("lb.build.front-page")).toBe(false)
+  expect(isSynced("lb.provider")).toBe(false)
+  expect(isSynced("lb.muted")).toBe(false)
+})

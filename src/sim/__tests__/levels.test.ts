@@ -275,3 +275,138 @@ describe("existing levels keep their numbers", () => {
     expect(r.perComponent.q?.writeRps).toBeCloseTo(300)
   })
 })
+
+describe("the CAP shelf's traps", () => {
+  const level = (id: string) => {
+    const l = LEVELS.find((x) => x.id === id)
+    if (!l) throw new Error(`missing ${id}`)
+    return l
+  }
+  const run = (l: ReturnType<typeof level>, g: Graph) =>
+    grade(g, l.load, l.targets, l.chaos.faults)
+  const failed = (l: ReturnType<typeof level>, g: Graph) =>
+    run(l, g)
+      .checks.filter((c) => !c.pass)
+      .map((c) => c.id)
+  const concepts = (l: ReturnType<typeof level>, g: Graph) => {
+    const r = run(l, g)
+    return findings(g, l.load, r.peak, l.targets, r.chaos, l.chaos.label).map(
+      (f) => f.concept,
+    )
+  }
+  const patch = (g: Graph, id: string, p: Partial<PlacedComponent>): Graph => ({
+    ...g,
+    components: g.components.map((c) => (c.id === id ? { ...c, ...p } : c)),
+  })
+
+  it("balance sheet: two copies can't form a majority, so a split refuses everything", () => {
+    const l = level("balance-sheet")
+    const two = patch(l.reference, "db", { instances: 2, zones: 2 })
+    expect(failed(l, two)).toEqual(["chaos"])
+    expect(concepts(l, two)).toContain("quorum")
+  })
+
+  it("balance sheet: keep-serving lets both sides accept transfers", () => {
+    const l = level("balance-sheet")
+    const ap = patch(l.reference, "db", { consistency: "eventual" })
+    expect(failed(l, ap)).toEqual(["chaos"])
+    expect(concepts(l, ap)).toContain("cap-theorem")
+  })
+
+  it("balance sheet: refusing the cut-off side isn't reported as a failure", () => {
+    const l = level("balance-sheet")
+    const r = run(l, l.reference)
+    const f = findings(
+      l.reference,
+      l.load,
+      r.peak,
+      l.targets,
+      r.chaos,
+      l.chaos.label,
+    )
+    expect(f.filter((x) => x.severity === "error")).toEqual([])
+  })
+
+  it("full basket: refusing during a split fails shoppers", () => {
+    const l = level("full-basket")
+    const cp = patch(l.reference, "baskets", { consistency: "strong" })
+    expect(failed(l, cp)).toEqual(["chaos"])
+    expect(concepts(l, cp)).toContain("cap-theorem")
+  })
+
+  it("full basket: one SQL primary can't take the basket writes", () => {
+    const l = level("full-basket")
+    const sql = {
+      ...l.reference,
+      components: l.reference.components.map((c) =>
+        c.id === "baskets"
+          ? { ...c, kind: "sql-primary" as const, instances: 3, zones: 3 }
+          : c,
+      ),
+    }
+    expect(failed(l, sql)).toContain("traffic")
+  })
+
+  it("tenant split: one primary can't take the writes, however many standbys", () => {
+    const l = level("tenant-split")
+    const one = patch(l.reference, "db", { shards: 1, instances: 3, zones: 3 })
+    expect(failed(l, one)).toContain("traffic")
+  })
+
+  it("tenant split: by date, every new write lands on one shard, however many", () => {
+    const l = level("tenant-split")
+    for (const shards of [4, 8]) {
+      const g = patch(l.reference, "db", { shards, partitionKey: "created" })
+      expect(failed(l, g)).toContain("traffic")
+      expect(concepts(l, g)).toContain("hot-keys")
+    }
+  })
+
+  it("tenant split: by task, opening a task list asks every shard", () => {
+    const l = level("tenant-split")
+    const g = patch(l.reference, "db", { partitionKey: "task" })
+    expect(failed(l, g)).toContain("latency")
+    expect(concepts(l, g)).toContain("scatter-gather")
+  })
+
+  it("like storm: keyed by post, the celebrity's shard is overloaded at any shard count", () => {
+    const l = level("like-storm")
+    for (const shards of [5, 8]) {
+      const g = patch(l.reference, "db", { shards, partitionKey: "post" })
+      expect(failed(l, g)).toContain("traffic")
+      expect(concepts(l, g)).toContain("hot-keys")
+    }
+  })
+
+  it("like storm: refusing likes during a split fails people", () => {
+    const l = level("like-storm")
+    for (const copies of [2, 3]) {
+      const g = patch(l.reference, "db", {
+        consistency: "strong",
+        instances: copies,
+        zones: copies,
+      })
+      expect(failed(l, g)).toContain("chaos")
+    }
+  })
+
+  it("claim your name: keep-serving hands one name to two people", () => {
+    const l = level("claim-your-name")
+    const ap = patch(l.reference, "db", { consistency: "eventual" })
+    expect(failed(l, ap)).toEqual(["chaos"])
+  })
+
+  it("claim your name: two copies per shard is cheaper, and refuses everything", () => {
+    const l = level("claim-your-name")
+    const two = patch(l.reference, "db", { instances: 2, zones: 2 })
+    expect(failed(l, two)).toEqual(["chaos"])
+  })
+
+  it("claim your name: keyed by sign-up time or email domain, one shard takes the rush", () => {
+    const l = level("claim-your-name")
+    for (const partitionKey of ["signup", "domain"]) {
+      const g = patch(l.reference, "db", { partitionKey, shards: 8 })
+      expect(failed(l, g)).toContain("traffic")
+    }
+  })
+})

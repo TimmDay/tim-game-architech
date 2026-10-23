@@ -8,6 +8,7 @@ import {
   FlaskConical,
   GraduationCap,
   Hammer,
+  Split,
   Star,
   Stethoscope,
   Wrench,
@@ -123,9 +124,11 @@ function LevelCard({
           <span className="font-mono text-[11px] text-slate-500">
             {level.track === "classic"
               ? "C"
-              : level.mode === "build"
-                ? "B"
-                : "R"}
+              : level.track === "cap"
+                ? "P"
+                : level.mode === "build"
+                  ? "B"
+                  : "R"}
             {String(index + 1).padStart(2, "0")}
           </span>
           <span className="flex gap-0.5" aria-label={`${stars} of 3 stars`}>
@@ -190,6 +193,7 @@ export function Home({
 }) {
   const build = LEVELS.filter((l) => l.mode === "build" && !l.track)
   const classics = LEVELS.filter((l) => l.track === "classic")
+  const cap = LEVELS.filter((l) => l.track === "cap")
   const repair = LEVELS.filter((l) => l.mode === "repair")
   const total = LEVELS.reduce((s, l) => s + (progress[l.id]?.stars ?? 0), 0)
   const section = (
@@ -292,6 +296,13 @@ export function Home({
         "The questions interviewers ask most: a URL shortener, a chat app, a ticket sale and more. Each one hides the mistake that question is designed to catch.",
         classics,
         "text-violet-200",
+      )}
+      {section(
+        "CAP trade-offs",
+        <Split size={22} />,
+        "When a network split leaves copies of your data apart, do you refuse requests or let the copies disagree? Choose per store, then shard the data by a partition key that spreads the load.",
+        cap,
+        "text-indigo-200",
       )}
       {section(
         "Repair",

@@ -9,6 +9,13 @@ import {
   ZONE_OUTAGE,
 } from "./build"
 import {
+  BALANCE_SHEET,
+  CLAIM_YOUR_NAME,
+  FULL_BASKET,
+  LIKE_STORM,
+  TENANT_SPLIT,
+} from "./cap"
+import {
   GROUP_CHAT,
   HOME_TIMELINE,
   RIDE_HAILING,
@@ -43,6 +50,11 @@ export const DECKS: Record<string, DeckCard[]> = {
   "video-night": VIDEO_NIGHT,
   "ride-hailing": RIDE_HAILING,
   typeahead: TYPEAHEAD,
+  "balance-sheet": BALANCE_SHEET,
+  "full-basket": FULL_BASKET,
+  "tenant-split": TENANT_SPLIT,
+  "like-storm": LIKE_STORM,
+  "claim-your-name": CLAIM_YOUR_NAME,
   "lost-writes": LOST_WRITES,
   "black-friday": BLACK_FRIDAY,
   "slow-checkout": SLOW_CHECKOUT,

@@ -49,3 +49,9 @@ export const loadDeckMarks = (levelId: string) =>
   read<Record<string, CardMark>>(`lb.deck.${levelId}`, {})
 export const saveDeckMarks = (levelId: string, m: Record<string, CardMark>) =>
   write(`lb.deck.${levelId}`, m)
+
+export type QuizRecord = { best: number; passed: boolean }
+export const loadQuiz = (levelId: string) =>
+  read<QuizRecord>(`lb.quiz.${levelId}`, { best: 0, passed: false })
+export const saveQuiz = (levelId: string, r: QuizRecord) =>
+  write(`lb.quiz.${levelId}`, r)

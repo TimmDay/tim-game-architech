@@ -7,6 +7,7 @@ import {
   X,
   RotateCcw,
   Lightbulb,
+  Lock,
 } from "lucide-react"
 import {
   useCallback,
@@ -17,7 +18,13 @@ import {
   useState,
 } from "react"
 import { canConnect, edit, inBounds, occupied } from "~/game/edit"
-import { clearBuild, loadBuild, saveBuild, type Progress } from "~/game/storage"
+import {
+  clearBuild,
+  loadBuild,
+  loadQuiz,
+  saveBuild,
+  type Progress,
+} from "~/game/storage"
 import { useWide } from "~/game/useWide"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
 import { LEVELS, type Level } from "~/levels"
@@ -32,6 +39,8 @@ import { Board } from "~/ui/Board"
 import { CardView } from "~/ui/CardView"
 import { DiscussView } from "~/ui/DiscussView"
 import { SolutionView } from "~/ui/SolutionView"
+import { QuizView } from "~/ui/QuizView"
+import { PASS_MARK } from "~/quiz/questions"
 import { SOLUTIONS } from "~/levels/solutions"
 import { ms, pct } from "~/ui/format"
 import { Modal } from "~/ui/Modal"
@@ -59,6 +68,7 @@ type Info =
   | { kind: ComponentKind }
   | { discuss: string }
   | { solution: true }
+  | { quiz: true }
 
 const EMPTY: Graph = { components: [], edges: [] }
 
@@ -103,6 +113,7 @@ export function Play({
   const [toast, setToast] = useState<string | null>(null)
   const [diag, setDiag] = useState({ attempts: 0, solved: false })
   const [load, setLoad] = useState<LoadProfile>(level.load)
+  const [quiz, setQuiz] = useState(() => loadQuiz(level.id))
 
   useEffect(() => saveBuild(level.id, graph), [graph, level.id])
   useEffect(() => {
@@ -353,18 +364,35 @@ export function Play({
   )
   const solution =
     sandbox || !SOLUTIONS[level.id] ? null : (
-      <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-3">
+      <div className="space-y-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-3">
         <H>Stuck?</H>
         <button
           type="button"
           onClick={() => setInfo({ solution: true })}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300/40 py-2 text-[14px] font-semibold text-amber-100 hover:bg-amber-300/10"
+          disabled={!quiz.passed}
+          title={
+            quiz.passed
+              ? undefined
+              : `Pass the ${PASS_MARK}/10 check below to unlock`
+          }
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300/40 py-2 text-[14px] font-semibold text-amber-100 enabled:hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
         >
-          <Lightbulb size={15} /> See suggested solution
+          {quiz.passed ? <Lightbulb size={15} /> : <Lock size={14} />} See
+          suggested solution
         </button>
-        <p className="mt-2 text-[12px] leading-snug text-slate-500">
-          Shows a three-star design, running, with the reasoning and trade-offs
-          written out. It gives the answer away.
+        {!quiz.passed && (
+          <button
+            type="button"
+            onClick={() => setInfo({ quiz: true })}
+            className="w-full rounded-lg bg-amber-300 py-2 text-[14px] font-bold text-slate-950"
+          >
+            Unlock it: 10-question check
+          </button>
+        )}
+        <p className="text-[12px] leading-snug text-slate-500">
+          {quiz.passed
+            ? "Shows a three-star design, running, with the reasoning and trade-offs written out."
+            : `Score ${PASS_MARK}/10 on this scenario's key ideas to unlock the solution.${quiz.best > 0 ? ` Best so far: ${quiz.best}/10.` : ""} The discussion deck covers every question.`}
         </p>
       </div>
     )
@@ -564,7 +592,15 @@ export function Play({
     >
       {"concept" in info ? (
         <CardView card={CONCEPTS[info.concept]} provider={provider} />
-      ) : "solution" in info ? (
+      ) : "quiz" in info ? (
+        <QuizView
+          level={level}
+          provider={provider}
+          onPassed={() => setQuiz(loadQuiz(level.id))}
+          onOpenSolution={() => setInfo({ solution: true })}
+          onOpenDeck={onDeck}
+        />
+      ) : "solution" in info && quiz.passed ? (
         <SolutionView level={level} provider={provider} />
       ) : "discuss" in info ? (
         <DiscussView
@@ -577,13 +613,13 @@ export function Play({
           provider={provider}
           hideCaution={spoilerFree}
         />
-      ) : (
+      ) : "kind" in info ? (
         <CardView
           card={COMPONENT_CARDS[info.kind]}
           provider={provider}
           kind={info.kind}
         />
-      )}
+      ) : null}
     </Modal>
   ) : null
 

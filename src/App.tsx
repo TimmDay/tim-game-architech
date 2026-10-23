@@ -11,6 +11,7 @@ import type { Provider } from "~/providers/names"
 import { GENERIC_SCENARIO } from "~/levels/roles"
 import { KINDS } from "~/sim/catalogue"
 import { Codex } from "~/screens/Codex"
+import { Deck } from "~/screens/Deck"
 import { Home } from "~/screens/Home"
 import { Play } from "~/screens/Play"
 import { ProviderToggle } from "~/ui/ProviderToggle"
@@ -39,12 +40,17 @@ const SANDBOX: Level = {
 }
 
 type Route =
-  { screen: "home" } | { screen: "codex" } | { screen: "play"; levelId: string }
+  | { screen: "home" }
+  | { screen: "codex" }
+  | { screen: "play"; levelId: string }
+  | { screen: "deck"; levelId: string }
 
 /** Routes live in the hash so the back button and a home-screen PWA both behave. */
 function parse(hash: string): Route {
   const [screen, id] = hash.replace(/^#\/?/, "").split("/")
   if (screen === "codex") return { screen: "codex" }
+  if (screen === "deck" && id && levelById(id))
+    return { screen: "deck", levelId: id }
   if (screen === "play" && id && (id === "sandbox" || levelById(id)))
     return { screen: "play", levelId: id }
   return { screen: "home" }
@@ -95,9 +101,25 @@ export function App() {
           }}
           onExit={() => go("/")}
           onNext={(id) => go(`/play/${id}`)}
+          onDeck={() => go(`/deck/${level.id}`)}
           toggle={toggle}
         />
       </>
+    )
+  }
+
+  if (route.screen === "deck") {
+    const level = levelById(route.levelId)
+    if (!level) return null
+    return (
+      <Deck
+        key={level.id}
+        level={level}
+        provider={provider}
+        onBack={() => history.back()}
+        onPlay={() => go(`/play/${level.id}`)}
+        toggle={toggle}
+      />
     )
   }
 
@@ -117,6 +139,7 @@ export function App() {
           onPlay={(id) => go(`/play/${id}`)}
           onSandbox={() => go("/play/sandbox")}
           onCodex={() => go("/codex")}
+          onDeck={(id) => go(`/deck/${id}`)}
         />
       )}
     </div>

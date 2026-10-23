@@ -70,6 +70,7 @@ export function Play({
   onProgress,
   onExit,
   onNext,
+  onDeck,
   toggle,
 }: {
   level: Level
@@ -79,6 +80,7 @@ export function Play({
   onProgress: (p: Progress) => void
   onExit: () => void
   onNext: (id: string) => void
+  onDeck: () => void
   toggle: React.ReactNode
 }) {
   const wide = useWide()
@@ -307,6 +309,7 @@ export function Play({
     <BriefPanel
       level={level}
       provider={provider}
+      onDeck={onDeck}
       onConcept={(c) => setInfo({ concept: c })}
       diagnose={
         level.mode === "repair" ? (
@@ -552,6 +555,7 @@ export function Play({
       onClose={() => setGraded(null)}
       onNext={next ? () => onNext(next.id) : undefined}
       onConcept={(c) => setInfo({ concept: c })}
+      onDeck={sandbox ? undefined : onDeck}
     />
   ) : info ? (
     <Modal

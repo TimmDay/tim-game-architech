@@ -7,6 +7,8 @@ import {
   Lightbulb,
   Info,
   Link2,
+  Layers,
+  ArrowRight,
   MessagesSquare,
   Minus,
   Play,
@@ -17,6 +19,7 @@ import {
   X,
 } from "lucide-react"
 import { useState } from "react"
+import { DECKS } from "~/decks"
 import { CONCEPTS, type ConceptId } from "~/levels/concepts"
 import type { Level } from "~/levels"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
@@ -85,11 +88,13 @@ export function BriefPanel({
   provider,
   onConcept,
   diagnose,
+  onDeck,
 }: {
   level: Level
   provider: Provider
   onConcept: (id: ConceptId) => void
   diagnose?: React.ReactNode
+  onDeck?: () => void
 }) {
   const [hint, setHint] = useState(false)
   return (
@@ -155,6 +160,23 @@ export function BriefPanel({
           ))}
         </div>
       </div>
+      {onDeck && (DECKS[level.id]?.length ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={onDeck}
+          className="flex w-full items-center justify-between rounded-xl border border-fuchsia-300/25 bg-fuchsia-300/[0.05] px-3 py-2.5 text-left hover:border-fuchsia-300/50"
+        >
+          <span>
+            <span className="flex items-center gap-1.5 text-[14px] font-semibold text-fuchsia-100">
+              <Layers size={15} /> Discussion deck
+            </span>
+            <span className="text-[12px] text-slate-400">
+              {DECKS[level.id]?.length} interview prompts for this scenario
+            </span>
+          </span>
+          <ArrowRight size={16} className="text-fuchsia-200/70" />
+        </button>
+      )}
     </div>
   )
 }

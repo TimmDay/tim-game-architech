@@ -178,11 +178,10 @@ export function Home({
           <p className="font-mono text-[11px] tracking-[0.25em] text-cyan-300/80 uppercase">
             A system design game
           </p>
-          <h1 className="font-display mt-2 text-5xl leading-[0.95] font-bold text-white sm:text-6xl">
-            Load
-            <br />
+          <h1 className="font-display mt-2 text-6xl leading-[0.95] font-bold tracking-tight text-white sm:text-7xl">
+            Archi
             <span className="bg-gradient-to-r from-cyan-300 via-sky-400 to-fuchsia-400 bg-clip-text text-transparent">
-              Bearing
+              tech
             </span>
           </h1>
           <p className="mt-4 max-w-md text-[15px] leading-relaxed text-slate-300">

@@ -1,4 +1,4 @@
-# Load Bearing
+# Architech
 
 A system design game: isometric diagramming, a pure simulation engine, and a provider naming toggle. See `README.md` for the player's view.
 

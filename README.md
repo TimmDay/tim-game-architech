@@ -1,4 +1,4 @@
-<h1 align="center">Load Bearing</h1>
+<h1 align="center">Architech</h1>
 
 <p align="center">
   <strong>A system design game.</strong><br>

@@ -420,7 +420,7 @@ export function Play({
         onClick={onExit}
         className="font-display rounded-lg px-2 py-1 text-[15px] font-bold tracking-tight text-white hover:bg-white/5"
       >
-        <span className="text-cyan-300">◆</span> Load Bearing
+        <span className="text-cyan-300">◆</span> Architech
       </button>
       <span className="hidden truncate text-[13px] text-slate-500 sm:inline">
         / {sandbox ? "Sandbox" : level.title}

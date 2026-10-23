@@ -1,5 +1,6 @@
 import clsx from "clsx"
 import {
+  Swords,
   Brain,
   Lock,
   Layers,
@@ -12,8 +13,11 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
+import { TrophyRoom } from "~/ui/TrophyRoom"
 import { useReview } from "~/game/points-store"
-import { dueQueue } from "~/game/review"
+import { bestSurvivalWave, dueQueue } from "~/game/review"
+import { isComplete } from "~/game/progression"
+import { SURVIVAL_REQUIRES } from "~/survival/engine"
 import { missingPrereqs } from "~/game/progression"
 import type { Progress } from "~/game/storage"
 import { LEVELS, type Level } from "~/levels"
@@ -169,6 +173,7 @@ export function Home({
   onCodex,
   onDeck,
   onRetention,
+  onSurvival,
 }: {
   progress: Progress
   onPlay: (id: string) => void
@@ -176,6 +181,7 @@ export function Home({
   onCodex: () => void
   onDeck: (id: string) => void
   onRetention: () => void
+  onSurvival: () => void
 }) {
   const build = LEVELS.filter((l) => l.mode === "build")
   const repair = LEVELS.filter((l) => l.mode === "repair")
@@ -281,8 +287,69 @@ export function Home({
         repair,
         "text-rose-200",
       )}
+      <SurvivalSection progress={progress} onOpen={onSurvival} />
       <RetentionSection onOpen={onRetention} />
+      <TrophyRoom />
     </main>
+  )
+}
+
+/** Arcade mode: one architecture against endless, growing waves. */
+function SurvivalSection({
+  progress,
+  onOpen,
+}: {
+  progress: Progress
+  onOpen: () => void
+}) {
+  const state = useReview()
+  const best = bestSurvivalWave(state)
+  const missing = SURVIVAL_REQUIRES.filter(
+    (id) => !isComplete(id, progress),
+  ).flatMap((id) => LEVELS.find((l) => l.id === id)?.title ?? [])
+  const locked = missing.length > 0
+  return (
+    <section className="mt-12">
+      <h2 className="font-display flex items-center gap-2 text-2xl font-bold text-orange-200">
+        <Swords size={22} /> Survival
+      </h2>
+      <p className="mt-1 mb-4 max-w-xl text-[14px] text-slate-400">
+        Keep one architecture alive while traffic grows every wave. Some waves
+        are all reads, some are checkout rushes, some are floods of slow jobs.
+        From wave 3, something breaks that you won't see coming. Three lives.
+      </p>
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={locked}
+        className={clsx(
+          "flex w-full items-center justify-between gap-4 rounded-2xl border p-5 text-left transition",
+          locked
+            ? "cursor-not-allowed border-white/5 opacity-60"
+            : "border-orange-300/30 bg-gradient-to-r from-orange-400/[0.1] via-rose-500/[0.06] to-transparent hover:border-orange-300/60",
+        )}
+      >
+        <span>
+          <span className="font-display block text-[28px] leading-none font-bold text-white">
+            {best ? `Wave ${best}` : "No runs yet"}
+            {best > 0 && (
+              <span className="ml-2 text-[15px] font-semibold text-orange-200">
+                best
+              </span>
+            )}
+          </span>
+          <span className="mt-1.5 block text-[13px] text-slate-400">
+            {locked
+              ? `Finish ${missing.join(" and ")} to unlock.`
+              : "10 points for every new wave you clear."}
+          </span>
+        </span>
+        <span className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-400 to-rose-500 px-4 py-2 text-[14px] font-bold text-slate-950">
+          {locked ? <Lock size={14} /> : <Swords size={14} />}
+          {locked ? "Locked" : "Play"}
+        </span>
+      </button>
+    </section>
   )
 }
 

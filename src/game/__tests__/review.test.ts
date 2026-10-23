@@ -4,6 +4,8 @@ import {
   POINTS,
   answerQuestion,
   dueQueue,
+  bestSurvivalWave,
+  clearSurvivalWave,
   passScenario,
   review,
   seeCard,
@@ -86,5 +88,15 @@ describe("retention", () => {
     let s = seeCard(EMPTY, "a", true, t0)
     s = seeCard(s, "b", false, t0 + DAY)
     expect(dueQueue(s, t0 + 10 * DAY)[0]).toBe("card:b")
+  })
+})
+
+describe("survival points", () => {
+  it("pays 10 per wave the first time it's cleared, and tracks the best", () => {
+    let s = EMPTY
+    for (const n of [1, 2, 3]) s = clearSurvivalWave(s, n)
+    for (const n of [1, 2, 3, 4]) s = clearSurvivalWave(s, n)
+    expect(s.total).toBe(4 * POINTS.survivalWave)
+    expect(bestSurvivalWave(s)).toBe(4)
   })
 })

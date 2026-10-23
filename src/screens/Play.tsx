@@ -9,15 +9,7 @@ import {
   Lightbulb,
   Lock,
 } from "lucide-react"
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from "react"
-import { canConnect, edit, inBounds, occupied } from "~/game/edit"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   clearBuild,
   loadBuild,
@@ -26,8 +18,11 @@ import {
   type Progress,
 } from "~/game/storage"
 import { useWide } from "~/game/useWide"
+import { useBoardEditor } from "~/game/useBoardEditor"
+import { setHum, sfx, stopHum } from "~/game/sound"
 import { updateReview } from "~/game/points-store"
 import { isDue, passScenario, review } from "~/game/review"
+import { mark } from "~/game/achievements"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
 import { LEVELS, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
@@ -35,8 +30,6 @@ import { findings, symptomsOnly, type Finding } from "~/sim/findings"
 import { grade as gradeBuild, type Grade } from "~/sim/grade"
 import { simulate } from "~/sim/simulate"
 import type { ComponentKind, Graph, LoadProfile } from "~/sim/types"
-import { CLIENT_ID } from "~/sim/types"
-import { plain } from "~/text"
 import { Board } from "~/ui/Board"
 import { CardView } from "~/ui/CardView"
 import { DiscussView } from "~/ui/DiscussView"
@@ -56,12 +49,6 @@ import {
   nameOf,
 } from "~/ui/panels"
 import { Results } from "~/ui/Results"
-
-type Tool =
-  | { t: "select" }
-  | { t: "place"; kind: ComponentKind }
-  | { t: "connect"; from: string }
-  | { t: "diagnose" }
 
 type Tab = "brief" | "build" | "inspect" | "test"
 type Phase = "idle" | "ramp" | "hold" | "chaos"
@@ -100,12 +87,11 @@ export function Play({
     () => loadBuild(level.id) ?? level.starter ?? EMPTY,
     [level],
   )
-  const [graph, dispatch] = useReducer(edit, initial)
-  const [tool, setTool] = useState<Tool>({ t: "select" })
-  const [sel, setSel] = useState<{ node?: string; edge?: string }>({})
   const [traffic, setTraffic] = useState(1)
   const [live, setLive] = useState(false)
   const [phase, setPhase] = useState<Phase>("idle")
+  const [shake, setShake] = useState(false)
+  const running = phase !== "idle"
   const [graded, setGraded] = useState<Grade | null>(null)
   const [info, setInfo] = useState<Info | null>(null)
   const [tab, setTab] = useState<Tab>(
@@ -116,6 +102,28 @@ export function Play({
   const [diag, setDiag] = useState({ attempts: 0, solved: false })
   const [load, setLoad] = useState<LoadProfile>(level.load)
   const [quiz, setQuiz] = useState(() => loadQuiz(level.id))
+  const {
+    graph,
+    dispatch,
+    tool,
+    setTool,
+    sel,
+    setSel,
+    onTapNode,
+    onTapTile,
+    onTapEdge,
+    onMove,
+    banner,
+  } = useBoardEditor({
+    initial,
+    provider,
+    running,
+    onInspect: () => {
+      if (!wide) openTab("inspect")
+    },
+    onToast: setToast,
+    onDiagnose: handleDiagnose,
+  })
 
   useEffect(() => saveBuild(level.id, graph), [graph, level.id])
   useEffect(() => {
@@ -157,13 +165,20 @@ export function Play({
     const RAMP = 2600
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / RAMP)
-      setTraffic(0.1 + 0.9 * (1 - Math.pow(1 - t, 2)))
+      const share = 0.1 + 0.9 * (1 - Math.pow(1 - t, 2))
+      setTraffic(share)
+      setHum(share)
       if (t < 1) raf.current = requestAnimationFrame(step)
       else {
         setPhase("hold")
         setTimeout(() => {
           setPhase("chaos")
+          sfx.siren()
+          setHum(1.4)
+          setShake(true)
+          setTimeout(() => setShake(false), 650)
           setTimeout(() => {
+            stopHum()
             const g = gradeBuild(
               graph,
               level.load,
@@ -174,6 +189,16 @@ export function Play({
             setGraded(g)
             if (g.stars > 0 && !sandbox) {
               const now = Date.now()
+              // Moments the achievements watch for, which saved stars can't tell.
+              updateReview((s) => {
+                let next = mark(s, `provider:${provider}`)
+                if (
+                  g.stars === 3 &&
+                  g.peak.monthlyCostUsd <= level.targets.budgetUsd * 0.75
+                )
+                  next = mark(next, "event:penny-pincher")
+                return next
+              })
               updateReview((s) => {
                 // A due revisit counts as a Retention review, worth its own points.
                 const revisit = isDue(s, `level:${level.id}`, now)
@@ -195,9 +220,28 @@ export function Play({
       }
     }
     raf.current = requestAnimationFrame(step)
-  }, [graph, level, progress, onProgress, wide, sandbox])
-  useEffect(() => () => cancelAnimationFrame(raf.current), [])
-  const running = phase !== "idle"
+  }, [graph, level, progress, onProgress, wide, sandbox, setTool, provider])
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(raf.current)
+      stopHum()
+    },
+    [],
+  )
+
+  // A crunch each time another block tips over while traffic is flowing.
+  const overloaded = useMemo(
+    () =>
+      Object.values(result.perComponent).filter(
+        (m) => !m.behindAsync && m.utilization >= 1,
+      ).length,
+    [result],
+  )
+  const lastOverloaded = useRef(0)
+  useEffect(() => {
+    if (live && overloaded > lastOverloaded.current) sfx.crunch()
+    lastOverloaded.current = overloaded
+  }, [overloaded, live])
   const phaseLabel =
     phase === "ramp"
       ? "Ramping traffic…"
@@ -211,102 +255,28 @@ export function Play({
     setSheetOpen(true)
   }
 
-  // Keyboard, desktop: C connects from the selected block, D (or Delete)
-  // removes the selected block or connection, Esc cancels. Subscribed once,
-  // reading current state through a ref, like Modal.
-  const keyState = useRef({ sel, running })
-  useEffect(() => {
-    keyState.current = { sel, running }
-  }, [sel, running])
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return
-      const t = e.target as HTMLElement | null
-      if (t?.closest("input, textarea, select, [contenteditable]")) return
-      // A popup owns the keyboard: D must never delete something behind it.
-      if (document.querySelector('[role="dialog"]')) return
-      const { sel, running } = keyState.current
-      if (e.key === "Escape") {
-        setTool((cur) => (cur.t === "select" ? cur : { t: "select" }))
-        return
-      }
-      if (running) return
-      const key = e.key.toLowerCase()
-      if (key === "c" && sel.node) {
-        e.preventDefault()
-        const from = sel.node
-        setTool((cur) =>
-          cur.t === "connect" ? { t: "select" } : { t: "connect", from },
-        )
-      } else if (key === "d" || key === "delete" || key === "backspace") {
-        if (sel.edge) dispatch({ type: "remove-edge", id: sel.edge })
-        else if (sel.node && sel.node !== CLIENT_ID)
-          dispatch({ type: "remove", id: sel.node })
-        else return
-        e.preventDefault()
-        setSel({})
-        setTool({ t: "select" })
-      }
+  // Repair mode: tapping a block while diagnosing. A declaration, so the
+  // board editor above can be handed it before this point in the body.
+  function handleDiagnose(id: string) {
+    if (!level.rootCause) return
+    if (id === level.rootCause.componentId) {
+      setDiag((d) => ({ ...d, solved: true }))
+      const prev = progress[level.id]
+      if (!prev?.diagnosedFirstTry)
+        onProgress({
+          ...progress,
+          [level.id]: {
+            stars: prev?.stars ?? 0,
+            diagnosedFirstTry: diag.attempts === 0,
+          },
+        })
+      openTab("brief")
+    } else {
+      setDiag((d) => ({ ...d, attempts: d.attempts + 1 }))
+      setToast(
+        `Not the root cause. ${nameOf(graph, id, provider)} may be suffering, but something else is making it suffer.`,
+      )
     }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
-
-  const onTapNode = (id: string) => {
-    if (running) return
-    if (tool.t === "connect") {
-      if (canConnect(graph, tool.from, id)) {
-        dispatch({ type: "connect", from: tool.from, to: id })
-        setSel({ node: id })
-      } else if (id !== tool.from) {
-        setToast(
-          "Those two are already connected, or that isn't a valid target.",
-        )
-      }
-      setTool({ t: "select" })
-      if (!wide) openTab("inspect")
-      return
-    }
-    if (tool.t === "diagnose" && level.rootCause) {
-      if (id === CLIENT_ID) return
-      if (id === level.rootCause.componentId) {
-        setDiag((d) => ({ ...d, solved: true }))
-        const prev = progress[level.id]
-        if (!prev?.diagnosedFirstTry)
-          onProgress({
-            ...progress,
-            [level.id]: {
-              stars: prev?.stars ?? 0,
-              diagnosedFirstTry: diag.attempts === 0,
-            },
-          })
-        openTab("brief")
-      } else {
-        setDiag((d) => ({ ...d, attempts: d.attempts + 1 }))
-        setToast(
-          `Not the root cause. ${nameOf(graph, id, provider)} may be suffering, but something else is making it suffer.`,
-        )
-      }
-      setTool({ t: "select" })
-      return
-    }
-    setSel({ node: id })
-    if (!wide) openTab("inspect")
-  }
-
-  const onTapTile = (x: number, y: number) => {
-    if (running) return
-    if (tool.t === "place") {
-      if (!inBounds(x, y) || occupied(graph, x, y)) return
-      dispatch({ type: "place", kind: tool.kind, x, y })
-      // Mirror the reducer's naming so the new block arrives selected.
-      setSel({ node: `${tool.kind}-${nextNum(graph, tool.kind)}` })
-      setTool({ t: "select" })
-      if (!wide) openTab("inspect")
-      return
-    }
-    if (tool.t !== "select") setTool({ t: "select" })
-    setSel({})
   }
 
   // Reset throws away the player's build, so it takes a second tap.
@@ -457,20 +427,14 @@ export function Play({
     />
   )
 
-  const banner =
-    tool.t === "place"
-      ? `Tap an empty tile to place ${plain(`{${tool.kind}}`, provider)}`
-      : tool.t === "connect"
-        ? `Tap where requests from ${tool.from === CLIENT_ID ? "Users" : nameOf(graph, tool.from, provider)} should go`
-        : tool.t === "diagnose"
-          ? "Tap the component that is the root cause"
-          : null
-
   const idx = LEVELS.findIndex((l) => l.id === level.id)
   const next = LEVELS[idx + 1]
 
   const board = (
-    <div className="relative min-h-0 flex-1">
+    <div className={clsx("relative min-h-0 flex-1", shake && "shake")}>
+      {chaosOn && (
+        <div className="chaos-vignette pointer-events-none absolute inset-0 z-10" />
+      )}
       <Board
         graph={graph}
         provider={provider}
@@ -481,14 +445,9 @@ export function Play({
         placing={tool.t === "place"}
         connectingFrom={tool.t === "connect" ? tool.from : undefined}
         onTapNode={onTapNode}
-        onTapEdge={(id) => {
-          if (running) return
-          setSel({ edge: id })
-          setTool({ t: "select" })
-          if (!wide) openTab("inspect")
-        }}
+        onTapEdge={onTapEdge}
         onTapTile={onTapTile}
-        onMove={(id, x, y) => !running && dispatch({ type: "move", id, x, y })}
+        onMove={onMove}
       />
       {banner && (
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
@@ -707,13 +666,6 @@ export function Play({
       {modal}
     </div>
   )
-}
-
-/** The reducer's id scheme, mirrored so a freshly placed block can be selected. */
-function nextNum(g: Graph, kind: ComponentKind) {
-  let n = 1
-  while (g.components.some((c) => c.id === `${kind}-${n}`)) n++
-  return n
 }
 
 function SandboxLoad({

@@ -368,7 +368,7 @@ export function Board(p: BoardProps) {
                   strokeOpacity={idle ? 0.35 : 1}
                   strokeWidth={2}
                   strokeDasharray={dashed ? "7 6" : undefined}
-                  className={dashed ? "march" : undefined}
+                  className={dashed ? "march" : "edge-draw"}
                 />
                 <line
                   x1={a.sx + (b.sx - a.sx) * 0.5}
@@ -422,24 +422,28 @@ export function Board(p: BoardProps) {
                   points={diamond(TW / 2, TH / 2 + 10, -14)}
                   fill="transparent"
                 />
-                <Block
-                  kind={c.kind}
-                  instances={c.instances}
-                  status={
-                    p.live && m
-                      ? {
-                          utilization: m.utilization,
-                          dead: m.aliveInstances === 0,
-                          alive: Math.round(
-                            (m.aliveInstances / c.instances) *
-                              Math.min(c.instances, 4),
-                          ),
-                        }
-                      : undefined
-                  }
-                  selected={p.selectedId === c.id || p.connectingFrom === c.id}
-                  flagged={p.flaggedId === c.id}
-                />
+                <g className="block-in">
+                  <Block
+                    kind={c.kind}
+                    instances={c.instances}
+                    status={
+                      p.live && m
+                        ? {
+                            utilization: m.utilization,
+                            dead: m.aliveInstances === 0,
+                            alive: Math.round(
+                              (m.aliveInstances / c.instances) *
+                                Math.min(c.instances, 4),
+                            ),
+                          }
+                        : undefined
+                    }
+                    selected={
+                      p.selectedId === c.id || p.connectingFrom === c.id
+                    }
+                    flagged={p.flaggedId === c.id}
+                  />
+                </g>
                 <Label
                   y={TH / 2 + 4}
                   text={serviceName(c.kind, p.provider).short}

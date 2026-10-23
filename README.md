@@ -23,6 +23,8 @@
 
 **Points.** 1 per new flash card, 2 per newly correct quiz answer, 50 per scenario passed. In Retention, a right answer earns 1, or 2 if you'd missed it before, and a scenario revisit earns 25. First-time awards are given once, so retrying can't farm them.
 
+**Achievements and ranks.** Thirteen achievements (20 points each), from "It's alive" to "Unbreakable" (wave 10 in Survival) and "Polyglot" (pass levels under all four naming schemes). Points carry you from Intern to Distinguished Architect. Achievements are derived from saved progress, so ones you'd already earned are granted on first load.
+
 Each level is worth three stars: **handles peak** (errors, latency, budget, data actually stored), **highly available** (the topology's availability arithmetic), and **survives chaos**.
 
 ## Provider toggle

@@ -44,6 +44,8 @@ export type ReviewState = {
   /** One-time awards already given, so retries can't farm them. */
   awarded: Record<string, true>
   items: Record<string, ReviewItem>
+  /** Retention reviews answered correctly, ever. */
+  reviewsRight?: number
 }
 
 export const EMPTY: ReviewState = { total: 0, awarded: {}, items: {} }
@@ -130,7 +132,12 @@ export function review(
   const box = right ? prev.box + 1 : 0
   const item = { box, weak: !right, last: now, due: now + interval(id, box) }
   return {
-    state: { ...s, total: s.total + earned, items: { ...s.items, [id]: item } },
+    state: {
+      ...s,
+      total: s.total + earned,
+      items: { ...s.items, [id]: item },
+      reviewsRight: (s.reviewsRight ?? 0) + (right ? 1 : 0),
+    },
     earned,
   }
 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
+import { TrophyRoom } from "~/ui/TrophyRoom"
 import { useReview } from "~/game/points-store"
 import { bestSurvivalWave, dueQueue } from "~/game/review"
 import { isComplete } from "~/game/progression"
@@ -288,6 +289,7 @@ export function Home({
       )}
       <SurvivalSection progress={progress} onOpen={onSurvival} />
       <RetentionSection onOpen={onRetention} />
+      <TrophyRoom />
     </main>
   )
 }

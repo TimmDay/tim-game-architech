@@ -22,6 +22,7 @@ import { useBoardEditor } from "~/game/useBoardEditor"
 import { setHum, sfx, stopHum } from "~/game/sound"
 import { updateReview } from "~/game/points-store"
 import { isDue, passScenario, review } from "~/game/review"
+import { mark } from "~/game/achievements"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
 import { LEVELS, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
@@ -188,6 +189,16 @@ export function Play({
             setGraded(g)
             if (g.stars > 0 && !sandbox) {
               const now = Date.now()
+              // Moments the achievements watch for, which saved stars can't tell.
+              updateReview((s) => {
+                let next = mark(s, `provider:${provider}`)
+                if (
+                  g.stars === 3 &&
+                  g.peak.monthlyCostUsd <= level.targets.budgetUsd * 0.75
+                )
+                  next = mark(next, "event:penny-pincher")
+                return next
+              })
               updateReview((s) => {
                 // A due revisit counts as a Retention review, worth its own points.
                 const revisit = isDue(s, `level:${level.id}`, now)
@@ -209,7 +220,7 @@ export function Play({
       }
     }
     raf.current = requestAnimationFrame(step)
-  }, [graph, level, progress, onProgress, wide, sandbox, setTool])
+  }, [graph, level, progress, onProgress, wide, sandbox, setTool, provider])
   useEffect(
     () => () => {
       cancelAnimationFrame(raf.current)

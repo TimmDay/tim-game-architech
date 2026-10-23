@@ -15,6 +15,7 @@ import { Retention } from "~/screens/Retention"
 import { Survival } from "~/screens/Survival"
 import { SURVIVAL_REQUIRES } from "~/survival/engine"
 import { PointsChip } from "~/ui/PointsChip"
+import { AchievementToaster } from "~/ui/AchievementToaster"
 import { MuteButton } from "~/ui/MuteButton"
 import { LockedLevel } from "~/screens/LockedLevel"
 import { isComplete, isUnlocked, missingPrereqs } from "~/game/progression"
@@ -69,9 +70,25 @@ function parse(hash: string): Route {
 }
 
 export function App() {
+  const [progress, setProgress] = useState<Progress>(loadProgress)
+  // Achievements are granted from anywhere; the toaster sits above every screen.
+  return (
+    <>
+      <AppScreens progress={progress} setProgress={setProgress} />
+      <AchievementToaster progress={progress} />
+    </>
+  )
+}
+
+function AppScreens({
+  progress,
+  setProgress,
+}: {
+  progress: Progress
+  setProgress: (p: Progress) => void
+}) {
   const [route, setRoute] = useState<Route>(() => parse(location.hash))
   const [provider, setProvider] = useState<Provider>(loadProvider)
-  const [progress, setProgress] = useState<Progress>(loadProgress)
 
   useEffect(() => {
     const on = () => setRoute(parse(location.hash))

@@ -8,6 +8,7 @@ import type {
 } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import type { ConceptId } from "./concepts"
+import type { Scenario } from "./roles"
 
 /**
  * Text in levels, findings and concept cards writes component names as
@@ -23,6 +24,8 @@ export type Level = {
   /** One line for the level card. */
   tagline: string
   brief: string
+  /** What the system is about, for the per-component discussion. */
+  scenario: Scenario
   load: LoadProfile
   targets: Targets
   chaos: { faults: Fault[]; label: string }
@@ -78,6 +81,13 @@ const BUILD: Level[] = [
     tagline: "Your helpdesk app outgrew the laptop under the desk.",
     brief:
       "A helpdesk startup just signed its first real customers. At peak you'll see 500 requests a second, mostly agents reading tickets. Put a {load-balancer} in front of a pool of {app-server} instances and give them a {sql-primary} to keep tickets in. Then make sure losing one server doesn't take everyone down.",
+    scenario: {
+      product: "the helpdesk",
+      reads: "agents opening tickets",
+      writes: "ticket replies and status changes",
+      hot: "the open-ticket queue and customer profiles",
+      records: "tickets, replies and customer accounts",
+    },
     load: {
       peakRps: 500,
       readFraction: 0.8,
@@ -115,6 +125,13 @@ const BUILD: Level[] = [
     tagline: "A story is trending and everyone reads the same 50 articles.",
     brief:
       "A news site's logged-in feed is personalised, so the page itself can't sit at the edge, but the articles behind it are the same for everyone. Peak is 3,000 requests a second and 95% of them are reads. The {sql-primary} tops out around 2,000 reads a second. Keep p99 under 250ms on a budget that won't stretch to a fleet of replicas.",
+    scenario: {
+      product: "the news site",
+      reads: "readers loading their feed and articles",
+      writes: "comments, likes and newly published articles",
+      hot: "the trending articles that everyone is reading right now",
+      records: "articles, comments and reader accounts",
+    },
     load: {
       peakRps: 3_000,
       readFraction: 0.95,
@@ -159,6 +176,14 @@ const BUILD: Level[] = [
     tagline: "One meme, twenty thousand requests a second.",
     brief:
       "An image of a cat in a tiny hat has escaped containment. 20,000 requests a second want the same few images, and almost none of them write anything. Serving files from {app-server} instances would take a hundred of them. You have $100 a month.",
+    scenario: {
+      product: "the meme site",
+      reads: "people loading the same few images",
+      writes: "new image uploads",
+      hot: "the viral images themselves",
+      records: "image files",
+      files: "every uploaded image",
+    },
     load: {
       peakRps: 20_000,
       readFraction: 0.995,
@@ -196,6 +221,15 @@ const BUILD: Level[] = [
     tagline: "Every upload needs resizing, and resizing takes two seconds.",
     brief:
       "A photo app: 600 requests a second, half of them uploads. Every upload must be resized into four sizes, which takes about two seconds of CPU. Users won't wait two seconds for a button to respond, and the resizing has to keep up with the uploads, or the backlog grows forever.",
+    scenario: {
+      product: "the photo app",
+      reads: "people browsing albums",
+      writes: "photo uploads",
+      hot: "album pages and thumbnails",
+      records: "photo metadata: owner, album and caption",
+      files: "the original photos and their resized copies",
+      job: "resizing each upload into four sizes",
+    },
     load: {
       peakRps: 600,
       readFraction: 0.5,
@@ -245,6 +279,13 @@ const BUILD: Level[] = [
       "A data centre is about to lose power. You just don't know which one.",
     brief:
       "A payments dashboard promises 99.95% availability. 1,500 requests a second, mostly reads. This time, during the load test, a whole availability zone goes dark. Everything you put in only one zone goes dark with it.",
+    scenario: {
+      product: "the payments dashboard",
+      reads: "merchants checking balances and recent payments",
+      writes: "refunds and settings changes",
+      hot: "today's totals and recent payment lists",
+      records: "payments, refunds and merchant accounts",
+    },
     load: {
       peakRps: 1_500,
       readFraction: 0.9,
@@ -288,6 +329,14 @@ const BUILD: Level[] = [
       "Search wants every order. So does the warehouse. So does checkout.",
     brief:
       "An online shop takes 800 requests a second. Every order has to land in the {sql-primary}, become searchable in the {search-index}, and reach the {data-warehouse} for the finance team. The warehouse is built for big queries, not for sitting on the checkout path.",
+    scenario: {
+      product: "the shop",
+      reads: "customers browsing and searching",
+      writes: "orders",
+      hot: "product pages",
+      records: "orders, customers and stock levels",
+      events: "an order-placed event for every order",
+    },
     load: {
       peakRps: 800,
       readFraction: 0.6,
@@ -347,6 +396,13 @@ const REPAIR: Level[] = [
     tagline: "Support tickets are vanishing. The dashboards are all green.",
     brief:
       "Customers swear they saved their changes. The changes are gone. Nothing is erroring and latency looks fine. Load test it, work out which component is to blame, then fix it.",
+    scenario: {
+      product: "the helpdesk",
+      reads: "customers and agents opening tickets",
+      writes: "edits to tickets",
+      hot: "recently viewed tickets",
+      records: "tickets and their edit history",
+    },
     load: {
       peakRps: 600,
       readFraction: 0.8,
@@ -399,6 +455,13 @@ const REPAIR: Level[] = [
     tagline: "Traffic tripled overnight and checkout is timing out.",
     brief:
       "The shop scaled the app tier to ten instances last night and it's still falling over: 2,500 requests a second, nearly all of them browsing the same catalogue. Find the real bottleneck. Adding more of the wrong thing just burns money.",
+    scenario: {
+      product: "the shop",
+      reads: "shoppers browsing the catalogue",
+      writes: "orders and basket updates",
+      hot: "the product catalogue, which is identical for every shopper",
+      records: "products, orders and customers",
+    },
     load: {
       peakRps: 2_500,
       readFraction: 0.9,
@@ -456,6 +519,15 @@ const REPAIR: Level[] = [
     tagline: "Every order takes two seconds and nobody knows why.",
     brief:
       "Each order generates a PDF invoice. Somebody wired that into the request: the user clicks Pay, then waits while a PDF renders. p99 is through the roof and the app tier needs far more instances than it should. Find the culprit and take the slow work off the critical path.",
+    scenario: {
+      product: "the shop",
+      reads: "customers viewing orders and products",
+      writes: "orders",
+      hot: "product pages",
+      records: "orders and payments",
+      files: "the invoice PDFs",
+      job: "rendering a PDF invoice for each order",
+    },
     load: {
       peakRps: 400,
       readFraction: 0.7,
@@ -517,6 +589,13 @@ const REPAIR: Level[] = [
     tagline: "Zone A went down last month. So did the whole company.",
     brief:
       "The app tier was spread across three zones after the last outage, so leadership assumed the job was done. It wasn't. Find the single point of failure that's still there before zone A goes dark again.",
+    scenario: {
+      product: "the booking app",
+      reads: "users checking their bookings",
+      writes: "new bookings and cancellations",
+      hot: "availability calendars",
+      records: "bookings and user accounts",
+    },
     load: {
       peakRps: 1_200,
       readFraction: 0.85,
@@ -570,6 +649,14 @@ const REPAIR: Level[] = [
     tagline: "Finance wanted live numbers. Now checkout takes four seconds.",
     brief:
       "Someone wired the {app-server} straight into the {data-warehouse} so dashboards would be real-time. Every request now waits on a system built for ten-minute queries. Keep the dashboards fed without making customers wait.",
+    scenario: {
+      product: "the subscription app",
+      reads: "customers using the app",
+      writes: "sign-ups, upgrades and cancellations",
+      hot: "plan and pricing pages",
+      records: "customer accounts and subscriptions",
+      events: "an event for every sign-up, upgrade and cancellation",
+    },
     load: {
       peakRps: 700,
       readFraction: 0.7,
@@ -630,6 +717,14 @@ const REPAIR: Level[] = [
     tagline: "Search shows half the orders. Finance sees the other half.",
     brief:
       "Order events go onto a {queue} that feeds both the {search-index} and the {data-warehouse}. Each team swears it's the other team's bug. Neither is lying.",
+    scenario: {
+      product: "the shop",
+      reads: "customers browsing and searching",
+      writes: "orders",
+      hot: "product pages",
+      records: "orders, customers and stock levels",
+      events: "an order-placed event for every order",
+    },
     load: {
       peakRps: 800,
       readFraction: 0.6,

@@ -5,7 +5,9 @@ import {
   Check,
   CircleAlert,
   Lightbulb,
+  Info,
   Link2,
+  MessagesSquare,
   Minus,
   Play,
   Plus,
@@ -164,11 +166,13 @@ export function PalettePanel({
   provider,
   placing,
   onPick,
+  onInfo,
 }: {
   palette: ComponentKind[]
   provider: Provider
   placing?: ComponentKind
   onPick: (k: ComponentKind | undefined) => void
+  onInfo: (k: ComponentKind) => void
 }) {
   return (
     <div>
@@ -178,26 +182,36 @@ export function PalettePanel({
           const spec = CATALOGUE[k]
           const n = serviceName(k, provider)
           return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => onPick(placing === k ? undefined : k)}
-              title={n.name}
-              className={clsx(
-                "flex flex-col items-center rounded-xl border px-1 pt-1 pb-2 text-center transition",
-                placing === k
-                  ? "border-cyan-300 bg-cyan-300/10 shadow-[0_0_20px_-4px] shadow-cyan-400/60"
-                  : "border-white/8 bg-white/[0.03] hover:border-white/25 hover:bg-white/[0.06]",
-              )}
-            >
-              <MiniBlock kind={k} />
-              <span className="mt-0.5 text-[12px] leading-tight font-semibold text-slate-100">
-                {n.short}
-              </span>
-              <span className="font-mono text-[10px] text-slate-500">
-                {usd(spec.costPerInstanceMonthUsd)}/mo
-              </span>
-            </button>
+            <div key={k} className="relative">
+              <button
+                type="button"
+                onClick={() => onPick(placing === k ? undefined : k)}
+                title={n.name}
+                className={clsx(
+                  "flex w-full flex-col items-center rounded-xl border px-1 pt-1 pb-2 text-center transition",
+                  placing === k
+                    ? "border-cyan-300 bg-cyan-300/10 shadow-[0_0_20px_-4px] shadow-cyan-400/60"
+                    : "border-white/8 bg-white/[0.03] hover:border-white/25 hover:bg-white/[0.06]",
+                )}
+              >
+                <MiniBlock kind={k} />
+                <span className="mt-0.5 text-[12px] leading-tight font-semibold text-slate-100">
+                  {n.short}
+                </span>
+                <span className="font-mono text-[10px] text-slate-500">
+                  {usd(spec.costPerInstanceMonthUsd)}/mo
+                </span>
+              </button>
+              {/* A sibling, not a child: a button can't nest inside a button. */}
+              <button
+                type="button"
+                onClick={() => onInfo(k)}
+                aria-label={`About ${n.name}`}
+                className="absolute top-1 right-1 grid size-7 place-items-center rounded-full text-slate-500 hover:bg-white/10 hover:text-white"
+              >
+                <Info size={15} />
+              </button>
+            </div>
           )
         })}
       </div>
@@ -284,6 +298,7 @@ export function InspectPanel({
   onRemove,
   onRemoveEdge,
   onLearn,
+  onDiscuss,
 }: {
   graph: Graph
   provider: Provider
@@ -297,6 +312,7 @@ export function InspectPanel({
   onRemove: (id: string) => void
   onRemoveEdge: (id: string) => void
   onLearn: (kind: ComponentKind) => void
+  onDiscuss: (id: string) => void
 }) {
   const label = (id: string) => {
     if (id === CLIENT_ID) return CLIENT_NAME.short
@@ -334,6 +350,9 @@ export function InspectPanel({
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-400/10 py-2.5 text-[14px] text-rose-200"
         >
           <Trash2 size={15} /> Remove connection
+          <kbd className="ml-1 hidden rounded border border-rose-300/30 px-1.5 font-mono text-[10px] text-rose-200/70 lg:inline">
+            D
+          </kbd>
         </button>
       </div>
     )
@@ -373,6 +392,11 @@ export function InspectPanel({
       )}
     >
       <Link2 size={15} /> {connecting ? "Now tap the target…" : "Connect to…"}
+      {!connecting && (
+        <kbd className="ml-1 hidden rounded border border-cyan-300/30 px-1.5 font-mono text-[10px] text-cyan-200/70 lg:inline">
+          C
+        </kbd>
+      )}
     </button>
   )
 
@@ -416,14 +440,26 @@ export function InspectPanel({
             {capacityNote} · {usd(spec.costPerInstanceMonthUsd)}/mo
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => onLearn(c.kind)}
-          aria-label="Learn about this component"
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white"
-        >
-          <BookOpen size={17} />
-        </button>
+        <div className="flex flex-col gap-0.5">
+          <button
+            type="button"
+            onClick={() => onLearn(c.kind)}
+            aria-label="What is this component?"
+            title="What is this component?"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white"
+          >
+            <BookOpen size={17} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDiscuss(c.id)}
+            aria-label="What is it doing in this design?"
+            title="What is it doing in this design?"
+            className="rounded-lg p-1.5 text-fuchsia-300/80 hover:bg-white/5 hover:text-fuchsia-200"
+          >
+            <MessagesSquare size={17} />
+          </button>
+        </div>
       </div>
 
       {spec.maxInstances > 1 && (
@@ -481,6 +517,9 @@ export function InspectPanel({
         className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2 text-[13px] text-slate-400 hover:border-rose-400/40 hover:text-rose-200"
       >
         <Trash2 size={14} /> Remove
+        <kbd className="ml-1 hidden rounded border border-white/15 px-1.5 font-mono text-[10px] text-slate-500 lg:inline">
+          D
+        </kbd>
       </button>
     </div>
   )

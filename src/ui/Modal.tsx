@@ -1,5 +1,5 @@
 import { X } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export function Modal({
   onClose,
@@ -10,11 +10,20 @@ export function Modal({
   children: React.ReactNode
   wide?: boolean
 }) {
+  // Subscribe once and read the latest onClose through a ref. Re-subscribing
+  // on every render dropped Escape: another keydown listener re-rendered first,
+  // and the listener was swapped out mid-dispatch.
+  const close = useRef(onClose)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+    close.current = onClose
+  }, [onClose])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close.current()
+    }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [onClose])
+  }, [])
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:items-center"

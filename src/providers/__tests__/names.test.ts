@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { COMPONENT_CARDS, CONCEPTS } from "~/levels/concepts"
 import { LEVELS } from "~/levels"
+import { discuss, liveFacts } from "~/levels/roles"
 import { KINDS } from "~/sim/catalogue"
 import { findings } from "~/sim/findings"
 import { grade } from "~/sim/grade"
@@ -37,6 +38,11 @@ const allRawText = (): string[] => {
         l.chaos.label,
       ))
         out.push(f.text)
+      for (const c of g.components) {
+        const d = discuss(g, c.id, l.scenario, l.load)
+        if (d) out.push(d.role, d.caution ?? "", ...d.tradeoffs)
+        out.push(...liveFacts(g, c.id, r.peak))
+      }
     }
   }
   for (const c of [

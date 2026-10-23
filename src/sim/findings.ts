@@ -144,6 +144,21 @@ export function findings(
       })
     }
 
+    // A balancer or gateway forwards requests; it can't run the queries.
+    if (c.kind === "load-balancer" || c.kind === "api-gateway") {
+      const stores = graph.edges
+        .filter((e) => e.from === c.id)
+        .flatMap((e) => graph.components.find((t) => t.id === e.to) ?? [])
+        .filter((t) => CATALOGUE[t.kind].category === "data")
+      if (stores.length > 0)
+        out.push({
+          severity: "error",
+          componentId: c.id,
+          concept: "horizontal-scaling",
+          text: `${name(c)} is wired straight to ${[...new Set(stores.map(name))].join(" and ")}. It only forwards requests: put {app-server} instances between it and your data.`,
+        })
+    }
+
     if (spec.async && !graph.edges.some((e) => e.from === c.id)) {
       out.push({
         severity: "error",

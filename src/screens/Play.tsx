@@ -29,6 +29,7 @@ import { CLIENT_ID } from "~/sim/types"
 import { plain } from "~/text"
 import { Board } from "~/ui/Board"
 import { CardView } from "~/ui/CardView"
+import { DiscussView } from "~/ui/DiscussView"
 import { ms, pct } from "~/ui/format"
 import { Modal } from "~/ui/Modal"
 import {
@@ -49,7 +50,8 @@ type Tool =
 
 type Tab = "brief" | "build" | "inspect" | "test"
 type Phase = "idle" | "ramp" | "hold" | "chaos"
-type Info = { concept: ConceptId } | { kind: ComponentKind }
+type Info =
+  { concept: ConceptId } | { kind: ComponentKind } | { discuss: string }
 
 const EMPTY: Graph = { components: [], edges: [] }
 
@@ -61,6 +63,7 @@ export function Play({
   onProgress,
   onExit,
   onNext,
+  toggle,
 }: {
   level: Level
   sandbox?: boolean
@@ -69,6 +72,7 @@ export function Play({
   onProgress: (p: Progress) => void
   onExit: () => void
   onNext: (id: string) => void
+  toggle: React.ReactNode
 }) {
   const wide = useWide()
   const initial = useMemo(
@@ -175,6 +179,47 @@ export function Play({
     setSheetOpen(true)
   }
 
+  // Keyboard, desktop: C connects from the selected block, D (or Delete)
+  // removes the selected block or connection, Esc cancels. Subscribed once,
+  // reading current state through a ref, like Modal.
+  const keyState = useRef({ sel, running })
+  useEffect(() => {
+    keyState.current = { sel, running }
+  }, [sel, running])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target as HTMLElement | null
+      if (t?.closest("input, textarea, select, [contenteditable]")) return
+      // A popup owns the keyboard: D must never delete something behind it.
+      if (document.querySelector('[role="dialog"]')) return
+      const { sel, running } = keyState.current
+      if (e.key === "Escape") {
+        setTool((cur) => (cur.t === "select" ? cur : { t: "select" }))
+        return
+      }
+      if (running) return
+      const key = e.key.toLowerCase()
+      if (key === "c" && sel.node) {
+        e.preventDefault()
+        const from = sel.node
+        setTool((cur) =>
+          cur.t === "connect" ? { t: "select" } : { t: "connect", from },
+        )
+      } else if (key === "d" || key === "delete" || key === "backspace") {
+        if (sel.edge) dispatch({ type: "remove-edge", id: sel.edge })
+        else if (sel.node && sel.node !== CLIENT_ID)
+          dispatch({ type: "remove", id: sel.node })
+        else return
+        e.preventDefault()
+        setSel({})
+        setTool({ t: "select" })
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
   const onTapNode = (id: string) => {
     if (running) return
     if (tool.t === "connect") {
@@ -232,7 +277,18 @@ export function Play({
     setSel({})
   }
 
+  // Reset throws away the player's build, so it takes a second tap.
+  const [confirmReset, setConfirmReset] = useState(false)
+  useEffect(() => {
+    if (!confirmReset) return
+    const t = setTimeout(() => setConfirmReset(false), 3000)
+    return () => clearTimeout(t)
+  }, [confirmReset])
   const reset = () => {
+    if (running) return
+    if (!confirmReset) return setConfirmReset(true)
+    setConfirmReset(false)
+    setTool({ t: "select" })
     clearBuild(level.id)
     dispatch({ type: "reset", graph: level.starter ?? EMPTY })
     setSel({})
@@ -282,6 +338,7 @@ export function Play({
         setTool(k ? { t: "place", kind: k } : { t: "select" })
         if (k && !wide) setSheetOpen(false)
       }}
+      onInfo={(kind) => setInfo({ kind })}
     />
   )
   const inspect = (
@@ -309,6 +366,7 @@ export function Play({
         setSel({})
       }}
       onLearn={(kind) => setInfo({ kind })}
+      onDiscuss={(id) => setInfo({ discuss: id })}
     />
   )
   const test = (
@@ -426,17 +484,28 @@ export function Play({
         / {sandbox ? "Sandbox" : level.title}
       </span>
       <div className="flex-1" />
+      {toggle}
       <button
         type="button"
         onClick={reset}
-        className="flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] text-slate-400 hover:bg-white/5 hover:text-white"
+        className={clsx(
+          "flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] whitespace-nowrap",
+          confirmReset
+            ? "bg-rose-400/15 text-rose-200"
+            : "text-slate-400 hover:bg-white/5 hover:text-white",
+        )}
         title={
           level.starter
             ? "Restore the original architecture"
             : "Clear the board"
         }
       >
-        <RotateCcw size={13} /> <span className="hidden sm:inline">Reset</span>
+        <RotateCcw size={13} />{" "}
+        {confirmReset ? (
+          "Tap again"
+        ) : (
+          <span className="hidden sm:inline">Reset</span>
+        )}
       </button>
     </header>
   )
@@ -464,6 +533,17 @@ export function Play({
     <Modal onClose={() => setInfo(null)}>
       {"concept" in info ? (
         <CardView card={CONCEPTS[info.concept]} provider={provider} />
+      ) : "discuss" in info ? (
+        <DiscussView
+          graph={graph}
+          id={info.discuss}
+          scenario={level.scenario}
+          load={liveLoad}
+          result={live ? result : simulate(graph, load)}
+          live={live}
+          provider={provider}
+          hideCaution={spoilerFree}
+        />
       ) : (
         <CardView
           card={COMPONENT_CARDS[info.kind]}

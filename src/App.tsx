@@ -8,6 +8,7 @@ import {
 } from "~/game/storage"
 import { LEVELS, SANDBOX_LOAD, levelById, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
+import { GENERIC_SCENARIO } from "~/levels/roles"
 import { KINDS } from "~/sim/catalogue"
 import { Codex } from "~/screens/Codex"
 import { Home } from "~/screens/Home"
@@ -20,6 +21,7 @@ const SANDBOX: Level = {
   title: "Sandbox",
   tagline: "",
   brief: "",
+  scenario: GENERIC_SCENARIO,
   load: SANDBOX_LOAD,
   targets: {
     p99Ms: 500,
@@ -93,13 +95,8 @@ export function App() {
           }}
           onExit={() => go("/")}
           onNext={(id) => go(`/play/${id}`)}
+          toggle={toggle}
         />
-        <div
-          className="fixed right-3 z-40"
-          style={{ top: "calc(0.45rem + env(safe-area-inset-top, 0px))" }}
-        >
-          <div className="mr-16 sm:mr-20">{toggle}</div>
-        </div>
       </>
     )
   }

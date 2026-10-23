@@ -5,8 +5,10 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { registerSW } from "virtual:pwa-register"
 import { App } from "./App"
+import { startAuth } from "./auth/auth"
 
 registerSW({ immediate: true })
+void startAuth()
 
 const root = document.getElementById("root")
 if (root)

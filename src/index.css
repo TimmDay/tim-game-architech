@@ -103,6 +103,24 @@ button:disabled {
   animation: chaos-flash 0.5s ease-in-out infinite;
 }
 
+@keyframes points-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+.points-pop {
+  animation: points-pop 1.4s ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse,
   .throb,

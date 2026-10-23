@@ -26,6 +26,8 @@ import {
   type Progress,
 } from "~/game/storage"
 import { useWide } from "~/game/useWide"
+import { updateReview } from "~/game/points-store"
+import { isDue, passScenario, review } from "~/game/review"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
 import { LEVELS, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
@@ -170,6 +172,16 @@ export function Play({
             )
             setPhase("idle")
             setGraded(g)
+            if (g.stars > 0 && !sandbox) {
+              const now = Date.now()
+              updateReview((s) => {
+                // A due revisit counts as a Retention review, worth its own points.
+                const revisit = isDue(s, `level:${level.id}`, now)
+                  ? review(s, `level:${level.id}`, true, now).state
+                  : s
+                return passScenario(revisit, level.id, now)
+              })
+            }
             const prev = progress[level.id]
             onProgress({
               ...progress,
@@ -183,7 +195,7 @@ export function Play({
       }
     }
     raf.current = requestAnimationFrame(step)
-  }, [graph, level, progress, onProgress, wide])
+  }, [graph, level, progress, onProgress, wide, sandbox])
   useEffect(() => () => cancelAnimationFrame(raf.current), [])
   const running = phase !== "idle"
   const phaseLabel =
@@ -531,9 +543,10 @@ export function Play({
       <button
         type="button"
         onClick={onExit}
-        className="font-display rounded-lg px-2 py-1 text-[15px] font-bold tracking-tight text-white hover:bg-white/5"
+        className="font-display rounded-lg px-2 py-1 text-[15px] font-bold tracking-tight whitespace-nowrap text-white hover:bg-white/5"
       >
-        <span className="text-cyan-300">◆</span> Architech
+        <span className="text-cyan-300">◆</span>{" "}
+        <span className="hidden sm:inline">Architech</span>
       </button>
       <span className="hidden truncate text-[13px] text-slate-500 sm:inline">
         / {sandbox ? "Sandbox" : level.title}

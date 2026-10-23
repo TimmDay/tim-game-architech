@@ -16,6 +16,8 @@ import {
   type CardCategory,
   type DeckCard,
 } from "~/decks/types"
+import { updateReview } from "~/game/points-store"
+import { seeCard } from "~/game/review"
 import { loadDeckMarks, saveDeckMarks, type CardMark } from "~/game/storage"
 import type { Level } from "~/levels"
 import type { Provider } from "~/providers/names"
@@ -101,6 +103,8 @@ export function Deck({
     const next = { ...marks, [card.id]: m }
     setMarks(next)
     saveDeckMarks(level.id, next)
+    const id = card.id
+    updateReview((s) => seeCard(s, id, m === "got", Date.now()))
     // In the revisit filter, marking "got" removes the card from the list,
     // so the same index already shows the next one.
     if (!(filter === "revisit" && m === "got")) go(1)

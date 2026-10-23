@@ -17,6 +17,10 @@
 
 **Discussion decks.** Every scenario has a deck of 20 to 23 interview prompts: clarifying questions to open with, critical decisions, trade-offs, alternatives, scale, edge cases, security, observability and product. Answer out loud, flip to see what a strong answer covers and where an interviewer pushes next, then mark it got it or revisit.
 
+**Retention.** A third mode for revision. Every deck card, quiz question and passed scenario you've met goes on a spaced schedule: things you know come back after 3, 7, 14, then 30 days; things you missed come back tomorrow. Passed scenarios come back after a week, to rebuild from an empty board.
+
+**Points.** 1 per new flash card, 2 per newly correct quiz answer, 50 per scenario passed. In Retention, a right answer earns 1, or 2 if you'd missed it before, and a scenario revisit earns 25. First-time awards are given once, so retrying can't farm them.
+
 Each level is worth three stars: **handles peak** (errors, latency, budget, data actually stored), **highly available** (the topology's availability arithmetic), and **survives chaos**.
 
 ## Provider toggle

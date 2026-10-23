@@ -39,6 +39,33 @@ export function useParticles(flows: ParticleFlow[]) {
     }
     const live: P[] = []
     const spawnDebt = new Map<string, number>()
+    type Spark = {
+      el: SVGCircleElement
+      x: number
+      y: number
+      vx: number
+      vy: number
+      life: number
+    }
+    const sparks: Spark[] = []
+    const burst = (x: number, y: number) => {
+      for (let k = 0; k < 5; k++) {
+        const el = document.createElementNS(NS, "circle")
+        el.setAttribute("r", "1.6")
+        el.setAttribute("fill", "#fda4af")
+        g.appendChild(el)
+        const a = Math.random() * Math.PI * 2
+        const v = 40 + Math.random() * 60
+        sparks.push({
+          el,
+          x,
+          y,
+          vx: Math.cos(a) * v,
+          vy: Math.sin(a) * v - 30,
+          life: 0.45,
+        })
+      }
+    }
     let last = performance.now()
     let raf = 0
     const reduced = window.matchMedia(
@@ -89,6 +116,12 @@ export function useParticles(flows: ParticleFlow[]) {
         }
         p.t += (SPEED * dt) / Math.max(1, p.len)
         if (p.t >= end) {
+          // A packet that dies at an overloaded block bursts into sparks.
+          if (p.dies && !reduced && live.length + sparks.length < MAX_PARTICLES)
+            burst(
+              f.a.sx + (f.b.sx - f.a.sx) * p.t,
+              f.a.sy + (f.b.sy - f.a.sy) * p.t,
+            )
           p.el.remove()
           live.splice(i, 1)
           continue
@@ -104,12 +137,29 @@ export function useParticles(flows: ParticleFlow[]) {
           p.el.setAttribute("opacity", (1 - k).toFixed(2))
         }
       }
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const sp = sparks[i]
+        if (!sp) continue
+        sp.life -= dt
+        if (sp.life <= 0) {
+          sp.el.remove()
+          sparks.splice(i, 1)
+          continue
+        }
+        sp.vy += 160 * dt
+        sp.x += sp.vx * dt
+        sp.y += sp.vy * dt
+        sp.el.setAttribute("cx", sp.x.toFixed(1))
+        sp.el.setAttribute("cy", sp.y.toFixed(1))
+        sp.el.setAttribute("opacity", (sp.life / 0.45).toFixed(2))
+      }
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(raf)
       for (const p of live) p.el.remove()
+      for (const sp of sparks) sp.el.remove()
     }
   }, [])
 

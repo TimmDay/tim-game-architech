@@ -13,6 +13,7 @@ import { KINDS } from "~/sim/catalogue"
 import { Codex } from "~/screens/Codex"
 import { Retention } from "~/screens/Retention"
 import { PointsChip } from "~/ui/PointsChip"
+import { MuteButton } from "~/ui/MuteButton"
 import { LockedLevel } from "~/screens/LockedLevel"
 import { isUnlocked, missingPrereqs } from "~/game/progression"
 import { Deck } from "~/screens/Deck"
@@ -82,6 +83,7 @@ export function App() {
   const toggle = (
     <div className="flex items-center gap-2">
       <PointsChip />
+      <MuteButton />
       <ProviderToggle
         value={provider}
         onChange={(p) => {

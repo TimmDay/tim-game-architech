@@ -7,6 +7,9 @@ import type { Finding } from "~/sim/findings"
 import type { Check as CheckT, Grade } from "~/sim/grade"
 import { ms, nines, pct, rps, usd } from "./format"
 import { Modal } from "./Modal"
+import { Confetti } from "./Confetti"
+import { useEffect } from "react"
+import { sfx } from "~/game/sound"
 import { FindingList, H } from "./panels"
 import { Rich } from "./Rich"
 
@@ -70,6 +73,16 @@ export function Results({
   onConcept: (c: ConceptId) => void
   onDeck?: () => void
 }) {
+  // The stars land one by one (see the star-in delays below); sound them too.
+  useEffect(() => {
+    const timers: number[] = []
+    if (grade.stars === 0) sfx.fail()
+    for (let n = 0; n < grade.stars; n++)
+      timers.push(window.setTimeout(() => sfx.star(n), 140 * (n + 1) + 120))
+    if (grade.stars === 3) sfx.fanfare()
+    return () => timers.forEach(clearTimeout)
+  }, [grade.stars])
+
   const headline =
     grade.stars === 3
       ? "Load bearing."
@@ -80,6 +93,7 @@ export function Results({
           : "It fell over."
   return (
     <Modal onClose={onClose} wide>
+      {grade.stars === 3 && <Confetti />}
       <div className="text-center">
         <div className="mb-2 flex justify-center gap-2">
           {[1, 2, 3].map((n) => (

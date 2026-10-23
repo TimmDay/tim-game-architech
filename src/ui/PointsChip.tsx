@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useReview } from "~/game/points-store"
+import { sfx } from "~/game/sound"
 
 /** Total points, with a brief "+N" whenever some are earned. */
 export function PointsChip() {
@@ -13,6 +14,7 @@ export function PointsChip() {
     prev.current = total
     if (diff <= 0) return
     setGain({ n: diff, key: Date.now() })
+    sfx.coin()
     const t = setTimeout(() => setGain(null), 1400)
     return () => clearTimeout(t)
   }, [total])

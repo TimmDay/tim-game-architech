@@ -3,6 +3,7 @@ import { Check, Layers, Lock, RotateCcw, Unlock, X } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
 import { updateReview } from "~/game/points-store"
+import { sfx } from "~/game/sound"
 import { answerQuestion } from "~/game/review"
 import { loadQuiz, saveQuiz } from "~/game/storage"
 import type { Level } from "~/levels"
@@ -86,6 +87,8 @@ export function QuizView({
     if (chosen !== undefined || !current) return
     const qIndex = (QUIZZES[level.id] ?? []).indexOf(current.q)
     const right = option === current.q.correct
+    if (right) sfx.correct()
+    else sfx.wrong()
     updateReview((s) => answerQuestion(s, level.id, qIndex, right, Date.now()))
     setAttempt((a) => ({
       ...a,

@@ -13,8 +13,9 @@
 - [ ] **Leaderboards.** Scores are computed in the browser, so a player can edit their own save. That's harmless while saves are private; before any public leaderboard, recompute or validate scores server-side (a Cloud Function), which needs the paid Blaze plan.
 - [ ] **Account deletion.** Add a "delete my data" button that removes `users/{uid}/save/main` (the rules already allow the owner to delete).
 
-## Before deploying
+## Hosting
 
-- [ ] Add the production domain to Firebase Auth → Settings → Authorised domains (and to the reCAPTCHA key's domains).
-- [ ] Set the `VITE_FIREBASE_*` variables on the host (see `.env.example`).
-- [ ] Deploy rules with `npx firebase-tools deploy --only firestore:rules` whenever `firestore.rules` changes.
+Live at https://tim-game-architech.firebaseapp.com (also `.web.app`), deployed by `.github/workflows/deploy.yml` on every push to `main`; PRs get preview channels. The build reads the `VITE_FIREBASE_*` GitHub repository variables; the deploy uses the `FIREBASE_SERVICE_ACCOUNT` secret (a Hosting-only service account).
+
+- [ ] **Custom domain** (e.g. architech.timmday.com): add it in Firebase Hosting, add the DNS records, then set `VITE_FIREBASE_AUTH_DOMAIN` to it (so iOS redirect sign-in stays same-site), add it to Auth's authorised domains, add `https://<domain>/__/auth/handler` to the Google OAuth client's redirect URIs and to the GitHub OAuth app.
+- [ ] Firestore rules aren't deployed by CI: run `npx firebase-tools deploy --only firestore:rules` when `firestore.rules` changes.

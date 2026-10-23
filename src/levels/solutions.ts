@@ -18,6 +18,64 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "shoebox-receipts": {
+    overview:
+      "Two paths for two kinds of receipt. Typed-in receipts are saved straight to the {sql-primary}. Photos are stored in the {object-store} and a job goes on a {queue}; {worker} instances call the {doc-ai} at a pace its quota allows and write the extracted fields back.",
+    walkthrough: [
+      "A typed-in receipt: {load-balancer} → {app-server} → {sql-primary}. Done in one request.",
+      "A photo: the {app-server} stores the image in the {object-store}, writes a 'processing' row to the {sql-primary}, and queues a job. The user sees the receipt straight away, marked as processing.",
+      "A {worker} takes the job, sends the photo to the {doc-ai}, and waits a few seconds for merchant, date, amount and tax.",
+      "The {worker} writes those fields to the {sql-primary}. Fields with low confidence are flagged for the user to check.",
+    ],
+    numbers: [
+      "800 requests a second, a quarter of them new receipts: 200 a second. 60% are photos, so 120 OCR jobs a second, and the other 80 are typed in.",
+      "OCR providers cap calls per second, and default quotas are small: Amazon's receipt API defaults to 5 a second in its largest regions. Each {doc-ai} block here is 40 a second of raised quota; five blocks run at 60%.",
+      "Deadline day is the chaos round at 1.5×: 180 jobs a second. Five blocks run at 90% and keep up. Three blocks would fall 60 jobs a second behind, and the queue would never drain.",
+      "Four {worker} instances at 50 jobs a second each: 60% normally, 90% on deadline day.",
+      "The {sql-primary} takes two writes per photo (the pending row, then the results): 320 writes a second, 64% of its limit. On deadline day it reaches 96%, which makes it the next thing to fix.",
+      "Cost: $20 + 4 × $30 + 2 × $120 + $15 + $10 + 4 × $40 + 5 × $120 = $1,165 of $1,300. Real OCR is billed per page; the flat monthly price per block is a game simplification.",
+    ],
+    tradeoffs: [
+      "The user doesn't get the extracted fields immediately. Show the photo at once with a 'reading your receipt' state, and let them type the fields if they're in a hurry.",
+      "OCR quota is a capacity plan you file with the provider, not a slider you move on the day. Raise it weeks before the deadline.",
+      "Low-confidence results need review: send them to the user to confirm, rather than silently storing a wrong amount on a tax return.",
+      "Photos cost money per page, so detect duplicates (the same receipt uploaded twice) before calling OCR, not after.",
+    ],
+    alternatives: [
+      "Calling the {doc-ai} straight from the {app-server}: every upload waits seconds, and a burst hits the rate limit and fails. With this load, 75% of requests fail.",
+      "On-device OCR in the mobile app: free per scan and instant, but less accurate on crumpled receipts, and you still need a server path for web uploads.",
+      "Batching overnight: cheaper, but users filing on deadline day can't wait until tomorrow.",
+    ],
+  },
+  "plug-finder": {
+    overview:
+      "Most traffic is the same question about the same place: what's free near here? A {cdn} caches each map answer for a few seconds, so most views never reach your servers. Live status lives in a {nosql} store behind a {cache}, and status changes flow through an {event-stream} into the geo {search-index}.",
+    walkthrough: [
+      "{dns} sends drivers to the {cdn}. A map view for a busy area is answered from the edge if it's under about 30 seconds old.",
+      "Misses go through the {load-balancer} to the {app-server}. Each map view does a geo query on the {search-index} ('chargers within 5km') plus a detail fetch for their live status.",
+      "Live status comes from the {cache}, backed by the {nosql} store, keyed by station.",
+      "When a driver marks a charger in use or leaves a note, the {app-server} writes it to the {nosql} store and publishes a status-changed event to the {event-stream}, which keeps the {search-index}'s 'available now' filter current.",
+    ],
+    numbers: [
+      "3,000 requests a second: 2,850 map views and 150 check-ins and notes.",
+      "60% of map views are for busy, shared areas, and the {cdn} serves about 95% of those: roughly 1,600 a second never reach the origin. About 1,230 reads and the 150 writes get through.",
+      "Eight {app-server} instances run at 43%. On a holiday road trip (2×), they reach 86% without dropping requests.",
+      "One {search-index} node handles the geo queries at 41%, and 82% on the road trip.",
+      "Without the {cdn}, the app tier and the search index both sit above 90% on a normal day (p99 about 2.5 seconds), and nearly half of requests fail on the road trip. Buying fifteen app servers instead costs $741, over budget, and the search index still overloads.",
+      "Cost: $1 + $25 + $20 + 8 × $30 + 2 × $25 + $70 + $90 + $60 = $556 of $600.",
+    ],
+    tradeoffs: [
+      "Edge caching makes the map up to 30 seconds stale. Show 'updated 20s ago' so drivers trust what they see, and skip the cache for the station they've just tapped into.",
+      "Crowd-reported 'in use' flags go stale when someone forgets to check out. Expire them automatically after a typical charging session, and prefer an operator's live feed where one exists.",
+      "Publishing to the {event-stream} puts it on the write path: if it's down, check-ins fail. That's why availability is 99.92% rather than higher.",
+      "Notes are user-generated content: they need moderation, rate limits and a way to report abuse.",
+    ],
+    alternatives: [
+      "Querying the {nosql} store for 'near me' directly: workable with geohash keys, but range queries across cells get fiddly. A search index with geo support does it natively.",
+      "Pushing live status to every open app over websockets: fresher, but millions of idle connections cost far more than a 30-second cache for a map that changes every few minutes.",
+      "Polling charger operators' APIs: operators can push changes to apps instead (the OCPI protocol supports pushing updates), which is fresher and cheaper than polling.",
+    ],
+  },
   "first-customers": {
     overview:
       "The classic three-tier starter: a {load-balancer} in front of a stateless {app-server} pool, with one {sql-primary} as the source of truth. The interesting decisions are how many app servers, and whether the database gets a standby.",

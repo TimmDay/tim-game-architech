@@ -134,6 +134,15 @@ export const SERVICE_NAMES: Record<
     azure: { name: "Azure AI Search", short: "AI Search" },
     gcp: { name: "Vertex AI Search", short: "Vertex Search" },
   },
+  "doc-ai": {
+    generic: { name: "Document OCR Service", short: "Document OCR" },
+    aws: { name: "Amazon Textract", short: "Textract" },
+    azure: {
+      name: "Azure AI Document Intelligence",
+      short: "Doc Intelligence",
+    },
+    gcp: { name: "Document AI", short: "Document AI" },
+  },
   "data-warehouse": {
     generic: { name: "Columnar Data Warehouse (OLAP)", short: "Warehouse" },
     aws: { name: "Amazon Redshift", short: "Redshift" },

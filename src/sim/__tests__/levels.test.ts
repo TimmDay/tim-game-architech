@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { LEVELS } from "~/levels"
 import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
-import { monthlyCost } from "../simulate"
+import { monthlyCost, simulate } from "../simulate"
 import { SOLUTIONS } from "~/levels/solutions"
 
 describe.each(LEVELS)("$id", (level) => {
@@ -36,8 +36,13 @@ describe.each(LEVELS)("$id", (level) => {
   })
 
   it("quotes the reference's real monthly cost", () => {
-    const cost = `$${monthlyCost(level.reference)}`
-    expect(SOLUTIONS[level.id]?.numbers.join(" ")).toContain(cost)
+    const cost = monthlyCost(level.reference)
+    const text = SOLUTIONS[level.id]?.numbers.join(" ") ?? ""
+    expect(
+      text.includes(`$${cost}`) ||
+        text.includes(`$${cost.toLocaleString("en-US")}`),
+      `expected $${cost}`,
+    ).toBe(true)
   })
 
   it("only uses palette components in its reference", () => {
@@ -115,5 +120,84 @@ describe("lessons the levels are built around", () => {
     const g = grade(two, level.load, level.targets, level.chaos.faults)
     expect(g.checks.find((c) => c.id === "traffic")?.pass).toBe(true)
     expect(g.checks.find((c) => c.id === "chaos")?.pass).toBe(false)
+  })
+})
+
+describe("the new scenarios' traps", () => {
+  const level = (id: string) => {
+    const l = LEVELS.find((x) => x.id === id)
+    if (!l) throw new Error(`missing ${id}`)
+    return l
+  }
+  const failed = (l: ReturnType<typeof level>, g: typeof l.reference) =>
+    grade(g, l.load, l.targets, l.chaos.faults)
+      .checks.filter((c) => !c.pass)
+      .map((c) => c.id)
+
+  it("receipts: calling OCR from the app fails latency", () => {
+    const l = level("shoebox-receipts")
+    const g = {
+      components: l.reference.components.filter(
+        (c) => c.id !== "q" && c.id !== "workers",
+      ),
+      edges: [
+        ...l.reference.edges.filter(
+          (e) =>
+            !["app>q", "q>workers", "workers>ocr", "workers>db"].includes(e.id),
+        ),
+        { id: "app>ocr", from: "app", to: "ocr" },
+      ],
+    }
+    expect(failed(l, g)).toContain("latency")
+  })
+
+  it("receipts: too little OCR quota falls behind on deadline day", () => {
+    const l = level("shoebox-receipts")
+    const g = {
+      ...l.reference,
+      components: l.reference.components.map((c) =>
+        c.id === "ocr" ? { ...c, instances: 3 } : c,
+      ),
+    }
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("plug finder: without the CDN it fails, and buying servers breaks the budget", () => {
+    const l = level("plug-finder")
+    const noCdn = {
+      components: l.reference.components.filter((c) => c.id !== "cdn"),
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => e.id !== "dns>cdn" && e.id !== "cdn>lb",
+        ),
+        { id: "dns>lb", from: "dns", to: "lb" },
+      ],
+    }
+    expect(failed(l, noCdn)).toContain("chaos")
+    const bigger = {
+      ...noCdn,
+      components: noCdn.components.map((c) =>
+        c.id === "app" ? { ...c, instances: 15 } : c,
+      ),
+    }
+    expect(failed(l, bigger)).toContain("budget")
+  })
+})
+
+describe("existing levels keep their numbers", () => {
+  it("half the orders still splits 160/160 between queue consumers", () => {
+    const level = LEVELS.find((l) => l.id === "half-the-orders")
+    const starter = level?.starter
+    if (!level || !starter) throw new Error("missing level")
+    const r = simulate(starter, level.load)
+    expect(r.perComponent.search?.writeRps).toBeCloseTo(160)
+    expect(r.perComponent.dw?.writeRps).toBeCloseTo(160)
+  })
+
+  it("upload rush still queues every upload", () => {
+    const level = LEVELS.find((l) => l.id === "upload-rush")
+    if (!level) throw new Error("missing level")
+    const r = simulate(level.reference, level.load)
+    expect(r.perComponent.q?.writeRps).toBeCloseTo(300)
   })
 })

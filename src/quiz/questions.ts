@@ -36,6 +36,232 @@ const q = (rows: Row[]): Question[] =>
   }))
 
 export const QUIZZES: Record<string, Question[]> = {
+  "shoebox-receipts": q([
+    [
+      "Why do typed-in receipts and photographed receipts take different paths?",
+      "Typed-in ones are a quick write; photos need slow, rate-limited OCR",
+      [
+        "Photos are larger, so they have to go through a different load balancer",
+        "Typed-in receipts need human approval before they can be stored",
+        "Photos must be processed first so they can be shown in the list",
+      ],
+      "Queue only the slow work. The fast path stays fast and the queue stays small.",
+      5,
+    ],
+    [
+      "Why do workers call the {doc-ai}, rather than the app servers?",
+      "Workers can pace calls to stay inside the provider's quota",
+      [
+        "App servers aren't allowed to call external APIs directly",
+        "The OCR service only accepts calls from inside a private network",
+        "Workers run on GPUs, which OCR needs to read receipts",
+      ],
+      "A burst of users can't be paced; a queue and a worker pool can. A slow or throttled call never holds up a request.",
+      6,
+    ],
+    [
+      "Peak is 120 photo jobs a second and 180 on deadline day. Each OCR block handles 40 a second. How many blocks?",
+      "Five, so deadline day runs at 90%",
+      [
+        "Three, which covers the normal peak exactly",
+        "Four, which handles deadline day at 100%",
+        "Ten, to be safe on any day of the year",
+      ],
+      "Three would fall 60 jobs a second behind on deadline day and never drain. Five keep up at 90%.",
+      7,
+    ],
+    [
+      "Amazon's receipt OCR API defaults to 5 calls a second in its largest regions. What does that mean for planning?",
+      "Request a quota increase well before the deadline",
+      [
+        "Call it from more app servers to multiply the limit",
+        "Switch region on deadline day to get a fresh quota",
+        "Use a bigger instance type so each call is faster",
+      ],
+      "Quotas are per account and region, and increases need approving. Plan them like capacity, ahead of the peak.",
+      13,
+    ],
+    [
+      "OCR returns a low-confidence total for a receipt. What's the best behaviour?",
+      "Highlight the field and ask the user to confirm it",
+      [
+        "Store it anyway, because users rarely check their receipts",
+        "Discard the receipt and ask for a completely new photo",
+        "Retry the OCR call until the confidence score goes up",
+      ],
+      "These figures go on a tax return. Accept confident fields, flag the rest, and require confirmation above a certain amount.",
+      8,
+    ],
+    [
+      "Where can OCR costs run away, given it's billed per page?",
+      "Duplicate uploads, retried calls and long PDFs",
+      [
+        "Users viewing the same receipt many times",
+        "Storing the extracted fields in the database",
+        "Keeping the queue open when no jobs are waiting",
+      ],
+      "Hash images to skip exact duplicates before calling OCR, make retries idempotent, and cap pages per upload.",
+      9,
+    ],
+    [
+      "The OCR provider has an outage on deadline day. With this design, what happens?",
+      "Uploads succeed; jobs wait in the queue until it recovers",
+      [
+        "Every upload fails until the provider is back online",
+        "Photos are deleted so that users can upload them again",
+        "The app falls back to storing receipts without photos",
+      ],
+      "The queue decouples upload from processing. Users who can't wait can type the fields in.",
+      16,
+    ],
+    [
+      "On deadline day the {sql-primary} reaches 96% on writes. Why so high?",
+      "Each photo writes twice: a pending row, then the results",
+      [
+        "Readers run so many reports that writes slow down",
+        "The queue writes every message to the database too",
+        "Photos are stored inside the database as large blobs",
+      ],
+      "Write amplification: 200 receipts a second become 320 writes. Batch the result writes or partition by user.",
+      14,
+    ],
+    [
+      "The same receipt is uploaded twice. What should happen?",
+      "Spot the duplicate and warn the user, without auto-merging",
+      [
+        "Merge them silently, since duplicates are always mistakes",
+        "Reject the second upload with an error message",
+        "Store both and let the tax authority sort it out",
+      ],
+      "Two identical coffees on one day are possible, so warn rather than merge. Skip the second OCR call on an exact image match.",
+      15,
+    ],
+    [
+      "What's the best single signal that the photo pipeline is falling behind?",
+      "The age of the oldest job in the queue",
+      [
+        "CPU utilisation across the worker pool",
+        "The number of receipts stored so far today",
+        "The total size of the object store",
+      ],
+      "Age shows directly how long users wait. Watch OCR throttling responses and database write load next to it.",
+      20,
+    ],
+  ]),
+
+  "plug-finder": q([
+    [
+      "Why put a {cdn} in front of data that changes every few minutes?",
+      "Many drivers ask about the same area within seconds",
+      [
+        "CDNs keep data fresher than an origin server does",
+        "Map data has to be served from the edge by law",
+        "The CDN stores check-ins until the app is ready for them",
+      ],
+      "A 30-second edge cache answers most map views, about 1,600 of 2,850 a second here, at the cost of brief staleness.",
+      5,
+    ],
+    [
+      "Without the {cdn}, what goes wrong first?",
+      "The app tier and search index both pass 90% busy",
+      [
+        "DNS can't resolve the domain fast enough",
+        "The key-value store runs out of storage space",
+        "The event stream drops status-changed events",
+      ],
+      "p99 rises to about 2.5 seconds, and the road-trip spike fails nearly half of requests. Fifteen app servers break the budget and the index still overloads.",
+      13,
+    ],
+    [
+      "How should map views be keyed in a cache?",
+      "By map tile or geohash cell plus filters",
+      [
+        "By the driver's exact latitude and longitude",
+        "By the driver's user ID and session",
+        "By the time of day, rounded to the minute",
+      ],
+      "Exact coordinates make every request unique, so nothing hits. Cells let nearby drivers share an answer.",
+      14,
+    ],
+    [
+      "Why does the {search-index} get status changes from an {event-stream}?",
+      "So check-ins don't wait on updating the index",
+      [
+        "Search indexes can only be written by event streams",
+        "The stream makes searches return results faster",
+        "It lets the index skip storing charger locations",
+      ],
+      "The app publishes once; the index, notifications and analytics each consume it. A few seconds of index lag is fine because the detail fetch shows live status.",
+      7,
+    ],
+    [
+      "Why keep live charger status in a {nosql} store?",
+      "It's a frequent lookup and update by station ID",
+      [
+        "Relational databases can't store a status field",
+        "Key-value stores are the only ones a CDN can read",
+        "It removes the need for the search index entirely",
+      ],
+      "Simple key lookups that scale horizontally. Users, accounts and moderation fit a relational store better.",
+      6,
+    ],
+    [
+      "How long should a crowd-reported 'in use' flag last?",
+      "About one charging session, unless it's renewed",
+      [
+        "Forever, until the same driver clears it",
+        "Exactly one minute, to keep the map fresh",
+        "Until the next day's operator data arrives",
+      ],
+      "Forgotten check-outs otherwise make chargers look busy all day. Clear it early when an operator feed reports the charger free.",
+      8,
+    ],
+    [
+      "Operator feeds and driver reports disagree. What's the sensible approach?",
+      "Combine both, weighted by freshness, and show the source",
+      [
+        "Always trust drivers, since they're standing at the charger",
+        "Always trust operators and ignore driver reports",
+        "Show whichever report arrived first",
+      ],
+      "Feeds are accurate where they exist; drivers catch what feeds miss, like a blocked bay. Show where each status came from.",
+      9,
+    ],
+    [
+      "Why not push every status change to every open app over websockets?",
+      "Millions of idle connections cost far more than a short cache",
+      [
+        "Websockets can't carry location data",
+        "Mobile phones block websocket connections",
+        "Push updates are always slower than polling",
+      ],
+      "For a map that changes every few minutes, a 30-second cache is far cheaper. Push only for the station a driver is heading to.",
+      10,
+    ],
+    [
+      "How should the app learn about status from charging networks?",
+      "Have operators push changes, as the OCPI protocol allows",
+      [
+        "Poll every charger every few seconds",
+        "Scrape each network's website for updates",
+        "Wait for drivers to report everything",
+      ],
+      "Polling hundreds of thousands of chargers is wasteful and slow. Push is fresher and cheaper, often via roaming hubs.",
+      12,
+    ],
+    [
+      "Which metric best measures whether the product is working?",
+      "How often drivers find a charger shown as free already taken",
+      [
+        "Total number of map views per day",
+        "Average CPU across the app tier",
+        "Number of notes written per week",
+      ],
+      "That's the user's real experience. Track it by area and by data source.",
+      21,
+    ],
+  ]),
+
   "first-customers": q([
     [
       "Peak is 500 requests a second and each {app-server} handles about 400. Why does the design use three instances rather than two?",

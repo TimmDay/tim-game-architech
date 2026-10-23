@@ -20,6 +20,7 @@ export type ComponentKind =
   | "object-store"
   | "search-index"
   | "data-warehouse"
+  | "doc-ai"
 
 export type Category = "edge" | "compute" | "data" | "messaging"
 

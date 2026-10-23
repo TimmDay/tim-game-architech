@@ -15,6 +15,7 @@ import {
   Split,
   Users,
   Warehouse,
+  ScanText,
   Zap,
   type LucideIcon,
 } from "lucide-react"
@@ -39,6 +40,7 @@ export const ICONS: Record<ComponentKind, LucideIcon> = {
   "object-store": Archive,
   "search-index": Search,
   "data-warehouse": Warehouse,
+  "doc-ai": ScanText,
 }
 
 const S = 0.62

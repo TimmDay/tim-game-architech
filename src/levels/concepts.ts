@@ -33,8 +33,29 @@ export type ConceptId =
   | "oltp-vs-olap"
   | "finding-the-bottleneck"
   | "critical-path"
+  | "provider-quotas"
+  | "micro-caching"
+  | "geospatial-indexing"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
+  "provider-quotas": {
+    title: "Provider quotas and rate limits",
+    body: "Managed APIs cap how many calls each account can make per second, and default quotas are often small (single digits per second for some OCR APIs). Exceed them and calls are throttled. A queue in front of the calls turns a burst into a steady stream at the rate you're allowed.",
+    interview:
+      "Ask what the quota is and how long an increase takes. Request it weeks before a known peak, and design so a throttle slows things down rather than failing uploads.",
+  },
+  "micro-caching": {
+    title: "Micro-caching fast-changing data",
+    body: "Data that changes every few minutes can still be cached for a few seconds. With thousands of readers asking for the same thing, even a 30-second cache at the edge absorbs most requests, at the cost of being up to 30 seconds out of date.",
+    interview:
+      "Say the staleness out loud and check it against the product: is a charger status 30 seconds old acceptable? Usually yes, if users can see when it was last updated.",
+  },
+  "geospatial-indexing": {
+    title: "Geospatial indexing",
+    body: "'Chargers near me' is a range query in two dimensions, which ordinary indexes handle badly. Geohashes, quadtrees and S2 cells turn locations into keys where nearby places share a prefix, so a search index or key-value store can answer it quickly, and caches can key on the map tile.",
+    interview:
+      "Explain how you'd bucket locations, how big a bucket is, and what happens at bucket edges (query the neighbouring cells too).",
+  },
   "horizontal-scaling": {
     title: "Horizontal scaling",
     body: "Add more identical instances behind a {load-balancer} instead of buying a bigger machine. It only works when instances are stateless: sessions live in a token or a shared store, never in one server's memory.",
@@ -249,6 +270,12 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
     body: "An inverted index for full-text search and filtering. Kept in sync from the source of truth, usually via events, and treated as rebuildable.",
     interview:
       "It's a derived view: say how it's fed and how you'd rebuild it.",
+  },
+  "doc-ai": {
+    title: "{doc-ai}",
+    body: "A managed API that reads a photo or PDF and returns structured fields: merchant, date, total, tax. Each call takes seconds, and providers cap how many calls per second each account may make until you ask for more.",
+    interview:
+      "Treat it as a slow, rate-limited dependency: call it from workers behind a queue, never from the request path, and plan for low-confidence results.",
   },
   "data-warehouse": {
     title: "{data-warehouse}",

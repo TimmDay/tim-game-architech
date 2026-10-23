@@ -1,7 +1,14 @@
 import { useSyncExternalStore } from "react"
 import { refreshProfile, subscribeSaveChanged } from "~/game/profile"
 import { readSave, writeSave } from "./local"
-import { fromCloud, mergeSave, sameSave, toCloud, type Save } from "./save"
+import {
+  fingerprint,
+  fromCloud,
+  mergeSave,
+  sameSave,
+  toCloud,
+  type Save,
+} from "./save"
 
 /**
  * Cross-device sync: one Firestore document per player,
@@ -29,8 +36,10 @@ export const useSyncStatus = () =>
     () => status,
   )
 
-const PUSH_DELAY_MS = 4_000
-const MIN_GAP_MS = 3_000
+/** Batch a burst of changes (several answers in a row) into one write. */
+const BATCH_MS = 2_500
+/** The security rules refuse writes closer together than 2 seconds. */
+const MIN_GAP_MS = 2_500
 
 type Session = { stop: () => void }
 let session: Session | null = null
@@ -48,6 +57,8 @@ export async function startSync(
   const ref = fs.doc(db, "users", uid, "save", "main")
 
   let lastPush = 0
+  /** Fingerprint of what the cloud holds, as far as we know. */
+  let cloudPrint = ""
   let timer: number | undefined
   let stopped = false
 
@@ -59,13 +70,21 @@ export async function startSync(
       timer = window.setTimeout(() => void push(), wait)
       return
     }
+    const save = readSave(uid)
+    const print = fingerprint(save)
+    // Only write when the content really changed.
+    if (print === cloudPrint) {
+      setStatus("synced")
+      return
+    }
     lastPush = Date.now()
     setStatus("syncing")
     try {
       await fs.setDoc(ref, {
-        ...toCloud(readSave(uid)),
+        ...toCloud(save),
         updatedAt: fs.serverTimestamp(),
       })
+      cloudPrint = print
       setStatus("synced")
     } catch (e) {
       const code = (e as { code?: string }).code ?? ""
@@ -76,7 +95,7 @@ export async function startSync(
   }
   const schedule = () => {
     if (stopped || timer !== undefined) return
-    timer = window.setTimeout(() => void push(), PUSH_DELAY_MS)
+    timer = window.setTimeout(() => void push(), BATCH_MS)
   }
   const flush = () => {
     if (document.visibilityState !== "hidden" || timer === undefined) return
@@ -87,6 +106,7 @@ export async function startSync(
   try {
     const snap = await fs.getDoc(ref)
     const remote = fromCloud(snap.data())
+    if (snap.exists()) cloudPrint = fingerprint(remote)
     const local = extras.reduce(mergeSave, readSave(uid))
     const merged = mergeSave(local, remote)
     writeSave(uid, merged)
@@ -103,6 +123,7 @@ export async function startSync(
     (s) => {
       if (s.metadata.hasPendingWrites || !s.exists()) return
       const remote = fromCloud(s.data())
+      cloudPrint = fingerprint(remote)
       const local = readSave(uid)
       const merged = mergeSave(local, remote)
       if (!sameSave(merged, local)) {

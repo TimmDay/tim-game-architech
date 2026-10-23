@@ -110,5 +110,23 @@ function stripUndefined(p: Progress): Progress {
   return out
 }
 
-export const sameSave = (a: Save, b: Save) =>
-  JSON.stringify(toCloud(a)) === JSON.stringify(toCloud(b))
+/**
+ * A stable fingerprint of a save's synced content. Keys are sorted, because
+ * Firestore hands maps back in its own order: comparing plain JSON made
+ * identical saves look different, and every check triggered another write.
+ */
+export function fingerprint(s: Save): string {
+  const sort = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(sort)
+      : v && typeof v === "object"
+        ? Object.fromEntries(
+            Object.keys(v)
+              .sort()
+              .map((k) => [k, sort((v as Record<string, unknown>)[k])]),
+          )
+        : v
+  return JSON.stringify(sort(toCloud(s)))
+}
+
+export const sameSave = (a: Save, b: Save) => fingerprint(a) === fingerprint(b)

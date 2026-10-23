@@ -69,3 +69,28 @@ describe("whole-save merging", () => {
     expect(isEmpty(fromCloud(undefined))).toBe(true)
   })
 })
+
+describe("change detection", () => {
+  it("treats the same save with keys in a different order as unchanged", () => {
+    const a = save({
+      progress: { "a-level": { stars: 1 }, "b-level": { stars: 2 } },
+      review: passScenario(passScenario(EMPTY, "x", t), "y", t),
+    })
+    // Firestore returns maps in its own key order.
+    const reordered = fromCloud(
+      JSON.parse(
+        JSON.stringify(toCloud(a), (_k, v: unknown) =>
+          v && typeof v === "object" && !Array.isArray(v)
+            ? Object.fromEntries(Object.entries(v).reverse())
+            : v,
+        ),
+      ),
+    )
+    expect(sameSave(a, reordered)).toBe(true)
+  })
+
+  it("notices a real change", () => {
+    const a = save({ progress: { x: { stars: 1 } } })
+    expect(sameSave(a, save({ progress: { x: { stars: 2 } } }))).toBe(false)
+  })
+})

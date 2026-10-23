@@ -1,4 +1,4 @@
-import { backend, notifySaveChanged, scoped } from "./profile"
+import { backend, isSynced, notifySaveChanged, scoped } from "./profile"
 import type { Provider } from "~/providers/names"
 import type { Graph } from "~/sim/types"
 
@@ -19,7 +19,7 @@ const read = <T>(key: string, fallback: T): T => {
 const write = (key: string, value: unknown) => {
   try {
     backend(key).setItem(scoped(key), JSON.stringify(value))
-    notifySaveChanged()
+    if (isSynced(key)) notifySaveChanged()
   } catch {
     // Storage full or blocked: progress just won't survive a reload.
   }

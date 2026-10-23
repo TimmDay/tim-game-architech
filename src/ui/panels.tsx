@@ -334,7 +334,8 @@ export function InspectPanel({
   onRemove: (id: string) => void
   onRemoveEdge: (id: string) => void
   onLearn: (kind: ComponentKind) => void
-  onDiscuss: (id: string) => void
+  /** Omitted where there's no scenario to discuss (Survival). */
+  onDiscuss?: (id: string) => void
 }) {
   const label = (id: string) => {
     if (id === CLIENT_ID) return CLIENT_NAME.short
@@ -472,15 +473,17 @@ export function InspectPanel({
           >
             <BookOpen size={17} />
           </button>
-          <button
-            type="button"
-            onClick={() => onDiscuss(c.id)}
-            aria-label="What is it doing in this design?"
-            title="What is it doing in this design?"
-            className="rounded-lg p-1.5 text-fuchsia-300/80 hover:bg-white/5 hover:text-fuchsia-200"
-          >
-            <MessagesSquare size={17} />
-          </button>
+          {onDiscuss && (
+            <button
+              type="button"
+              onClick={() => onDiscuss(c.id)}
+              aria-label="What is it doing in this design?"
+              title="What is it doing in this design?"
+              className="rounded-lg p-1.5 text-fuchsia-300/80 hover:bg-white/5 hover:text-fuchsia-200"
+            >
+              <MessagesSquare size={17} />
+            </button>
+          )}
         </div>
       </div>
 

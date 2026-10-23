@@ -12,10 +12,12 @@ import { GENERIC_SCENARIO } from "~/levels/roles"
 import { KINDS } from "~/sim/catalogue"
 import { Codex } from "~/screens/Codex"
 import { Retention } from "~/screens/Retention"
+import { Survival } from "~/screens/Survival"
+import { SURVIVAL_REQUIRES } from "~/survival/engine"
 import { PointsChip } from "~/ui/PointsChip"
 import { MuteButton } from "~/ui/MuteButton"
 import { LockedLevel } from "~/screens/LockedLevel"
-import { isUnlocked, missingPrereqs } from "~/game/progression"
+import { isComplete, isUnlocked, missingPrereqs } from "~/game/progression"
 import { Deck } from "~/screens/Deck"
 import { Home } from "~/screens/Home"
 import { Play } from "~/screens/Play"
@@ -51,12 +53,14 @@ type Route =
   | { screen: "play"; levelId: string }
   | { screen: "deck"; levelId: string }
   | { screen: "retention" }
+  | { screen: "survival" }
 
 /** Routes live in the hash so the back button and a home-screen PWA both behave. */
 function parse(hash: string): Route {
   const [screen, id] = hash.replace(/^#\/?/, "").split("/")
   if (screen === "codex") return { screen: "codex" }
   if (screen === "retention") return { screen: "retention" }
+  if (screen === "survival") return { screen: "survival" }
   if (screen === "deck" && id && levelById(id))
     return { screen: "deck", levelId: id }
   if (screen === "play" && id && (id === "sandbox" || levelById(id)))
@@ -132,6 +136,14 @@ export function App() {
     )
   }
 
+  if (route.screen === "survival") {
+    const missing = SURVIVAL_REQUIRES.filter((id) => !isComplete(id, progress))
+    if (missing.length === 0)
+      return (
+        <Survival provider={provider} onBack={() => go("/")} toggle={toggle} />
+      )
+  }
+
   if (route.screen === "retention")
     return (
       <Retention
@@ -175,6 +187,7 @@ export function App() {
           onCodex={() => go("/codex")}
           onDeck={(id) => go(`/deck/${id}`)}
           onRetention={() => go("/retention")}
+          onSurvival={() => go("/survival")}
         />
       )}
     </div>

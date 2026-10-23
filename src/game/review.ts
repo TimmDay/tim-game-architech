@@ -20,6 +20,8 @@ export const POINTS = {
   reviewRecovered: 2,
   /** Retention: passing a scenario again, a week or more later. */
   scenarioRevisit: 25,
+  /** Survival: each wave number, the first time you clear it. */
+  survivalWave: 10,
 } as const
 
 const DAY = 24 * 60 * 60 * 1000
@@ -150,3 +152,14 @@ export function dueQueue(s: ReviewState, now: number, limit = 20): string[] {
 
 export const nextDue = (s: ReviewState) =>
   Object.values(s.items).reduce((m, it) => Math.min(m, it.due), Infinity)
+
+/** Survival: clearing wave n pays out once per wave number, ever. */
+export const clearSurvivalWave = (s: ReviewState, n: number) =>
+  award(s, `survival:${n}`, POINTS.survivalWave)
+
+/** The furthest Survival wave ever cleared, read back from the awards. */
+export const bestSurvivalWave = (s: ReviewState) =>
+  Object.keys(s.awarded).reduce((best, k) => {
+    const m = /^survival:(\d+)$/.exec(k)
+    return m ? Math.max(best, Number(m[1])) : best
+  }, 0)

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react"
+import { scoped, subscribeProfile } from "./profile"
 import { EMPTY, type ReviewState } from "./review"
 
 /**
@@ -10,7 +11,7 @@ const KEY = "lb.review"
 
 const load = (): ReviewState => {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(scoped(KEY))
     return raw ? { ...EMPTY, ...(JSON.parse(raw) as ReviewState) } : EMPTY
   } catch {
     return EMPTY
@@ -20,6 +21,12 @@ const load = (): ReviewState => {
 let state: ReviewState = load()
 const listeners = new Set<() => void>()
 
+// Signing in or out swaps whose points these are.
+subscribeProfile(() => {
+  state = load()
+  for (const l of listeners) l()
+})
+
 export const getReview = () => state
 
 /** Apply a pure update from `review.ts`, persist it, and notify subscribers. */
@@ -28,7 +35,7 @@ export function updateReview(fn: (s: ReviewState) => ReviewState) {
   if (next === state) return
   state = next
   try {
-    localStorage.setItem(KEY, JSON.stringify(state))
+    localStorage.setItem(scoped(KEY), JSON.stringify(state))
   } catch {
     // Storage blocked: points still count for this session.
   }

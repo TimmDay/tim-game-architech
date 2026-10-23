@@ -1,3 +1,4 @@
+import { scoped } from "./profile"
 import type { Provider } from "~/providers/names"
 import type { Graph } from "~/sim/types"
 
@@ -8,7 +9,7 @@ import type { Graph } from "~/sim/types"
  */
 const read = <T>(key: string, fallback: T): T => {
   try {
-    const raw = localStorage.getItem(key)
+    const raw = localStorage.getItem(scoped(key))
     return raw ? (JSON.parse(raw) as T) : fallback
   } catch {
     return fallback
@@ -17,7 +18,7 @@ const read = <T>(key: string, fallback: T): T => {
 
 const write = (key: string, value: unknown) => {
   try {
-    localStorage.setItem(key, JSON.stringify(value))
+    localStorage.setItem(scoped(key), JSON.stringify(value))
   } catch {
     // Storage full or blocked: progress just won't survive a reload.
   }
@@ -38,7 +39,7 @@ export const saveBuild = (levelId: string, g: Graph) =>
   write(`lb.build.${levelId}`, g)
 export const clearBuild = (levelId: string) => {
   try {
-    localStorage.removeItem(`lb.build.${levelId}`)
+    localStorage.removeItem(scoped(`lb.build.${levelId}`))
   } catch {
     // Nothing to clear.
   }

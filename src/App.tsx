@@ -17,6 +17,8 @@ import { SURVIVAL_REQUIRES } from "~/survival/engine"
 import { PointsChip } from "~/ui/PointsChip"
 import { AchievementToaster } from "~/ui/AchievementToaster"
 import { MuteButton } from "~/ui/MuteButton"
+import { AccountButton } from "~/ui/AccountButton"
+import { subscribeProfile } from "~/game/profile"
 import { LockedLevel } from "~/screens/LockedLevel"
 import { isComplete, isUnlocked, missingPrereqs } from "~/game/progression"
 import { Deck } from "~/screens/Deck"
@@ -71,6 +73,8 @@ function parse(hash: string): Route {
 
 export function App() {
   const [progress, setProgress] = useState<Progress>(loadProgress)
+  // Signing in or out swaps whose save we're showing.
+  useEffect(() => subscribeProfile(() => setProgress(loadProgress())), [])
   // Achievements are granted from anywhere; the toaster sits above every screen.
   return (
     <>
@@ -105,6 +109,7 @@ function AppScreens({
     <div className="flex items-center gap-2">
       <PointsChip />
       <MuteButton />
+      <AccountButton />
       <ProviderToggle
         value={provider}
         onChange={(p) => {

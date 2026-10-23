@@ -18,6 +18,207 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "short-links": {
+    overview:
+      "A read-heavy key lookup: short code in, long URL out. A {cache} answers the popular links, so the {sql-primary} only sees misses and new links. The catch is that the database is now sized for the misses, so the cache gets a second node.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. The app reads the short code from the path.",
+      "It asks the {cache} for the long URL. Popular links come back from memory in about a millisecond, and the app replies with a redirect.",
+      "On a miss, the app reads the {sql-primary}, puts the answer in the cache with a long expiry, and redirects. Links rarely change, so cached copies rarely go stale.",
+      "Creating a link writes a new row to the {sql-primary}, with a short code generated from a counter range each server reserved in advance.",
+    ],
+    numbers: [
+      "4,000 requests a second: 3,920 clicks and 80 new links.",
+      "90% of clicks are for links popular enough to be cached, and the cache hits 95% of those: 3,352 clicks a second never reach the database. It sees 568 reads (28% of what it can do) and 80 writes.",
+      "Sixteen {app-server} instances run at 63%.",
+      "Lose a single cache node and all 3,920 clicks hit the database at once: 196% of its capacity, and nearly half of requests fail. Two cache nodes in two zones survive losing one.",
+      "Two read replicas would also survive it, but they cost $240 more and break the budget.",
+      "The database's standby takes availability from 99.5% to 99.97% for the whole system.",
+      "Cost: $1 + $20 + 16 × $30 + 2 × $25 + 2 × $120 = $791 of $850.",
+    ],
+    tradeoffs: [
+      "A 301 (permanent) redirect lets browsers cache it, which cuts load but hides repeat clicks from your analytics. A 302 counts every click. Most shorteners pick 302 because click counts are the product.",
+      "Long cache expiry is safe because links almost never change. When one is edited or taken down for abuse, delete its cache entry explicitly.",
+      "Counter-based codes are unique without a lookup, but sequential codes are guessable. Shuffle or encrypt the counter if links must not be enumerable.",
+    ],
+    alternatives: [
+      "A {nosql} key-value store suits this data perfectly and scales reads without replicas. A relational database is fine at this size and simpler to run.",
+      "Hashing the long URL gives the same code for the same URL, but needs a collision check on every create.",
+      "Redirecting from the {cdn}: fast and cheap, but every edge-served redirect is a click you don't count.",
+    ],
+  },
+  "group-chat": {
+    overview:
+      "A write-heavy system: half of all requests are messages. A single {sql-primary} can't take 2,000 writes a second, so messages go to a partitioned {nosql} store, keyed by conversation. Each message also goes onto an {event-stream}, and push senders notify recipients who are offline.",
+    walkthrough: [
+      "Phones keep a connection open to an {app-server}, through the {load-balancer}.",
+      "Sending a message: the app writes it to the {nosql} store, partitioned by conversation ID and sorted by time, then acknowledges to the sender (one tick).",
+      "It publishes a message-sent event to the {event-stream}. Recipients connected to an app server get it over their open connection (two ticks).",
+      "{serverless} push senders consume the same stream and send a push notification to anyone offline.",
+      "Opening a chat reads its latest messages from the {nosql} store, starting from the last message the phone already has.",
+    ],
+    numbers: [
+      "4,000 requests a second: 2,000 history reads and 2,000 messages.",
+      "A {sql-primary} takes 500 writes a second. 2,000 messages is four times that, and more instances are only standbys. The {nosql} store with two partitions handles them at 40%.",
+      "Eighteen {app-server} instances across three zones run at 56%. When a zone goes dark, the twelve left run at 83%.",
+      "The {event-stream} carries 2,000 events a second, 10% of its capacity, and three blocks of {serverless} push senders run at 67%.",
+      "Availability is 99.93%: the stream is on the write path, so its 99.95% counts.",
+      "Cost: $1 + $20 + 18 × $30 + 2 × $70 + $60 + 3 × $60 = $941 of $1,000.",
+    ],
+    tradeoffs: [
+      "Partitioning by conversation keeps a chat's messages together and in order, but a huge group chat becomes a hot partition.",
+      "Store first, then deliver: a message is never lost, but delivery happens after the write. At-least-once delivery means the phone must drop duplicates by message ID.",
+      "End-to-end encryption means the server stores ciphertext it can't read, which rules out server-side search.",
+    ],
+    alternatives: [
+      "Sharding the relational database by conversation works, but you'd be building a partitioned store by hand.",
+      "Polling for new messages instead of open connections: simpler, but slower to deliver and far more requests.",
+      "Delivering through a {queue}: each message would go to one consumer only, so either the connection servers or the push senders would miss it.",
+    ],
+  },
+  "home-timeline": {
+    overview:
+      "Fan-out on write. When someone posts, {worker} instances copy the post into each follower's stored timeline. Opening the app is then a single lookup, answered from the {cache} for active users.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. Loading the timeline reads the user's precomputed timeline from the {cache}, falling back to the {nosql} store.",
+      "Posting writes the post to the {nosql} store and publishes a post-created event to the {event-stream}. The user's request finishes there.",
+      "Fan-out {worker} instances read each event, look up the author's followers, and add the post's ID to each follower's timeline.",
+      "Accounts with millions of followers skip fan-out. Their posts are merged into a follower's timeline when it's read.",
+    ],
+    numbers: [
+      "5,000 requests a second: 4,850 timeline loads and 150 posts.",
+      "90% of loads are for active users whose timelines are in the {cache}, which hits 95% of those: 4,147 a second. The {nosql} store sees 703 reads, 14% of its capacity.",
+      "Twenty {app-server} instances run at 63%, and 94% on cup final night without dropping requests.",
+      "Five fan-out workers handle 150 posts a second at 60%, and 90% on the spike.",
+      "Building timelines at read time instead puts every load on the {nosql} store at 97%: p99 reaches 528ms and 30% of requests fail on the spike.",
+      "Fanning out inside the request instead keeps the app tier at 98% and p99 at 3.4 seconds.",
+      "Cost: $1 + $20 + 20 × $30 + 2 × $25 + $70 + $60 + 5 × $40 = $1,001 of $1,050.",
+    ],
+    tradeoffs: [
+      "A post takes a few seconds to appear in every follower's timeline. Show it in the author's own timeline at once so it feels instant.",
+      "Storage: every post is copied once per follower. Store post IDs, not posts, and cap each timeline at the latest few hundred.",
+      "The hybrid (pull for celebrities) makes reads a merge of two sources, which is more code and harder to rank.",
+    ],
+    alternatives: [
+      "Pure fan-out on read: simple, and fine for small apps, but the work repeats on every scroll.",
+      "Pure fan-out on write: a celebrity post becomes millions of writes at once and takes minutes to land.",
+      "A {queue} instead of the stream works for fan-out alone, but the stream lets search, notifications and analytics read the same posts.",
+    ],
+  },
+  "ticket-drop": {
+    overview:
+      "Two very different kinds of traffic. Seat-map views can be a second stale, so the {cdn} and {sql-replica} instances absorb them. Seat holds must be exactly right, so they wait in a {queue}, and {worker} instances admit them to the {sql-primary} at the rate it can take.",
+    walkthrough: [
+      "{dns} → {cdn}. The event page and seat map are cached at the edge for a second or two, so most refreshes never reach you.",
+      "Misses go through the {load-balancer} to the {app-server}, which reads seat availability from the {sql-replica} instances.",
+      "Holding a seat: the app puts the request in the waiting-room {queue} and tells the fan their place in line.",
+      "{worker} instances take requests at a fixed rate and try a conditional update on the {sql-primary}: hold this seat only if nobody else has. The winner gets ten minutes to pay.",
+    ],
+    numbers: [
+      "4,000 requests a second: 3,600 seat-map views and 400 seat holds.",
+      "The {cdn} serves 2,736 views a second from the edge. 864 reach the origin, split over two replicas at 22% each.",
+      "Twelve {app-server} instances run at 26% normally and 79% in the on-sale minute.",
+      "Ten workers at 50 a second admit 500 holds a second: exactly what the {sql-primary} can write.",
+      "In the on-sale minute, 1,200 holds a second arrive. 500 are admitted and the line grows by 700 a second. Fans wait; nobody sees an error.",
+      "Sending holds straight to the {sql-primary} instead fails 58% of them in the on-sale minute: 5.8% of all requests.",
+      "Cost: $1 + $25 + $20 + 12 × $30 + 2 × $120 + $10 + 10 × $40 + 2 × $120 = $1,296 of $1,350.",
+    ],
+    tradeoffs: [
+      "The seat map can show a seat that was just taken. That's fine as long as the hold itself checks the primary.",
+      "A waiting room is honest but slow: tell fans their place and an estimated wait, and don't let them lose it by refreshing.",
+      "Ten-minute holds stop payment racing another buyer, but block seats for people who abandon checkout. Release them on expiry.",
+    ],
+    alternatives: [
+      "Holding seats in a {cache} is fast, but a cache can lose a hold or disagree with the database. Inventory belongs in the system of record.",
+      "Scaling the app tier doesn't help: the limit is the database's writes, not the servers'.",
+      "Selling general admission as a counter rather than named seats is far less contended, if the product allows it.",
+    ],
+  },
+  "video-night": {
+    overview:
+      "Two pipelines that never share capacity. Watching: the {cdn} serves video segments from the edge, backed by the {object-store}. Uploading: the {app-server} stores the original, queues a transcode job, and {worker} instances produce each resolution.",
+    walkthrough: [
+      "A viewer's player fetches the playlist, then segments a few seconds long, choosing the resolution its bandwidth can handle.",
+      "The {cdn} serves popular segments from the edge. Misses go through the {load-balancer} and {app-server} to the {object-store}.",
+      "An upload is stored in the {object-store} and a job goes onto the {queue}. The creator sees 'processing'.",
+      "Transcode {worker} instances produce each resolution, cut it into segments, and write them back to the {object-store}. Then the video goes live.",
+    ],
+    numbers: [
+      "20,000 requests a second: 19,900 segment requests and 100 uploads.",
+      "95% of requests are for popular videos, and the {cdn} hits 95% of those: 17,960 a second served at the edge. 1,940 reach the origin.",
+      "Twelve {app-server} instances run at 43%, and 85% at the premiere.",
+      "The {object-store} sees 1,940 reads (39%) and 200 writes: each upload, then its renditions.",
+      "Five transcode workers handle 100 jobs a second at 40%, and 80% at the premiere.",
+      "Without the {cdn}, 19,900 requests a second reach the origin. Even twenty app servers are swamped and the object store hits 398%.",
+      "Cost: $1 + $25 + $20 + 12 × $30 + $15 + $10 + 5 × $40 = $631 of $700.",
+    ],
+    tradeoffs: [
+      "Transcoding every upload into every resolution wastes compute on videos nobody watches. Transcode the common resolutions first and the rest on demand.",
+      "Segments of a few seconds let the player adapt quickly, but mean more requests and more files.",
+      "The long tail of rarely watched videos always misses the edge, so the origin must be sized for it.",
+    ],
+    alternatives: [
+      "Uploading straight to the {object-store} with a signed URL takes big files off the app servers entirely.",
+      "Streaming a single file at one quality: simpler, but it stalls on slow connections.",
+      "A commercial video platform: it does all of this for a per-minute fee, which is often the right call below a certain scale.",
+    ],
+  },
+  "ride-hailing": {
+    overview:
+      "Location pings are 85% of the traffic, and a ping is worthless four seconds later. They go to an in-memory {cache}, bucketed by area for 'nearest drivers' lookups, and the {event-stream} carries the history to the {data-warehouse} for ETA and pricing models.",
+    walkthrough: [
+      "Each driver's phone sends its location every few seconds: {dns} → {load-balancer} → {app-server}.",
+      "The app overwrites the driver's entry in the {cache}, in a geo bucket for their area. No database write.",
+      "It publishes the ping to the {event-stream}, which the {data-warehouse} consumes for history.",
+      "A rider's request reads the nearby buckets from the {cache} to find the closest available drivers, then offers the trip to one at a time.",
+    ],
+    numbers: [
+      "5,000 requests a second: 750 rider reads and 4,250 location pings.",
+      "The {cache} takes all 4,250 pings and every rider lookup at 4% busy: memory is built for this.",
+      "Twenty {app-server} instances across three zones run at 63%. When a zone goes dark, the thirteen left run at 96%.",
+      "The {data-warehouse} loads 4,250 rows a second at 85%. It's behind the stream, so if it slows, history arrives late but riders notice nothing.",
+      "Two {nosql} partitions could take the pings at 85%, but cost $90 more than the cache, which breaks the budget, and add latency.",
+      "Cost: $1 + $20 + 20 × $30 + 2 × $25 + $60 + $200 = $931 of $950.",
+    ],
+    tradeoffs: [
+      "If a cache node is lost, its drivers vanish from the map for one ping interval, about four seconds, until they report again.",
+      "Bucket size matters: too big and every lookup scans thousands of drivers; too small and a lookup needs many neighbouring buckets.",
+      "Trips, fares and payments are not ephemeral. They belong in a durable database, written once per trip, not per ping.",
+    ],
+    alternatives: [
+      "A {search-index} with geo queries: rich queries, but it can't absorb thousands of updates a second.",
+      "Sending pings less often saves load and battery, at the cost of the car on the rider's map jumping.",
+      "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
+    ],
+  },
+  typeahead: {
+    overview:
+      "No time to search: the top suggestions for every prefix are worked out in advance and kept in memory. The {cdn} answers common prefixes at the edge, the {cache} answers the rest, and completed searches flow through an {event-stream} to the {data-warehouse}, where tomorrow's suggestions are built.",
+    walkthrough: [
+      "Each keystroke asks for suggestions for the prefix so far: 'pi', 'piz', 'pizz'. The client waits a few milliseconds after typing stops before asking.",
+      "The {cdn} answers popular prefixes from the edge. Suggestions here aren't personalised, so everyone typing 'pizz' gets the same answer.",
+      "Misses go through the {load-balancer} to the {app-server}, which looks up the prefix's top ten in the {cache}.",
+      "When someone completes a search, the app logs it to the {event-stream}. A daily job in the {data-warehouse} recounts searches and rebuilds the top ten for every prefix.",
+    ],
+    numbers: [
+      "8,000 requests a second: 7,600 keystrokes and 400 completed searches.",
+      "The {cdn} serves 7,220 keystrokes a second from the edge. 380 reach the origin, plus the 400 logged searches.",
+      "Six {app-server} instances run at 32%, and 65% when breaking news doubles traffic.",
+      "The latency budget: about 4ms for {dns}, 38ms at the edge, 8ms at the balancer, 119ms in the app and 3ms in the {cache}: 194ms against a 200ms target.",
+      "Asking a {search-index} on every keystroke instead adds about 70ms, and p99 reaches 238ms.",
+      "Cost: $1 + $25 + $20 + 6 × $30 + 2 × $25 + $60 + $200 = $536 of $600.",
+    ],
+    tradeoffs: [
+      "Suggestions are as fresh as the last rebuild. For trending topics, run a second, faster pipeline over the last hour and merge it in.",
+      "Personalised suggestions can't be cached at the edge. Blend a small personal list on the client with the shared list from the edge.",
+      "Every suggestion you show is also a suggestion you endorse: filter offensive and harmful completions before they're published.",
+    ],
+    alternatives: [
+      "A trie in each app server's memory: fastest of all, but each server needs a copy, and rebuilding it means a redeploy or a swap.",
+      "Prefix queries on a {search-index}: flexible and always fresh, but too slow on every keystroke at this scale.",
+      "Only suggesting after three characters cuts load a lot, at the cost of the first keystrokes.",
+    ],
+  },
   "shoebox-receipts": {
     overview:
       "Two paths for two kinds of receipt. Typed-in receipts are saved straight to the {sql-primary}. Photos are stored in the {object-store} and a job goes on a {queue}; {worker} instances call the {doc-ai} at a pace its quota allows and write the extracted fields back.",

@@ -9,6 +9,15 @@ import {
   ZONE_OUTAGE,
 } from "./build"
 import {
+  GROUP_CHAT,
+  HOME_TIMELINE,
+  RIDE_HAILING,
+  SHORT_LINKS,
+  TICKET_DROP,
+  TYPEAHEAD,
+  VIDEO_NIGHT,
+} from "./classics"
+import {
   ANALYTICS_ATE_PROD,
   BLACK_FRIDAY,
   HALF_THE_ORDERS,
@@ -27,6 +36,13 @@ export const DECKS: Record<string, DeckCard[]> = {
   "feed-the-analysts": FEED_THE_ANALYSTS,
   "shoebox-receipts": SHOEBOX_RECEIPTS,
   "plug-finder": PLUG_FINDER,
+  "short-links": SHORT_LINKS,
+  "group-chat": GROUP_CHAT,
+  "home-timeline": HOME_TIMELINE,
+  "ticket-drop": TICKET_DROP,
+  "video-night": VIDEO_NIGHT,
+  "ride-hailing": RIDE_HAILING,
+  typeahead: TYPEAHEAD,
   "lost-writes": LOST_WRITES,
   "black-friday": BLACK_FRIDAY,
   "slow-checkout": SLOW_CHECKOUT,

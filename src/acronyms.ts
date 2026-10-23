@@ -118,6 +118,29 @@ export const ACRONYMS: Record<string, Acronym> = {
     expansion: "Cross-Site Scripting",
     note: "Injecting script into a page that other users see.",
   },
+  CAPTCHA: {
+    expansion:
+      "Completely Automated Public Turing test to tell Computers and Humans Apart",
+    note: "A challenge that's easy for people and hard for bots.",
+  },
+  DRM: {
+    expansion: "Digital Rights Management",
+    note: "Encryption and licensing that limit how paid content can be copied.",
+  },
+  ETA: { expansion: "Estimated Time of Arrival" },
+  GB: {
+    expansion: "Gigabyte",
+    note: "A billion bytes.",
+  },
+  HTTP: {
+    expansion: "HyperText Transfer Protocol",
+    note: "The protocol of the web; https is HTTP over TLS.",
+  },
+  TB: {
+    expansion: "Terabyte",
+    note: "A thousand gigabytes.",
+  },
+  TV: { expansion: "Television" },
   p50: {
     expansion: "50th-percentile latency",
     note: "The median: half of requests are faster.",
@@ -129,7 +152,16 @@ export const ACRONYMS: Record<string, Acronym> = {
 }
 
 /** Capitalised words in game text that aren't acronyms to explain. */
-export const NOT_ACRONYMS = new Set(["UK", "US", "ONE", "RAW", "WebP"])
+export const NOT_ACRONYMS = new Set([
+  "UK",
+  "US",
+  "ONE",
+  "RAW",
+  "WebP",
+  "JavaScript",
+  "WhatsApp",
+  "YouTube",
+])
 
 const terms = Object.keys(ACRONYMS).sort((a, b) => b.length - a.length)
 /** A term, optionally plural ("URLs"), as a whole word. */

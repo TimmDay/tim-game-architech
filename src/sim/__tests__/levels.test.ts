@@ -4,6 +4,7 @@ import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
 import { monthlyCost, simulate } from "../simulate"
 import { SOLUTIONS } from "~/levels/solutions"
+import type { Graph, PlacedComponent } from "../types"
 
 describe.each(LEVELS)("$id", (level) => {
   it("has a reference solution that earns three stars", () => {
@@ -181,6 +182,79 @@ describe("the new scenarios' traps", () => {
       ),
     }
     expect(failed(l, bigger)).toContain("budget")
+  })
+})
+
+describe("the interview classics' traps", () => {
+  const level = (id: string) => {
+    const l = LEVELS.find((x) => x.id === id)
+    if (!l) throw new Error(`missing ${id}`)
+    return l
+  }
+  const failed = (l: ReturnType<typeof level>, g: typeof l.reference) =>
+    grade(g, l.load, l.targets, l.chaos.faults)
+      .checks.filter((c) => !c.pass)
+      .map((c) => c.id)
+  const patch = (g: Graph, id: string, p: Partial<PlacedComponent>): Graph => ({
+    ...g,
+    components: g.components.map((c) => (c.id === id ? { ...c, ...p } : c)),
+  })
+  /** Remove components (and their edges), then add edges as `from>to`. */
+  const rewire = (g: Graph, remove: string[], add: string[] = []): Graph => ({
+    components: g.components.filter((c) => !remove.includes(c.id)),
+    edges: [
+      ...g.edges.filter(
+        (e) => !remove.includes(e.from) && !remove.includes(e.to),
+      ),
+      ...add.map((s) => {
+        const [from = "", to = ""] = s.split(">")
+        return { id: s, from, to }
+      }),
+    ],
+  })
+
+  it("short links: one cache node is a single point of failure", () => {
+    const l = level("short-links")
+    const g = patch(l.reference, "cache", { instances: 1, zones: 1 })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("group chat: a SQL primary can't take the messages", () => {
+    const l = level("group-chat")
+    const g = patch(l.reference, "kv", { kind: "sql-primary", zones: 2 })
+    expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("home timeline: building timelines at read time fails the spike", () => {
+    const l = level("home-timeline")
+    const g = rewire(l.reference, ["cache"], ["app>kv"])
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("ticket drop: holds straight to the database fail the on-sale", () => {
+    const l = level("ticket-drop")
+    const g = rewire(l.reference, ["line", "admit"], ["app>db"])
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("video night: no app tier can stand in for the CDN", () => {
+    const l = level("video-night")
+    const g = patch(rewire(l.reference, ["cdn"], ["dns>lb"]), "app", {
+      instances: 20,
+    })
+    expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("ride hailing: pings in a durable store break the budget", () => {
+    const l = level("ride-hailing")
+    const g = patch(l.reference, "live", { kind: "nosql", zones: 1 })
+    expect(failed(l, g)).toContain("budget")
+  })
+
+  it("typeahead: a search per keystroke misses the latency budget", () => {
+    const l = level("typeahead")
+    const g = patch(l.reference, "topk", { kind: "search-index", instances: 1 })
+    expect(failed(l, g)).toEqual(["latency"])
   })
 })
 

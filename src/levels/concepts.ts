@@ -36,8 +36,92 @@ export type ConceptId =
   | "provider-quotas"
   | "micro-caching"
   | "geospatial-indexing"
+  | "cache-stampede"
+  | "id-generation"
+  | "partitioning"
+  | "delivery-guarantees"
+  | "fan-out-on-write"
+  | "hot-keys"
+  | "waiting-room"
+  | "inventory-contention"
+  | "adaptive-bitrate"
+  | "ephemeral-state"
+  | "precomputation"
+  | "latency-budget"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
+  "cache-stampede": {
+    title: "Cache stampede",
+    body: "Once a {cache} answers most reads, the database behind it is sized for the misses, not the full load. Lose the cache (or let a hot key expire) and every request hits the database at once. Replicate the cache, warm it before it takes traffic, and let only one request rebuild a missing key.",
+    interview:
+      "Say what the database would see with the cache gone. If it can't survive that, the cache is no longer optional: it needs redundancy like any other critical tier.",
+  },
+  "id-generation": {
+    title: "Generating unique IDs",
+    body: "A short code must be unique and hard to guess. Options: hash the long URL and take a few characters (collisions need handling), encode a counter in base 62 (unique, but sequential and guessable), or hand out ranges of a counter to each server so they never coordinate per request.",
+    interview:
+      "Do the arithmetic: 7 base-62 characters give about 3.5 trillion codes. Then pick a scheme and say how it avoids collisions without a database round-trip per link.",
+  },
+  partitioning: {
+    title: "Partitioning (sharding)",
+    body: "Split data across many machines by a key, so each machine takes a share of the writes. One {sql-primary} has a ceiling on writes that more standbys don't raise; a partitioned store like {nosql} raises it by adding partitions. The partition key decides whether load spreads evenly.",
+    interview:
+      "Name the partition key and why: for chat, the conversation ID keeps a chat's messages together and in order. Then say what happens to a very busy key.",
+  },
+  "delivery-guarantees": {
+    title: "Delivery guarantees",
+    body: "At-most-once can lose messages; at-least-once can deliver duplicates; exactly-once is at-least-once plus deduplication. Real systems retry until the receiver acknowledges, and give every message an ID so a retry doesn't show it twice.",
+    interview:
+      "Say which guarantee you're giving and where the dedup happens. For chat: store first, acknowledge to the sender, then deliver with retries and a client-side message ID.",
+  },
+  "fan-out-on-write": {
+    title: "Fan-out on write vs read",
+    body: "Fan-out on write copies each post into every follower's precomputed timeline when it's posted: reads are cheap, writes are expensive. Fan-out on read builds the timeline when it's opened: writes are cheap, every read is expensive. Most read-heavy feeds precompute, and handle accounts with millions of followers differently.",
+    interview:
+      "Compare reads per second with posts per second times average followers. Then raise the celebrity problem yourself and propose the hybrid: push for most accounts, pull for the biggest.",
+  },
+  "hot-keys": {
+    title: "Hot keys",
+    body: "Partitioning spreads load only if the keys are spread. One celebrity's post, one viral link or one stadium's seat map can put most of the traffic on one partition. Fixes: cache hot keys close to readers, split a hot key into several, or treat the biggest keys as a special case.",
+    interview:
+      "After choosing a partition key, ask what the busiest single key looks like. Interviewers often hold this back to see whether you'll find it yourself.",
+  },
+  "waiting-room": {
+    title: "Virtual waiting rooms",
+    body: "When demand is far above what the system of record can take, don't let everyone through and fail them. Put arrivals in a line and admit them at the rate the system can serve. The line is a {queue} with a known drain rate, so you can tell each person their place and roughly how long they'll wait.",
+    interview:
+      "Say the admission rate out loud and where it comes from (the database's write limit, or the seats left). A fair, honest wait beats a fast error.",
+  },
+  "inventory-contention": {
+    title: "Contended inventory",
+    body: "When thousands of people want the same seat, the database must serialise them: one wins, the rest are told it's gone. Hold a seat for a few minutes during checkout so payment can't race another buyer, release it if they don't pay, and never take the hold in a cache or replica.",
+    interview:
+      "Explain how you prevent double-selling: a conditional update or a row lock in the primary, plus a hold with an expiry. Mention what happens when the payment fails after the hold.",
+  },
+  "adaptive-bitrate": {
+    title: "Adaptive bitrate streaming",
+    body: "Video is transcoded into several resolutions and cut into segments of a few seconds. The player picks the next segment's quality from the bandwidth it's seeing, so playback adapts instead of stalling. Because segments are plain files, a {cdn} caches them like any other static content.",
+    interview:
+      "Separate the upload pipeline (slow, asynchronous transcoding) from the playback path (cached segments at the edge), and say which formats and resolutions you'd produce.",
+  },
+  "ephemeral-state": {
+    title: "Ephemeral state",
+    body: "Some data is useful for seconds and replaced constantly, like a driver's current location. Writing every update to a durable database pays for safety that doesn't matter: if it's lost, the next update replaces it in seconds. Keep it in memory, and send the history down a stream if anyone needs it later.",
+    interview:
+      "Ask how long each piece of data matters and what losing it costs. A lost location ping costs four seconds; a lost trip record costs money.",
+  },
+  precomputation: {
+    title: "Precomputation",
+    body: "When an answer is needed faster than it can be worked out, work it out ahead of time. Autocomplete suggestions, home timelines and leaderboards are built in the background and looked up at request time. The cost is freshness: precomputed answers are only as new as the last rebuild.",
+    interview:
+      "Say what's precomputed, how often it's rebuilt, and how you handle things that can't wait for the rebuild (a trending topic in the last ten minutes).",
+  },
+  "latency-budget": {
+    title: "Latency budgets",
+    body: "Start from the target and give each hop a share: the network, the edge, the app, the data lookup. If the hops add up to more than the target, no amount of scaling will fix it; you need fewer or faster hops.",
+    interview:
+      "Write the budget down: 200ms total might be 50ms of network, 40ms at the edge and 100ms for the app and its lookups. Then show that each tier fits.",
+  },
   "provider-quotas": {
     title: "Provider quotas and rate limits",
     body: "Managed APIs cap how many calls each account can make per second, and default quotas are often small (single digits per second for some OCR APIs). Exceed them and calls are throttled. A queue in front of the calls turns a burst into a steady stream at the rate you're allowed.",

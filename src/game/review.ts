@@ -1,3 +1,4 @@
+import { ACHIEVEMENT_POINTS } from "./achievement-points"
 /**
  * Points and spaced review, as pure functions over plain state. The store in
  * `points-store.ts` persists this and tells React when it changes.
@@ -46,6 +47,12 @@ export type ReviewState = {
   items: Record<string, ReviewItem>
   /** Retention reviews answered correctly, ever. */
   reviewsRight?: number
+  /**
+   * Retention points earned, per device. Kept apart from one-time awards so
+   * two devices' saves merge without losing or double-counting anything:
+   * awards merge as a set, these as a per-device maximum.
+   */
+  retention?: Record<string, number>
 }
 
 export const EMPTY: ReviewState = { total: 0, awarded: {}, items: {} }
@@ -56,6 +63,24 @@ const interval = (id: string, box: number) => {
   const table = isLevelItem(id) ? LEVEL_INTERVAL_DAYS : CARD_INTERVAL_DAYS
   return (table[Math.min(box, table.length - 1)] ?? 1) * DAY
 }
+
+/**
+ * What a one-time award is worth, from its key alone. That's what lets the
+ * total be recomputed after a merge rather than trusted.
+ */
+export function awardValue(key: string): number {
+  if (key.startsWith("flash:")) return POINTS.flashCard
+  if (key.startsWith("mc:")) return POINTS.mcCorrect
+  if (key.startsWith("pass:")) return POINTS.scenarioPass
+  if (key.startsWith("survival:")) return POINTS.survivalWave
+  if (key.startsWith("ach:")) return ACHIEVEMENT_POINTS
+  return 0 // markers: "event:", "provider:"
+}
+
+/** Points, recomputed from the parts that merge safely. */
+export const computeTotal = (s: ReviewState) =>
+  Object.keys(s.awarded).reduce((t, k) => t + awardValue(k), 0) +
+  Object.values(s.retention ?? {}).reduce((t, n) => t + n, 0)
 
 /** Give a one-time award, unless it has been given before. */
 function award(s: ReviewState, key: string, points: number): ReviewState {
@@ -125,6 +150,7 @@ export function review(
   id: string,
   right: boolean,
   now: number,
+  device = "local",
 ): { state: ReviewState; earned: number } {
   const prev = s.items[id]
   if (!prev) return { state: s, earned: 0 }
@@ -137,6 +163,10 @@ export function review(
       total: s.total + earned,
       items: { ...s.items, [id]: item },
       reviewsRight: (s.reviewsRight ?? 0) + (right ? 1 : 0),
+      retention: {
+        ...s.retention,
+        [device]: (s.retention?.[device] ?? 0) + earned,
+      },
     },
     earned,
   }
@@ -170,3 +200,39 @@ export const bestSurvivalWave = (s: ReviewState) =>
     const m = /^survival:(\d+)$/.exec(k)
     return m ? Math.max(best, Number(m[1])) : best
   }, 0)
+
+/**
+ * Bring a save from before per-device retention into the current shape: any
+ * points not explained by one-time awards must have come from Retention on
+ * this device.
+ */
+export function normalize(s: ReviewState, device: string): ReviewState {
+  if (s.retention) return { ...s, total: computeTotal(s) }
+  const awards = computeTotal({ ...s, retention: {} })
+  const retention = { [device]: Math.max(0, s.total - awards) }
+  return { ...s, retention, total: awards + (retention[device] ?? 0) }
+}
+
+/**
+ * Combine two saves of the same player from different devices. Nothing is
+ * lost and nothing counts twice: awards are a set, retention is per device,
+ * and each review item keeps whichever copy was reviewed most recently.
+ */
+export function mergeReview(a: ReviewState, b: ReviewState): ReviewState {
+  const items = { ...a.items }
+  for (const [id, it] of Object.entries(b.items)) {
+    const mine = items[id]
+    if (!mine || it.last > mine.last) items[id] = it
+  }
+  const retention = { ...a.retention }
+  for (const [d, n] of Object.entries(b.retention ?? {}))
+    retention[d] = Math.max(retention[d] ?? 0, n)
+  const merged: ReviewState = {
+    awarded: { ...a.awarded, ...b.awarded },
+    items,
+    retention,
+    reviewsRight: Math.max(a.reviewsRight ?? 0, b.reviewsRight ?? 0),
+    total: 0,
+  }
+  return { ...merged, total: computeTotal(merged) }
+}

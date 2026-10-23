@@ -35,7 +35,8 @@ export type Achievement = {
   earned: (c: AchievementContext) => boolean
 }
 
-export const ACHIEVEMENT_POINTS = 20
+export { ACHIEVEMENT_POINTS } from "./achievement-points"
+import { ACHIEVEMENT_POINTS } from "./achievement-points"
 
 const count = (s: ReviewState, prefix: string) =>
   Object.keys(s.awarded).filter((k) => k.startsWith(prefix)).length

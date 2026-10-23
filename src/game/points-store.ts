@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react"
-import { scoped, subscribeProfile } from "./profile"
-import { EMPTY, type ReviewState } from "./review"
+import { backend, notifySaveChanged, scoped, subscribeProfile } from "./profile"
+import { deviceId } from "./device"
+import { EMPTY, normalize, type ReviewState } from "./review"
 
 /**
  * The one piece of shared, live game state: points and the review schedule.
@@ -11,8 +12,10 @@ const KEY = "lb.review"
 
 const load = (): ReviewState => {
   try {
-    const raw = localStorage.getItem(scoped(KEY))
-    return raw ? { ...EMPTY, ...(JSON.parse(raw) as ReviewState) } : EMPTY
+    const raw = backend(KEY).getItem(scoped(KEY))
+    return raw
+      ? normalize({ ...EMPTY, ...(JSON.parse(raw) as ReviewState) }, deviceId())
+      : { ...EMPTY, retention: {} }
   } catch {
     return EMPTY
   }
@@ -35,11 +38,12 @@ export function updateReview(fn: (s: ReviewState) => ReviewState) {
   if (next === state) return
   state = next
   try {
-    localStorage.setItem(scoped(KEY), JSON.stringify(state))
+    backend(KEY).setItem(scoped(KEY), JSON.stringify(state))
   } catch {
     // Storage blocked: points still count for this session.
   }
   for (const l of listeners) l()
+  notifySaveChanged()
 }
 
 const subscribe = (l: () => void) => {

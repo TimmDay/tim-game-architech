@@ -4,6 +4,8 @@ import {
   POINTS,
   answerQuestion,
   dueQueue,
+  mergeReview,
+  normalize,
   bestSurvivalWave,
   clearSurvivalWave,
   passScenario,
@@ -98,5 +100,62 @@ describe("survival points", () => {
     for (const n of [1, 2, 3, 4]) s = clearSurvivalWave(s, n)
     expect(s.total).toBe(4 * POINTS.survivalWave)
     expect(bestSurvivalWave(s)).toBe(4)
+  })
+})
+
+describe("cross-device merging", () => {
+  const t = Date.UTC(2026, 9, 1)
+  it("counts a one-time award once, however many devices earned it", () => {
+    const a = passScenario(EMPTY, "front-page", t)
+    const b = passScenario(EMPTY, "front-page", t + 1000)
+    expect(mergeReview(a, b).total).toBe(POINTS.scenarioPass)
+  })
+
+  it("adds up retention earned on different devices", () => {
+    let a = seeCard(EMPTY, "x", true, t)
+    let b = a
+    a = review(a, "card:x", true, t + 4 * DAY, "laptop").state
+    b = review(b, "card:y", true, t + 4 * DAY, "phone").state
+    b = seeCard(b, "y", true, t)
+    b = review(b, "card:y", true, t + 4 * DAY, "phone").state
+    const m = mergeReview(a, b)
+    expect(m.retention).toEqual({ laptop: 1, phone: 1 })
+    expect(m.total).toBe(POINTS.flashCard * 2 + 2)
+  })
+
+  it("keeps the most recently reviewed copy of each item", () => {
+    const a = review(
+      seeCard(EMPTY, "x", true, t),
+      "card:x",
+      true,
+      t + 4 * DAY,
+      "a",
+    ).state
+    const b = seeCard(EMPTY, "x", true, t)
+    expect(mergeReview(b, a).items["card:x"]?.box).toBe(2)
+    expect(mergeReview(a, b).items["card:x"]?.box).toBe(2)
+  })
+
+  it("is the same whichever order the devices sync in", () => {
+    const a = passScenario(seeCard(EMPTY, "x", false, t), "front-page", t)
+    const b = review(
+      seeCard(EMPTY, "x", false, t),
+      "card:x",
+      true,
+      t + DAY,
+      "phone",
+    ).state
+    expect(mergeReview(a, b)).toEqual(mergeReview(b, a))
+  })
+
+  it("converts an old save without losing points", () => {
+    const old = {
+      ...seeCard(EMPTY, "x", true, t),
+      total: 1 + 7,
+      retention: undefined,
+    }
+    const n = normalize(old, "laptop")
+    expect(n.total).toBe(8)
+    expect(n.retention).toEqual({ laptop: 7 })
   })
 })

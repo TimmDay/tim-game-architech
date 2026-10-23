@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react"
-import { claimGuestData, switchProfile } from "~/game/profile"
+import { GUEST, switchProfile } from "~/game/profile"
+import { startSync, stopSync } from "~/sync/cloud"
+import { readSave } from "~/sync/local"
 
 /**
  * Sign-in with GitHub or Google, through Firebase Auth.
@@ -21,6 +23,8 @@ export type AuthState =
   | { status: "disabled" }
   | { status: "loading" }
   | { status: "signed-out"; error?: string }
+  /** Chose "continue as guest": progress lasts for this tab only. */
+  | { status: "guest" }
   | { status: "signed-in"; user: AuthUser }
 
 const config = {
@@ -29,6 +33,9 @@ const config = {
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined,
   appId: import.meta.env.VITE_FIREBASE_APP_ID as string | undefined,
 }
+/** reCAPTCHA v3 site key for App Check (free; no billing needed). Optional. */
+const appCheckKey = import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY as
+  string | undefined
 export const authConfigured = Boolean(
   config.apiKey && config.authDomain && config.projectId && config.appId,
 )
@@ -53,6 +60,7 @@ export const useAuth = () =>
   )
 
 type Sdk = {
+  app: import("firebase/app").FirebaseApp
   auth: import("firebase/auth").Auth
   mod: typeof import("firebase/auth")
 }
@@ -65,9 +73,18 @@ function load(): Promise<Sdk> {
       import("firebase/auth"),
     ])
     const app = initializeApp(config as Required<typeof config>)
+    // App Check: Firestore and Auth then only accept requests carrying a
+    // token from this site, which shuts out scripts calling the APIs directly.
+    if (appCheckKey) {
+      const ac = await import("firebase/app-check")
+      ac.initializeAppCheck(app, {
+        provider: new ac.ReCaptchaV3Provider(appCheckKey),
+        isTokenAutoRefreshEnabled: true,
+      })
+    }
     const auth = mod.getAuth(app)
     await mod.setPersistence(auth, mod.browserLocalPersistence)
-    return { auth, mod }
+    return { app, auth, mod }
   })()
   return sdk
 }
@@ -88,21 +105,31 @@ const toUser = (u: import("firebase/auth").User): AuthUser => {
 export async function startAuth() {
   if (!authConfigured) return
   try {
-    const { auth, mod } = await load()
+    const { app, auth, mod } = await load()
     // Finishes a redirect sign-in, if one is in flight (installed iOS apps).
     await mod.getRedirectResult(auth).catch(() => null)
     mod.onAuthStateChanged(auth, (u) => {
       if (u) {
-        try {
-          claimGuestData(localStorage, u.uid)
-        } catch {
-          // Storage blocked: start the account fresh.
+        // Fold this tab's guest play, and the device's pre-sign-in save (once
+        // per device), into the account before syncing it.
+        const extras = [readSave(GUEST)]
+        if (!legacyClaimed()) {
+          extras.push(readSave(null))
+          markLegacyClaimed()
         }
+        clearGuestSession()
         switchProfile(u.uid)
         set({ status: "signed-in", user: toUser(u) })
+        void startSync(app, u.uid, extras)
       } else {
-        switchProfile(null)
-        set({ status: "signed-out" })
+        stopSync()
+        if (guestSession()) {
+          switchProfile(GUEST)
+          set({ status: "guest" })
+        } else {
+          switchProfile(null)
+          set({ status: "signed-out" })
+        }
       }
     })
   } catch {
@@ -145,6 +172,49 @@ export async function signIn(which: "github" | "google") {
           : "Sign-in failed. Try again, or keep playing as a guest.",
     })
   }
+}
+
+// --- guests ------------------------------------------------------------------
+const GUEST_FLAG = "lb.guest-session"
+const guestSession = () => {
+  try {
+    return sessionStorage.getItem(GUEST_FLAG) === "1"
+  } catch {
+    return false
+  }
+}
+function clearGuestSession() {
+  try {
+    sessionStorage.clear()
+  } catch {
+    // Nothing to clear.
+  }
+}
+const LEGACY_FLAG = "lb.legacy-claimed"
+const legacyClaimed = () => {
+  try {
+    return localStorage.getItem(LEGACY_FLAG) === "1"
+  } catch {
+    return true
+  }
+}
+const markLegacyClaimed = () => {
+  try {
+    localStorage.setItem(LEGACY_FLAG, "1")
+  } catch {
+    // Not persisted.
+  }
+}
+
+/** Play without an account. Progress lives in this tab and goes when it closes. */
+export function continueAsGuest() {
+  try {
+    sessionStorage.setItem(GUEST_FLAG, "1")
+  } catch {
+    // Private mode: still a guest, just without even session persistence.
+  }
+  switchProfile(GUEST)
+  set({ status: "guest" })
 }
 
 export async function signOut() {

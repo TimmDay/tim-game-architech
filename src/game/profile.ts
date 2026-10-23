@@ -19,6 +19,13 @@ const PER_PLAYER = [
 const isPerPlayer = (key: string) =>
   PER_PLAYER.some((p) => (p.endsWith(".") ? key.startsWith(p) : key === p))
 
+/**
+ * Who is playing:
+ *   null      the original device save (no sign-in configured, or not chosen)
+ *   "guest"   "continue as guest": saved for this tab only, in sessionStorage
+ *   <uid>     a signed-in account, saved per device and synced to the cloud
+ */
+export const GUEST = "guest"
 let uid: string | null = null
 const listeners = new Set<() => void>()
 
@@ -26,8 +33,30 @@ export const currentProfile = () => uid
 
 /** The storage key for this player's copy of `key`. */
 export function scoped(key: string, profile: string | null = uid): string {
-  if (!profile || !isPerPlayer(key)) return key
+  if (!profile || profile === GUEST || !isPerPlayer(key)) return key
   return `lb.u.${profile}.${key.slice("lb.".length)}`
+}
+
+/** Guests keep per-player data in sessionStorage; everything else is local. */
+export function backend(key: string, profile: string | null = uid): Storage {
+  return profile === GUEST && isPerPlayer(key) ? sessionStorage : localStorage
+}
+
+// --- "the save changed" signal, for cloud sync -------------------------------
+const changeListeners = new Set<() => void>()
+export const notifySaveChanged = () => {
+  for (const l of changeListeners) l()
+}
+export const subscribeSaveChanged = (l: () => void) => {
+  changeListeners.add(l)
+  return () => {
+    changeListeners.delete(l)
+  }
+}
+
+/** Tell every store to reload: the save was replaced underneath them (a sync). */
+export const refreshProfile = () => {
+  for (const l of listeners) l()
 }
 
 export function switchProfile(next: string | null) {
@@ -45,35 +74,3 @@ export const subscribeProfile = (l: () => void) => {
 
 export const useProfile = () =>
   useSyncExternalStore(subscribeProfile, currentProfile, currentProfile)
-
-/** Minimal storage surface, so the claim logic can be tested without a browser. */
-export type KeyValue = {
-  length: number
-  key(i: number): string | null
-  getItem(k: string): string | null
-  setItem(k: string, v: string): void
-}
-
-/**
- * The first time an account signs in on a device, carry the guest save into
- * it, so nothing earned before signing up is lost. An account that already
- * has data on this device is left alone. Returns how many keys were copied.
- */
-export function claimGuestData(store: KeyValue, profile: string): number {
-  const keys: string[] = []
-  for (let i = 0; i < store.length; i++) {
-    const k = store.key(i)
-    if (k) keys.push(k)
-  }
-  const accountHasData = keys.some((k) => k.startsWith(`lb.u.${profile}.`))
-  if (accountHasData) return 0
-  let copied = 0
-  for (const k of keys) {
-    if (!isPerPlayer(k)) continue
-    const v = store.getItem(k)
-    if (v === null) continue
-    store.setItem(scoped(k, profile), v)
-    copied++
-  }
-  return copied
-}

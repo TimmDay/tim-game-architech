@@ -43,5 +43,7 @@ export default defineConfig({
   test: {
     environment: "happy-dom",
     setupFiles: ["./src/test-setup.ts"],
+    // Security-rules tests need the Firestore emulator: `pnpm test:rules`.
+    exclude: ["rules-tests/**", "node_modules/**", "dist/**"],
   },
 })

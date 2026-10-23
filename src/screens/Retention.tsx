@@ -1,3 +1,4 @@
+import { deviceId } from "~/game/device"
 import clsx from "clsx"
 import { Brain, Check, ChevronLeft, Play, RotateCcw, X } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -92,7 +93,7 @@ export function Retention({
     const now = Date.now()
     let got = 0
     updateReview((s) => {
-      const r = review(s, item.id, right, now)
+      const r = review(s, item.id, right, now, deviceId())
       got = r.earned
       return r.state
     })

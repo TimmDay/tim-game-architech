@@ -54,6 +54,10 @@ Every level ships a reference solution, and CI fails if a tuning change leaves a
   <img src="docs/img/phone-results.jpg" alt="The results screen on a phone, three stars" width="300">
 </p>
 
+## Play it
+
+**[tim-game-architech.firebaseapp.com](https://tim-game-architech.firebaseapp.com)**, deployed from `main` by GitHub Actions to Firebase Hosting. Each pull request gets its own preview link; sign-in only works on the live site, since previews' domains aren't on Firebase Auth's allow-list.
+
 ## Run it
 
 ```bash

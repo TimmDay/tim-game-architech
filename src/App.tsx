@@ -11,6 +11,8 @@ import type { Provider } from "~/providers/names"
 import { GENERIC_SCENARIO } from "~/levels/roles"
 import { KINDS } from "~/sim/catalogue"
 import { Codex } from "~/screens/Codex"
+import { LockedLevel } from "~/screens/LockedLevel"
+import { isUnlocked, missingPrereqs } from "~/game/progression"
 import { Deck } from "~/screens/Deck"
 import { Home } from "~/screens/Home"
 import { Play } from "~/screens/Play"
@@ -19,6 +21,7 @@ import { ProviderToggle } from "~/ui/ProviderToggle"
 const SANDBOX: Level = {
   id: "sandbox",
   mode: "build",
+  requires: [],
   title: "Sandbox",
   tagline: "",
   brief: "",
@@ -87,6 +90,17 @@ export function App() {
         ? SANDBOX
         : (levelById(route.levelId) ?? LEVELS[0])
     if (!level) return null
+    // A shared or bookmarked link can't skip the levels that teach this one.
+    if (level !== SANDBOX && !isUnlocked(level, progress)) {
+      return (
+        <LockedLevel
+          level={level}
+          missing={missingPrereqs(level, progress)}
+          onHome={() => go("/")}
+          onDeck={() => go(`/deck/${level.id}`)}
+        />
+      )
+    }
     return (
       <>
         <Play

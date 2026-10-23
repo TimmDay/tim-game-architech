@@ -20,6 +20,11 @@ export type Mode = "build" | "repair"
 export type Level = {
   id: string
   mode: Mode
+  /**
+   * Levels that must have at least one star first: the ones that introduce
+   * what this level assumes you know.
+   */
+  requires: string[]
   title: string
   /** One line for the level card. */
   tagline: string
@@ -76,6 +81,7 @@ const C = CLIENT_ID
 const BUILD: Level[] = [
   {
     id: "first-customers",
+    requires: [],
     mode: "build",
     title: "First Customers",
     tagline: "Your helpdesk app outgrew the laptop under the desk.",
@@ -120,6 +126,7 @@ const BUILD: Level[] = [
   },
   {
     id: "front-page",
+    requires: ["first-customers"],
     mode: "build",
     title: "Front Page",
     tagline: "A story is trending and everyone reads the same 50 articles.",
@@ -171,6 +178,7 @@ const BUILD: Level[] = [
   },
   {
     id: "going-viral",
+    requires: ["front-page"],
     mode: "build",
     title: "Going Viral",
     tagline: "One meme, twenty thousand requests a second.",
@@ -216,6 +224,7 @@ const BUILD: Level[] = [
   },
   {
     id: "upload-rush",
+    requires: ["going-viral"],
     mode: "build",
     title: "Upload Rush",
     tagline: "Every upload needs resizing, and resizing takes two seconds.",
@@ -273,6 +282,7 @@ const BUILD: Level[] = [
   },
   {
     id: "zone-outage",
+    requires: ["upload-rush"],
     mode: "build",
     title: "Zone Outage",
     tagline:
@@ -323,6 +333,7 @@ const BUILD: Level[] = [
   },
   {
     id: "feed-the-analysts",
+    requires: ["zone-outage"],
     mode: "build",
     title: "Feed the Analysts",
     tagline:
@@ -391,6 +402,7 @@ const BUILD: Level[] = [
 const REPAIR: Level[] = [
   {
     id: "lost-writes",
+    requires: ["front-page"],
     mode: "repair",
     title: "Lost Writes",
     tagline: "Support tickets are vanishing. The dashboards are all green.",
@@ -450,6 +462,7 @@ const REPAIR: Level[] = [
   },
   {
     id: "black-friday",
+    requires: ["lost-writes"],
     mode: "repair",
     title: "Black Friday",
     tagline: "Traffic tripled overnight and checkout is timing out.",
@@ -514,6 +527,7 @@ const REPAIR: Level[] = [
   },
   {
     id: "slow-checkout",
+    requires: ["upload-rush", "black-friday"],
     mode: "repair",
     title: "Slow Checkout",
     tagline: "Every order takes two seconds and nobody knows why.",
@@ -584,6 +598,7 @@ const REPAIR: Level[] = [
   },
   {
     id: "three-am-page",
+    requires: ["zone-outage", "slow-checkout"],
     mode: "repair",
     title: "The 3am Page",
     tagline: "Zone A went down last month. So did the whole company.",
@@ -644,6 +659,7 @@ const REPAIR: Level[] = [
   },
   {
     id: "analytics-ate-prod",
+    requires: ["feed-the-analysts", "three-am-page"],
     mode: "repair",
     title: "Analytics Ate Prod",
     tagline: "Finance wanted live numbers. Now checkout takes four seconds.",
@@ -712,6 +728,7 @@ const REPAIR: Level[] = [
   },
   {
     id: "half-the-orders",
+    requires: ["analytics-ate-prod"],
     mode: "repair",
     title: "Half the Orders",
     tagline: "Search shows half the orders. Finance sees the other half.",

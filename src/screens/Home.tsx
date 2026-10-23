@@ -1,5 +1,6 @@
 import clsx from "clsx"
 import {
+  Lock,
   Layers,
   BookOpen,
   FlaskConical,
@@ -9,6 +10,7 @@ import {
   Wrench,
 } from "lucide-react"
 import { DECKS } from "~/decks"
+import { missingPrereqs } from "~/game/progression"
 import type { Progress } from "~/game/storage"
 import { LEVELS, type Level } from "~/levels"
 import type { ComponentKind } from "~/sim/types"
@@ -83,6 +85,7 @@ function LevelCard({
   diagnosed,
   onPlay,
   onDeck,
+  lockedBy,
 }: {
   level: Level
   index: number
@@ -90,13 +93,22 @@ function LevelCard({
   diagnosed?: boolean
   onPlay: () => void
   onDeck: () => void
+  /** Titles of unfinished prerequisites; empty when the level is open. */
+  lockedBy: string[]
 }) {
+  const locked = lockedBy.length > 0
   return (
     <div className="relative flex">
       <button
         type="button"
         onClick={onPlay}
-        className="group relative flex w-full flex-col rounded-2xl border border-white/8 bg-gradient-to-b from-white/[0.05] to-white/[0.01] p-4 pb-12 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/40 hover:shadow-[0_10px_40px_-15px] hover:shadow-cyan-400/40"
+        disabled={locked}
+        className={clsx(
+          "group relative flex w-full flex-col rounded-2xl border p-4 pb-12 text-left transition",
+          locked
+            ? "cursor-not-allowed border-white/5 bg-white/[0.015] opacity-60"
+            : "border-white/8 bg-gradient-to-b from-white/[0.05] to-white/[0.01] hover:-translate-y-0.5 hover:border-cyan-300/40 hover:shadow-[0_10px_40px_-15px] hover:shadow-cyan-400/40",
+        )}
       >
         <div className="flex items-center justify-between">
           <span className="font-mono text-[11px] text-slate-500">
@@ -123,6 +135,11 @@ function LevelCard({
         <p className="mt-1 text-[13px] leading-snug text-slate-400">
           {level.tagline}
         </p>
+        {locked && (
+          <span className="mt-2 flex items-center gap-1 text-[12px] text-slate-400">
+            <Lock size={12} /> Finish {lockedBy.join(" and ")} to unlock
+          </span>
+        )}
         {diagnosed && (
           <span className="mt-2 flex items-center gap-1 text-[11px] text-emerald-300">
             <Stethoscope size={12} /> Diagnosed first try
@@ -184,6 +201,7 @@ export function Home({
             diagnosed={progress[l.id]?.diagnosedFirstTry}
             onPlay={() => onPlay(l.id)}
             onDeck={() => onDeck(l.id)}
+            lockedBy={missingPrereqs(l, progress)}
           />
         ))}
       </div>

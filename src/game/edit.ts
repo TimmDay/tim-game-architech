@@ -1,5 +1,6 @@
 import { CATALOGUE } from "~/sim/catalogue"
-import type { ComponentKind, Graph } from "~/sim/types"
+import { MAX_SHARDS } from "~/sim/simulate"
+import type { ComponentKind, Consistency, Graph } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import { CLIENT_TILE } from "~/levels"
 
@@ -13,8 +14,17 @@ export type Action =
   | { type: "connect"; from: string; to: string }
   | { type: "remove"; id: string }
   | { type: "remove-edge"; id: string }
-  | { type: "set"; id: string; instances?: number; zones?: number }
+  | ({ type: "set"; id: string } & Settings)
   | { type: "reset"; graph: Graph }
+
+/** What the sidebar can change on a component. */
+export type Settings = {
+  instances?: number
+  zones?: number
+  shards?: number
+  partitionKey?: string
+  consistency?: Consistency
+}
 
 export const inBounds = (x: number, y: number) =>
   x >= 0 && y >= 0 && x < COLS && y < ROWS
@@ -85,7 +95,12 @@ export function edit(g: Graph, a: Action): Graph {
             Math.max(1, a.instances ?? c.instances),
           )
           const zones = Math.min(3, Math.max(1, a.zones ?? c.zones))
-          return { ...c, instances, zones }
+          const next = { ...c, instances, zones }
+          if (a.shards !== undefined)
+            next.shards = Math.min(MAX_SHARDS, Math.max(1, a.shards))
+          if (a.partitionKey !== undefined) next.partitionKey = a.partitionKey
+          if (a.consistency !== undefined) next.consistency = a.consistency
+          return next
         }),
       }
     case "reset":

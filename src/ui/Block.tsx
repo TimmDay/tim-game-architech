@@ -112,11 +112,17 @@ function Cylinder({
   hue,
   rings,
   dim,
+  shards = 1,
+  hot,
+  quietHue,
 }: {
   h: number
   hue: number
   rings: number
   dim?: boolean
+  shards?: number
+  hot?: boolean
+  quietHue?: number
 }) {
   const f = faces(hue, dim ? 10 : 85)
   const rx = HW * 0.92
@@ -156,6 +162,76 @@ function Cylinder({
         stroke="white"
         strokeOpacity={0.4}
       />
+      {shards > 1 && (
+        <Slices
+          h={h}
+          rx={rx}
+          ry={ry}
+          n={shards}
+          hot={hot}
+          hotFill={f.top}
+          quietFill={
+            quietHue === undefined ? undefined : faces(quietHue, 85).top
+          }
+        />
+      )}
+    </g>
+  )
+}
+
+/**
+ * A sharded store is cut like a cake: one slice per shard, seams down the
+ * front. When one key overloads its shard, the front slice takes the busiest
+ * shard's colour and the top shows the others' calmer one.
+ */
+function Slices({
+  h,
+  rx,
+  ry,
+  n,
+  hot,
+  hotFill,
+  quietFill,
+}: {
+  h: number
+  rx: number
+  ry: number
+  n: number
+  hot?: boolean
+  hotFill: string
+  quietFill?: string
+}) {
+  const half = Math.PI / n
+  // Screen y points down, so the front of the cylinder is at +pi/2.
+  const at = (a: number) => [rx * Math.cos(a), ry * Math.sin(a)] as const
+  const seams = Array.from(
+    { length: n },
+    (_, k) => Math.PI / 2 + half + (2 * Math.PI * k) / n,
+  )
+  const [x0, y0] = at(Math.PI / 2 - half)
+  const [x1, y1] = at(Math.PI / 2 + half)
+  return (
+    <g pointerEvents="none">
+      {hot && quietFill && (
+        <>
+          {/* The quiet shards' colour over the whole top, then the hot slice. */}
+          <ellipse cx={0} cy={-h} rx={rx} ry={ry} fill={quietFill} />
+          <path
+            d={`M 0 ${-h} L ${x0} ${y0 - h} A ${rx} ${ry} 0 0 1 ${x1} ${y1 - h} Z`}
+            fill={hotFill}
+          />
+        </>
+      )}
+      {seams.map((a) => {
+        const [x, y] = at(a)
+        return (
+          <g key={a} stroke="rgba(10,14,28,0.7)" strokeWidth={1.5}>
+            <line x1={0} y1={-h} x2={x} y2={y - h} />
+            {/* Seams on the far side of the cylinder are hidden. */}
+            {Math.sin(a) > 0.05 && <line x1={x} y1={y - h} x2={x} y2={y} />}
+          </g>
+        )
+      })}
     </g>
   )
 }
@@ -168,6 +244,13 @@ export type BlockStatus = {
 }
 
 /**
+ * A sharded store's slices. When one key overloads the busiest shard, `quiet`
+ * is the load on each of the others, so the board can show one slice burning
+ * while the rest sit idle.
+ */
+export type BlockShards = { n: number; hot: boolean; quiet?: number }
+
+/**
  * One component, drawn at the origin. The shape says what family it is
  * (servers stack, stores are cylinders, edge services are platforms, messaging
  * is a low slab with lanes); the colour says how it's coping once traffic runs.
@@ -175,12 +258,14 @@ export type BlockStatus = {
 export function Block({
   kind,
   instances,
+  shards,
   status,
   selected,
   flagged,
 }: {
   kind: ComponentKind
   instances: number
+  shards?: BlockShards
   status?: BlockStatus
   selected?: boolean
   flagged?: boolean
@@ -201,7 +286,19 @@ export function Block({
     const h = 30
     topY = -h
     body = (
-      <Cylinder h={h} hue={hue} rings={Math.min(instances, 4) - 1} dim={dead} />
+      <Cylinder
+        h={h}
+        hue={hue}
+        rings={Math.min(instances, 4) - 1}
+        dim={dead}
+        shards={shards?.n}
+        hot={shards?.hot}
+        quietHue={
+          shards?.hot && shards.quiet !== undefined
+            ? healthHue(shards.quiet)
+            : undefined
+        }
+      />
     )
   } else if (spec.category === "compute") {
     const slabs = Math.min(instances, 4)

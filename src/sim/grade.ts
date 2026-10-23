@@ -25,7 +25,17 @@ export type Targets = {
   writesReach: WriteSink[]
   /** Async consumers must keep up with what's produced. */
   noBacklog: boolean
+  /**
+   * What a network split must not break. "consistent": no side accepts a
+   * write the other can't see, and the majority side keeps serving. Refusing
+   * the minority is the correct behaviour, not a failure. "available": every
+   * user keeps being served, and the copies are reconciled afterwards.
+   */
+  onSplit?: "consistent" | "available"
 }
+
+/** A consistent design may refuse the minority side, never the majority. */
+export const MAJORITY_SERVES = 0.5
 
 export type Check = {
   id:
@@ -107,7 +117,10 @@ export function grade(
       id: "chaos",
       pass:
         chaos.connected &&
-        chaos.errorRate <= Math.max(targets.maxErrorRate, CHAOS_ERROR_BUDGET) &&
+        (targets.onSplit === "consistent"
+          ? chaos.divergentRps <= 0.5 && chaos.errorRate < MAJORITY_SERVES
+          : chaos.errorRate <=
+            Math.max(targets.maxErrorRate, CHAOS_ERROR_BUDGET)) &&
         (!targets.noBacklog || chaos.backlogGrowthRps <= 0.5),
       star: 3,
     },

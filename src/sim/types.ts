@@ -79,6 +79,37 @@ export type PlacedComponent = {
   instances: number
   /** Failure domains the instances are spread across. Ignored for managed specs. */
   zones: number
+  /**
+   * Shards the data is split into, each with its own primary and standbys.
+   * Only a {sql-primary} in a level that offers partition keys uses it.
+   */
+  shards?: number
+  /** Which of the level's partition keys the data is split by. */
+  partitionKey?: string
+  /** What the store does when a network split leaves its copies apart. */
+  consistency?: Consistency
+}
+
+/**
+ * Strong: a write commits only once a majority of copies have it, so during a
+ * split the side without a majority refuses. Eventual: every copy accepts
+ * writes and they're reconciled later, so nobody is refused but the copies
+ * disagree for a while.
+ */
+export type Consistency = "strong" | "eventual"
+
+/** One way a level's data could be split, and what that does to its load. */
+export type PartitionKey = {
+  id: string
+  /** "Account ID". Shown in the sidebar dropdown. */
+  label: string
+  /**
+   * Share of all traffic on the busiest single key. The busiest shard gets at
+   * least this, however many shards there are. 0: spread evenly.
+   */
+  hotShare: number
+  /** Share of reads that don't name the key, so they ask every shard. */
+  scatterReads: number
 }
 
 export type Edge = {
@@ -103,6 +134,13 @@ export type LoadProfile = {
    * PDF rendering). Done synchronously, they sit on the user's critical path.
    */
   heavyWriteFraction: number
+  /**
+   * Partition keys the scenario offers. Absent (every level before the CAP
+   * shelf), stores aren't sharded and the engine behaves as it always has.
+   */
+  partitionKeys?: PartitionKey[]
+  /** Stores can choose a consistency mode, and a network split tests it. */
+  tunableConsistency?: boolean
 }
 
 export type Fault =
@@ -110,6 +148,12 @@ export type Fault =
   | { kind: "kill-instance"; target: ComponentKind }
   | { kind: "zone-outage" }
   | { kind: "traffic-spike"; multiplier: number }
+  /**
+   * One zone loses contact with the others. Nothing crashes: every machine is
+   * up, but copies of the data on either side can't reach each other. Only
+   * stores whose consistency is tunable notice.
+   */
+  | { kind: "network-split" }
 
 export type ComponentMetrics = {
   readRps: number
@@ -120,6 +164,15 @@ export type ComponentMetrics = {
   aliveInstances: number
   /** Downstream of an async hand-off: overload shows as backlog, not errors. */
   behindAsync: boolean
+  /** Sharded stores: how many, and the busiest one's share of the traffic. */
+  shards?: number
+  hotShardShare?: number
+  /** Utilisation of each of the other shards, next to the busiest one's. */
+  restShardUtilization?: number
+  /** Network split: requests refused for want of a majority. */
+  refusedRps?: number
+  /** Network split: writes accepted on the minority side. */
+  divergentRps?: number
 }
 
 export type SimResult = {
@@ -132,6 +185,11 @@ export type SimResult = {
   monthlyCostUsd: number
   /** Messages per second arriving faster than consumers can take them. */
   backlogGrowthRps: number
+  /**
+   * Writes accepted on the minority side of a network split, which the other
+   * side doesn't see until it heals: conflicts to reconcile later.
+   */
+  divergentRps: number
   /** Something is wired up from the client at all. */
   connected: boolean
 }

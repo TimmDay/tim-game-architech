@@ -54,18 +54,20 @@ type Row = [
   y: number,
   instances?: number,
   zones?: number,
+  data?: Pick<PlacedComponent, "shards" | "partitionKey" | "consistency">,
 ]
 
 /** Terse graph literal: components as rows, edges as `from>to` strings. */
 export function graph(rows: Row[], edges: string[]): Graph {
   const components: PlacedComponent[] = rows.map(
-    ([id, kind, x, y, instances = 1, zones = 1]) => ({
+    ([id, kind, x, y, instances = 1, zones = 1, data]) => ({
       id,
       kind,
       x,
       y,
       instances,
       zones,
+      ...data,
     }),
   )
   return {

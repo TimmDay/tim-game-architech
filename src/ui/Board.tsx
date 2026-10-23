@@ -426,6 +426,18 @@ export function Board(p: BoardProps) {
                   <Block
                     kind={c.kind}
                     instances={c.instances}
+                    shards={
+                      m?.shards && m.shards > 1
+                        ? {
+                            n: m.shards,
+                            hot:
+                              p.live &&
+                              (m.hotShardShare ?? 0) > 1 / m.shards + 1e-9 &&
+                              m.utilization >= 1,
+                            quiet: m.restShardUtilization,
+                          }
+                        : undefined
+                    }
                     status={
                       p.live && m
                         ? {
@@ -447,7 +459,16 @@ export function Board(p: BoardProps) {
                 <Label
                   y={TH / 2 + 4}
                   text={serviceName(c.kind, p.provider).short}
-                  badge={c.instances > 1 ? `×${c.instances}` : undefined}
+                  badge={
+                    [
+                      c.instances > 1 && `×${c.instances}`,
+                      (m?.shards ?? 1) > 1 &&
+                        c.kind === "sql-primary" &&
+                        `${m?.shards} shards`,
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || undefined
+                  }
                   stat={
                     p.live && m
                       ? Number.isFinite(m.utilization)

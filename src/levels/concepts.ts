@@ -48,8 +48,43 @@ export type ConceptId =
   | "ephemeral-state"
   | "precomputation"
   | "latency-budget"
+  | "cap-theorem"
+  | "quorum"
+  | "pacelc"
+  | "conflict-resolution"
+  | "scatter-gather"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
+  "cap-theorem": {
+    title: "CAP theorem",
+    body: "When a network split leaves copies of your data unable to reach each other, each side must choose: refuse requests until the split heals (consistency), or keep answering and let the copies disagree for a while (availability). You can't have both during the split. The P is a network partition, not the data partitioning (sharding) you choose for scale.",
+    interview:
+      "Don't call a whole system CP or AP. Say, per piece of data, what a wrong answer costs compared with no answer: a double-spent balance is worse than a refused transfer; a refused add-to-basket is worse than a basket that briefly shows an old item.",
+  },
+  quorum: {
+    title: "Quorums and majorities",
+    body: "A strongly consistent store commits a write once a majority of its copies have it. During a split only one side can hold a majority, so only one side can keep accepting writes, and the two sides can never both commit conflicting ones. Two copies can't form a majority on either side of a split, which is why consistent stores run three, or five.",
+    interview:
+      "Say the copy count and the majority: three copies across three zones survive losing one zone. Then say why not two (no majority after a split) and why not four (still only survives one loss, for more money).",
+  },
+  pacelc: {
+    title: "PACELC: the trade-off without a split",
+    body: "CAP only describes a network split. Else, in normal running, the choice is latency against consistency: a strongly consistent write waits for a copy in another zone to confirm it, every time. An eventually consistent write returns as soon as one copy has it, and the others catch up a little later.",
+    interview:
+      "Splits are rare; the latency cost of strong consistency is paid on every write. Mention both halves: what happens during a split, and what each write costs the rest of the time.",
+  },
+  "conflict-resolution": {
+    title: "Resolving conflicting writes",
+    body: "If both sides of a split accept writes, the copies disagree when it heals. Last-writer-wins is simple and silently drops one write. Keeping both and merging (a basket that's the union of both sides) loses nothing but needs data that merges cleanly. Some data types (counters, sets) are designed to always merge, whatever order the writes arrive in.",
+    interview:
+      'If you choose availability, say how the copies reconcile. "Last write wins" is an answer, but name what it loses. Removals are the hard case: a deleted basket item can come back unless deletes are recorded too.',
+  },
+  "scatter-gather": {
+    title: "Scatter-gather reads",
+    body: "Once data is sharded, a query that names the partition key goes to one shard. A query that doesn't has to ask every shard and merge the answers, and it waits for the slowest. With many shards, those reads get slower and depend on every shard being up.",
+    interview:
+      "List your top queries and check each names the key. If an important one doesn't, keep a second copy of the data partitioned the other way (an index table), and say what it costs to keep both in step.",
+  },
   "cache-stampede": {
     title: "Cache stampede",
     body: "Once a {cache} answers most reads, the database behind it is sized for the misses, not the full load. Lose the cache (or let a hot key expire) and every request hits the database at once. Replicate the cache, warm it before it takes traffic, and let only one request rebuild a missing key.",

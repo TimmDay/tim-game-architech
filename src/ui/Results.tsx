@@ -59,6 +59,7 @@ export function Results({
   onClose,
   onNext,
   onConcept,
+  onDeck,
 }: {
   grade: Grade
   level: Level
@@ -67,6 +68,7 @@ export function Results({
   onClose: () => void
   onNext?: () => void
   onConcept: (c: ConceptId) => void
+  onDeck?: () => void
 }) {
   const headline =
     grade.stars === 3
@@ -158,6 +160,15 @@ export function Results({
           </button>
         )}
       </div>
+      {onDeck && (
+        <button
+          type="button"
+          onClick={onDeck}
+          className="mt-3 w-full text-center text-[13px] text-fuchsia-200/90 underline decoration-fuchsia-300/40 underline-offset-4 hover:text-fuchsia-100"
+        >
+          Now practise talking it through: open the discussion deck
+        </button>
+      )}
     </Modal>
   )
 }

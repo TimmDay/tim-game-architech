@@ -1,5 +1,6 @@
 import clsx from "clsx"
 import {
+  Layers,
   BookOpen,
   FlaskConical,
   Hammer,
@@ -7,6 +8,7 @@ import {
   Stethoscope,
   Wrench,
 } from "lucide-react"
+import { DECKS } from "~/decks"
 import type { Progress } from "~/game/storage"
 import { LEVELS, type Level } from "~/levels"
 import type { ComponentKind } from "~/sim/types"
@@ -80,48 +82,62 @@ function LevelCard({
   stars,
   diagnosed,
   onPlay,
+  onDeck,
 }: {
   level: Level
   index: number
   stars: number
   diagnosed?: boolean
   onPlay: () => void
+  onDeck: () => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onPlay}
-      className="group relative flex flex-col rounded-2xl border border-white/8 bg-gradient-to-b from-white/[0.05] to-white/[0.01] p-4 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/40 hover:shadow-[0_10px_40px_-15px] hover:shadow-cyan-400/40"
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-mono text-[11px] text-slate-500">
-          {level.mode === "build" ? "B" : "R"}
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <span className="flex gap-0.5" aria-label={`${stars} of 3 stars`}>
-          {[1, 2, 3].map((n) => (
-            <Star
-              key={n}
-              size={14}
-              className={
-                n <= stars ? "fill-amber-300 text-amber-300" : "text-slate-700"
-              }
-            />
-          ))}
-        </span>
-      </div>
-      <h3 className="font-display mt-2 text-[17px] font-bold text-white group-hover:text-cyan-100">
-        {level.title}
-      </h3>
-      <p className="mt-1 text-[13px] leading-snug text-slate-400">
-        {level.tagline}
-      </p>
-      {diagnosed && (
-        <span className="mt-2 flex items-center gap-1 text-[11px] text-emerald-300">
-          <Stethoscope size={12} /> Diagnosed first try
-        </span>
-      )}
-    </button>
+    <div className="relative flex">
+      <button
+        type="button"
+        onClick={onPlay}
+        className="group relative flex w-full flex-col rounded-2xl border border-white/8 bg-gradient-to-b from-white/[0.05] to-white/[0.01] p-4 pb-12 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/40 hover:shadow-[0_10px_40px_-15px] hover:shadow-cyan-400/40"
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[11px] text-slate-500">
+            {level.mode === "build" ? "B" : "R"}
+            {String(index + 1).padStart(2, "0")}
+          </span>
+          <span className="flex gap-0.5" aria-label={`${stars} of 3 stars`}>
+            {[1, 2, 3].map((n) => (
+              <Star
+                key={n}
+                size={14}
+                className={
+                  n <= stars
+                    ? "fill-amber-300 text-amber-300"
+                    : "text-slate-700"
+                }
+              />
+            ))}
+          </span>
+        </div>
+        <h3 className="font-display mt-2 text-[17px] font-bold text-white group-hover:text-cyan-100">
+          {level.title}
+        </h3>
+        <p className="mt-1 text-[13px] leading-snug text-slate-400">
+          {level.tagline}
+        </p>
+        {diagnosed && (
+          <span className="mt-2 flex items-center gap-1 text-[11px] text-emerald-300">
+            <Stethoscope size={12} /> Diagnosed first try
+          </span>
+        )}
+      </button>
+      {/* A sibling, not a child: a button can't nest inside a button. */}
+      <button
+        type="button"
+        onClick={onDeck}
+        className="absolute bottom-3 left-4 flex items-center gap-1 rounded-full border border-fuchsia-300/25 px-2.5 py-1 text-[11px] text-fuchsia-200/90 hover:border-fuchsia-300/60 hover:text-fuchsia-100"
+      >
+        <Layers size={12} /> Discussion deck · {DECKS[level.id]?.length ?? 0}
+      </button>
+    </div>
   )
 }
 
@@ -130,11 +146,13 @@ export function Home({
   onPlay,
   onSandbox,
   onCodex,
+  onDeck,
 }: {
   progress: Progress
   onPlay: (id: string) => void
   onSandbox: () => void
   onCodex: () => void
+  onDeck: (id: string) => void
 }) {
   const build = LEVELS.filter((l) => l.mode === "build")
   const repair = LEVELS.filter((l) => l.mode === "repair")
@@ -165,6 +183,7 @@ export function Home({
             stars={progress[l.id]?.stars ?? 0}
             diagnosed={progress[l.id]?.diagnosedFirstTry}
             onPlay={() => onPlay(l.id)}
+            onDeck={() => onDeck(l.id)}
           />
         ))}
       </div>

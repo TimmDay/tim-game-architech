@@ -43,3 +43,9 @@ export const clearBuild = (levelId: string) => {
     // Nothing to clear.
   }
 }
+
+export type CardMark = "got" | "revisit"
+export const loadDeckMarks = (levelId: string) =>
+  read<Record<string, CardMark>>(`lb.deck.${levelId}`, {})
+export const saveDeckMarks = (levelId: string, m: Record<string, CardMark>) =>
+  write(`lb.deck.${levelId}`, m)

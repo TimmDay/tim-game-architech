@@ -15,6 +15,8 @@
 
 **Repair.** You inherit somebody else's production system and it's on fire. Load test it, read the symptoms, tap the component you think is really to blame, then fix it. Getting the diagnosis right first time earns a badge.
 
+**Discussion decks.** Every scenario has a deck of 20 to 23 interview prompts: clarifying questions to open with, critical decisions, trade-offs, alternatives, scale, edge cases, security, observability and product. Answer out loud, flip to see what a strong answer covers and where an interviewer pushes next, then mark it got it or revisit.
+
 Each level is worth three stars: **handles peak** (errors, latency, budget, data actually stored), **highly available** (the topology's availability arithmetic), and **survives chaos**.
 
 ## Provider toggle

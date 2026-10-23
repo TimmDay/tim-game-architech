@@ -15,7 +15,7 @@
 
 **Repair.** You inherit somebody else's production system and it's on fire. Load test it, read the symptoms, tap the component you think is really to blame, then fix it. Getting the diagnosis right first time earns a badge.
 
-**Discussion decks.** Every scenario has a deck of 20 to 23 interview prompts: clarifying questions to open with, critical decisions, trade-offs, alternatives, scale, edge cases, security, observability and product. Answer out loud, flip to see what a strong answer covers and where an interviewer pushes next, then mark it got it or revisit.
+**Discussion decks.** Every scenario has a deck of 20 to 25 interview prompts: clarifying questions to open with, critical decisions, trade-offs, alternatives, scale, edge cases, failure and recovery (at least two per deck), security, observability and product. Answer out loud, flip to see what a strong answer covers and where an interviewer pushes next, then mark it got it or revisit.
 
 **Survival.** An arcade mode: keep one architecture alive through endless waves. Traffic grows about 30% a wave, the mix shifts between browsing surges, checkout rushes and floods of slow jobs, and from wave 3 a random disaster hits (a crash, a zone outage, a cold cache, a failed database, a traffic spike). Your budget grows each wave; you have three lives. Waves are seeded, and tests pin the balance: a sensible design reaches wave 10 or more, and a starter stack dies within a few waves.
 

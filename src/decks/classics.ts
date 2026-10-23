@@ -207,6 +207,25 @@ export const SHORT_LINKS = deck("short-links", [
       "Clicks on disabled links, and creations per account, which reveal abuse.",
     ],
   ],
+  [
+    "resilience",
+    "The database's zone goes down. What happens to clicks and to new links?",
+    [
+      "Popular clicks keep working from the {cache}, which is the point of running it in two zones.",
+      "The standby in the other zone takes over within a minute or so; misses and creates fail briefly in between.",
+      "Clients creating links should retry with the same request ID, so a retry doesn't create two links.",
+    ],
+  ],
+  [
+    "resilience",
+    "Someone drops the links table by mistake. How do you restore it, and how much is lost?",
+    [
+      "Links on printed packaging can be clicked for years, so losing the mapping is permanent damage.",
+      "Point-in-time backups let you restore to just before the mistake; anything created since is lost unless you can replay it.",
+      "Practise the restore regularly: a backup you've never restored from is a hope, not a plan.",
+    ],
+    "What recovery point and recovery time would you promise customers?",
+  ],
 ])
 
 export const GROUP_CHAT = deck("group-chat", [
@@ -366,7 +385,7 @@ export const GROUP_CHAT = deck("group-chat", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A zone goes dark. What do users notice?",
     [
       "Phones connected to servers in that zone drop and reconnect elsewhere.",
@@ -408,6 +427,15 @@ export const GROUP_CHAT = deck("group-chat", [
       "Time from send to delivered, at p50 and p99: the number users feel.",
       "Undelivered messages older than a minute, which point to a broken path.",
       "Reconnect rate by server and zone, which spots a failing machine early.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {event-stream} is down for five minutes. What happens to messages?",
+    [
+      "If storing and publishing are separate steps, a message can be stored but never delivered.",
+      "Store the message with a 'pending delivery' flag, and publish from that record (an outbox) until it succeeds.",
+      "Phones also ask for everything after their last message when they reconnect, which catches anything missed.",
     ],
   ],
 ])
@@ -612,6 +640,24 @@ export const HOME_TIMELINE = deck("home-timeline", [
       "Fan-out queue depth during big events, so you see it falling behind before users do.",
     ],
   ],
+  [
+    "resilience",
+    "The timeline {cache} is wiped overnight. What happens at the morning peak?",
+    [
+      "Every load misses and goes to the {nosql} store, which here runs at 97% without the cache: a stampede.",
+      "Warm the cache for the most active users before traffic arrives.",
+      "Let one request rebuild a timeline while others wait for it, rather than all rebuilding it at once.",
+    ],
+  ],
+  [
+    "resilience",
+    "Fan-out workers stop for an hour. What do users see, and how do you recover?",
+    [
+      "Timelines go stale: nothing new appears, but nothing fails.",
+      "When workers return, the backlog drains. Process newest posts first, since an hour-old post matters more than a two-hour-old one.",
+      "Meanwhile, merge recent posts in at read time for the accounts users follow most.",
+    ],
+  ],
 ])
 
 export const TICKET_DROP = deck("ticket-drop", [
@@ -814,6 +860,25 @@ export const TICKET_DROP = deck("ticket-drop", [
       "Seats left, so you can close the line honestly before it's empty.",
     ],
   ],
+  [
+    "resilience",
+    "The {sql-primary} fails over in the middle of the on-sale.",
+    [
+      "The waiting room pauses admitting fans; the line keeps everyone's place.",
+      "Holds that were in flight are retried with the same idempotency key, so nobody gets two seats or loses one.",
+      "With synchronous replication to the standby, no committed hold is lost, so no seat is sold twice after the switch.",
+    ],
+    "Why does it matter whether the standby is replicated synchronously?",
+  ],
+  [
+    "resilience",
+    "The waiting room itself fails. What happens?",
+    [
+      "If it fails open, everyone rushes the database at once: the outage you built it to prevent.",
+      "Fail closed: serve a static 'please wait' page from the {cdn} and keep places in line.",
+      "Keep its state somewhere that survives a restart, or fans lose their place.",
+    ],
+  ],
 ])
 
 export const VIDEO_NIGHT = deck("video-night", [
@@ -972,7 +1037,7 @@ export const VIDEO_NIGHT = deck("video-night", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A transcode worker crashes halfway through a video.",
     [
       "The queue makes the job visible again after a timeout, and another worker retries it.",
@@ -1014,6 +1079,15 @@ export const VIDEO_NIGHT = deck("video-night", [
       "Time to first frame and rebuffering rate: what viewers feel.",
       "Edge hit rate, and origin load.",
       "Transcode queue depth and time from upload to watchable.",
+    ],
+  ],
+  [
+    "resilience",
+    "The region holding the original videos has an outage. What still works?",
+    [
+      "The {cdn} keeps serving popular segments it already has, so most viewers notice nothing.",
+      "Uploads and transcoding stop, and rarely watched videos fail to play.",
+      "Replicating renditions to a second region lets the edge fall back to it.",
     ],
   ],
 ])
@@ -1174,7 +1248,7 @@ export const RIDE_HAILING = deck("ride-hailing", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A zone goes dark at rush hour.",
     [
       "Drivers connected through it reconnect to servers in other zones and ping again.",
@@ -1216,6 +1290,15 @@ export const RIDE_HAILING = deck("ride-hailing", [
       "Time from request to match, and how often no driver is found.",
       "Ping lag: how old is the location data used for matching?",
       "ETA accuracy: predicted against actual pickup time.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {event-stream} to the warehouse is down for an hour.",
+    [
+      "Matching keeps working: it only needs the {cache}.",
+      "Don't let a failed publish fail the ping. Buffer briefly, then drop history if it's still down.",
+      "A gap in location history is acceptable. A lost trip or fare is not, which is why trips are stored elsewhere.",
     ],
   ],
 ])
@@ -1418,6 +1501,24 @@ export const TYPEAHEAD = deck("typeahead", [
       "Suggestion latency at p99, measured on the client, where the user feels it.",
       "How often a suggestion is picked, and at which keystroke: that's the product's success rate.",
       "Edge hit rate, and the age of the current suggestion set.",
+    ],
+  ],
+  [
+    "resilience",
+    "A bad rebuild publishes garbage suggestions everywhere.",
+    [
+      "Validate a new set before publishing: size, top entries for common prefixes, banned terms.",
+      "Keep the previous set, so rolling back is a switch, not a rebuild.",
+      "Purge the {cdn} after rolling back, or the edge keeps serving the bad set.",
+    ],
+  ],
+  [
+    "resilience",
+    "A {cache} node holding suggestions is lost.",
+    [
+      "Common prefixes keep coming from the {cdn}.",
+      "Reload the node from the last build; nothing is lost, because suggestions are rebuilt from the search log.",
+      "Until then, return no suggestions for its prefixes: search itself still works.",
     ],
   ],
 ])

@@ -130,7 +130,7 @@ export const LOST_WRITES = deck("lost-writes", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The primary fails and the replica is promoted. What happens to writes in flight?",
     [
       "With async replication, the last moments of writes may not have reached the replica: lost.",
@@ -182,6 +182,15 @@ export const LOST_WRITES = deck("lost-writes", [
       "Optimistic UI feels fast, but it's misleading if the save later fails.",
       "If you do it, show clearly when a save fails and keep the draft.",
       "For important data, wait for confirmation, which only takes milliseconds anyway.",
+    ],
+  ],
+  [
+    "resilience",
+    "The primary's disk fills up at the day's peak. What happens, and how do you recover?",
+    [
+      "Writes fail while reads from replicas keep working, so the app looks half alive.",
+      "Free space or grow the volume; managed databases can do it without downtime.",
+      "Alarm on disk at 80%, and on growth rate, so this is a ticket rather than an outage.",
     ],
   ],
 ])
@@ -316,7 +325,7 @@ export const BLACK_FRIDAY = deck("black-friday", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The cache node restarts mid-sale. What happens?",
     [
       "All reads fall through, and the database is overloaded again.",
@@ -334,7 +343,7 @@ export const BLACK_FRIDAY = deck("black-friday", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "Retries make it worse: timeouts cause retries, which add load. How do you stop the spiral?",
     [
       "Exponential backoff with jitter on retries.",
@@ -491,7 +500,7 @@ export const SLOW_CHECKOUT = deck("slow-checkout", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The invoice job fails for one order and keeps failing. What should happen?",
     [
       "Retry a few times with backoff, then move it to a dead-letter queue.",
@@ -551,6 +560,15 @@ export const SLOW_CHECKOUT = deck("slow-checkout", [
       "Under a second feels instant; multiple seconds makes people double-click or abandon.",
       "Slow checkouts cost conversion, which is measurable revenue.",
       "Use that to justify engineering time on latency.",
+    ],
+  ],
+  [
+    "resilience",
+    "The invoice provider is down for an hour during a sale.",
+    [
+      "Orders keep succeeding: invoices are queued, not part of checkout.",
+      "Jobs retry with growing delays rather than hammering a provider that's struggling.",
+      "When it recovers, the backlog drains at the provider's rate limit, not all at once.",
     ],
   ],
 ])
@@ -676,7 +694,7 @@ export const THREE_AM_PAGE = deck("three-am-page", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "Zone A comes back. What happens now?",
     [
       "The old primary must not come back as a second primary: that's split brain.",
@@ -685,7 +703,7 @@ export const THREE_AM_PAGE = deck("three-am-page", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The failure is a corrupted database, not a lost zone. Does the standby help?",
     [
       "No: replication faithfully copies the corruption, or the bad delete.",
@@ -851,7 +869,7 @@ export const ANALYTICS_ATE_PROD = deck("analytics-ate-prod", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "The warehouse is down for maintenance for six hours. What happens?",
     [
       "Events wait in the stream, which must retain them long enough.",
@@ -920,6 +938,15 @@ export const ANALYTICS_ATE_PROD = deck("analytics-ate-prod", [
       "A clear pattern: analytics reads from events or a replica, never on the request path.",
       "Design review for anything new added to the request path.",
       "Make the right way easy: an event pipeline teams can subscribe to.",
+    ],
+  ],
+  [
+    "resilience",
+    "A bad transformation corrupts a week of metrics in the warehouse.",
+    [
+      "Keep the raw events, not only the transformed tables.",
+      "Fix the transformation, then rebuild the affected week from the raw events.",
+      "Tell people which dashboards were wrong and for which dates.",
     ],
   ],
 ])
@@ -1035,7 +1062,7 @@ export const HALF_THE_ORDERS = deck("half-the-orders", [
     ],
   ],
   [
-    "edge-case",
+    "resilience",
     "A consumer crashes after processing an event but before recording its position. What happens?",
     [
       "On restart it reads the event again: at-least-once delivery.",
@@ -1104,6 +1131,15 @@ export const HALF_THE_ORDERS = deck("half-the-orders", [
       "A platform or data team, with clear contracts for producers and consumers.",
       "Otherwise it falls between teams, which is how this bug survived.",
       "Ownership includes schemas, retention and reconciliation checks.",
+    ],
+  ],
+  [
+    "resilience",
+    "A consumer is down so long that the stream's retention runs out before it catches up.",
+    [
+      "Events older than the retention window are gone from the stream, so it can't replay them.",
+      "Rebuild that consumer's data from the source of truth (a database export), then resume from the stream.",
+      "Set retention longer than your worst realistic outage, and alarm on consumer lag well before it.",
     ],
   ],
 ])

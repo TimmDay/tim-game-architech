@@ -16,6 +16,11 @@ describe.each(LEVELS.map((l) => [l.id] as const))("%s deck", (id) => {
     expect(n).toBeGreaterThanOrEqual(3)
   })
 
+  it("has at least two cards on failure and recovery", () => {
+    const n = deck.filter((c) => c.category === "resilience").length
+    expect(n).toBeGreaterThanOrEqual(2)
+  })
+
   it("covers every kind of discussion point", () => {
     const has = new Set(deck.map((c) => c.category))
     const required: CardCategory[] = [
@@ -24,6 +29,7 @@ describe.each(LEVELS.map((l) => [l.id] as const))("%s deck", (id) => {
       "tradeoff",
       "alternative",
       "edge-case",
+      "resilience",
       "security",
       "observability",
       "product",

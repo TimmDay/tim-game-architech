@@ -436,7 +436,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     "clarify",
     "What's the ratio of reads to posts?",
     [
-      "Twitter's engineers described 300,000 timeline reads a second against about 6,000 posts.",
+      "Twitter's engineers described 300,000 timeline reads a second against about 6,000 writes.",
       "That ratio is what justifies doing work at write time.",
       "Ask about peaks: big live events multiply posts and reads at the same moment.",
     ],

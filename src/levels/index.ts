@@ -1007,7 +1007,6 @@ const CLASSICS: Level[] = [
       "cache",
       "sql-primary",
       "sql-replica",
-      "nosql",
     ],
     reference: graph(
       [
@@ -1102,7 +1101,7 @@ const CLASSICS: Level[] = [
       job: "copying each new post into every follower's timeline",
     },
     brief:
-      "A social app's home timeline: the latest posts from everyone you follow. Twitter's engineers described 300,000 timeline reads a second against about 6,000 posts. Here, peak is 5,000 requests a second and 97% are timeline loads. Building a timeline at read time means querying everyone a user follows, every time they scroll. The alternative is to copy each post into followers' timelines when it's written, which is slow work per post.",
+      "A social app's home timeline: the latest posts from everyone you follow. Twitter's engineers described 300,000 timeline reads a second against about 6,000 writes. Here, peak is 5,000 requests a second and 97% are timeline loads. Building a timeline at read time means querying everyone a user follows, every time they scroll. The alternative is to copy each post into followers' timelines when it's written, which is slow work per post.",
     load: {
       peakRps: 5_000,
       readFraction: 0.97,

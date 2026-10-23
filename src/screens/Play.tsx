@@ -1,3 +1,4 @@
+import { deviceId } from "~/game/device"
 import clsx from "clsx"
 import {
   BookOpen,
@@ -202,7 +203,7 @@ export function Play({
               updateReview((s) => {
                 // A due revisit counts as a Retention review, worth its own points.
                 const revisit = isDue(s, `level:${level.id}`, now)
-                  ? review(s, `level:${level.id}`, true, now).state
+                  ? review(s, `level:${level.id}`, true, now, deviceId()).state
                   : s
                 return passScenario(revisit, level.id, now)
               })

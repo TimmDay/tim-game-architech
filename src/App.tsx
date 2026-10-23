@@ -18,6 +18,8 @@ import { PointsChip } from "~/ui/PointsChip"
 import { AchievementToaster } from "~/ui/AchievementToaster"
 import { MuteButton } from "~/ui/MuteButton"
 import { AccountButton } from "~/ui/AccountButton"
+import { useAuth } from "~/auth/auth"
+import { Welcome } from "~/screens/Welcome"
 import { subscribeProfile } from "~/game/profile"
 import { LockedLevel } from "~/screens/LockedLevel"
 import { isComplete, isUnlocked, missingPrereqs } from "~/game/progression"
@@ -75,6 +77,10 @@ export function App() {
   const [progress, setProgress] = useState<Progress>(loadProgress)
   // Signing in or out swaps whose save we're showing.
   useEffect(() => subscribeProfile(() => setProgress(loadProgress())), [])
+  const auth = useAuth()
+  // With sign-in configured, a signed-out player chooses: account or guest.
+  if (auth.status === "loading" || auth.status === "signed-out")
+    return <Welcome auth={auth} />
   // Achievements are granted from anywhere; the toaster sits above every screen.
   return (
     <>

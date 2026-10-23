@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// One document per player: users/{uid}/save/main. Nothing else is readable
+// or writable by anyone.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedInAs(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Shape and size checks, so a client (or a bot holding a stolen token)
+    // can't stuff the document with arbitrary data.
+    function validSave() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['v', 'progress', 'review', 'decks', 'quizzes', 'updatedAt'])
+        && d.v is int
+        && d.updatedAt == request.time
+        && d.progress is map && d.progress.size() <= 100
+        && d.review is map
+        && d.review.keys().hasOnly(['awarded', 'items', 'retention', 'reviewsRight'])
+        && d.review.awarded is map && d.review.awarded.size() <= 5000
+        && d.review.items is map && d.review.items.size() <= 3000
+        && d.review.retention is map && d.review.retention.size() <= 50
+        && d.decks is map && d.decks.size() <= 100
+        && d.quizzes is map && d.quizzes.size() <= 100;
+    }
+
+    match /users/{uid}/save/main {
+      allow read: if signedInAs(uid);
+      allow create: if signedInAs(uid) && validSave();
+      // At most one write every 2 seconds per player. The app batches saves
+      // well under that; anything faster is a bug or a bot.
+      allow update: if signedInAs(uid) && validSave()
+        && request.time > resource.data.updatedAt + duration.value(2, 's');
+      allow delete: if signedInAs(uid);
+    }
+  }
+}

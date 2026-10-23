@@ -185,7 +185,7 @@ const BUILD: Level[] = [
     title: "Going Viral",
     tagline: "One meme, twenty thousand requests a second.",
     brief:
-      "An image of a cat in a tiny hat has escaped containment. 20,000 requests a second want the same few images, and almost none of them write anything. Serving files from {app-server} instances would take a hundred of them. You have $100 a month.",
+      "An image of a cat in a tiny hat has escaped containment. 20,000 requests a second want the same few images, and almost none of them write anything. Serving files from {app-server} instances would take a hundred of them. You have $100 a month. This level is about the image traffic: the site's own pages are static files too, and they're served the same way.",
     scenario: {
       product: "the meme site",
       reads: "people loading the same few images",

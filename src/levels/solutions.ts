@@ -334,6 +334,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "{dns} sends users to the nearest {cdn} edge location.",
       "The {cdn} serves the image from its cache. Only misses travel to the origin.",
       "The {object-store} is the origin: it holds every uploaded image and serves the misses.",
+      "The page around the image (its HTML, scripts and styles) is static too, so it takes the same path: built once, uploaded to the {object-store}, served by the {cdn}. Comments, likes or sign-in would need an API behind the edge, which this level leaves out.",
     ],
     numbers: [
       "20,000 requests a second. Through {app-server} instances at 400 each, that's 50 servers and $1,500 a month, against a $100 budget.",

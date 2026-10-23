@@ -629,6 +629,16 @@ export const GOING_VIRAL = deck("going-viral", [
       "Run synthetic checks from that region.",
     ],
   ],
+  [
+    "clarify",
+    "Is the question about the images, or the whole site?",
+    [
+      "Say the scope out loud: here it's the image traffic, because that's what's viral.",
+      "The site's own pages (HTML, scripts, styles) are static files too, served from the same {cdn} and the same kind of origin.",
+      "Anything dynamic, like comments, likes or sign-in, needs an API behind the edge, sized for far less traffic than the images.",
+    ],
+    "If the page itself needed to be personalised, what would change?",
+  ],
 ])
 
 export const UPLOAD_RUSH = deck("upload-rush", [

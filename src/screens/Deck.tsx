@@ -155,7 +155,8 @@ export function Deck({
           onClick={onBack}
           className="flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] text-slate-400 hover:bg-white/5 hover:text-white"
         >
-          <ChevronLeft size={16} /> Back
+          <ChevronLeft size={16} />
+          <span className="hidden sm:inline">Back</span>
         </button>
         <div className="flex-1" />
         {toggle}

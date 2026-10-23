@@ -12,7 +12,6 @@
   color-scheme: dark;
   background: #070a12;
   -webkit-tap-highlight-color: transparent;
-  padding-top: env(safe-area-inset-top, 0px);
 }
 
 body {

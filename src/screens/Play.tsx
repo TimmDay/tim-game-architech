@@ -21,7 +21,7 @@ import { useWide } from "~/game/useWide"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
 import { LEVELS, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
-import { findings } from "~/sim/findings"
+import { findings, symptomsOnly, type Finding } from "~/sim/findings"
 import { grade as gradeBuild, type Grade } from "~/sim/grade"
 import { simulate } from "~/sim/simulate"
 import type { ComponentKind, Graph, LoadProfile } from "~/sim/types"
@@ -107,11 +107,18 @@ export function Play({
     () => simulate(graph, liveLoad, chaosOn ? level.chaos.faults : []),
     [graph, liveLoad, chaosOn, level.chaos.faults],
   )
-  const liveFindings = useMemo(
-    () =>
-      findings(graph, liveLoad, result, sandbox ? undefined : level.targets),
-    [graph, liveLoad, result, level.targets, sandbox],
-  )
+  // Repair mode hides the findings that would name the culprit until it's found.
+  const spoilerFree = level.mode === "repair" && !diag.solved
+  const reveal = (f: Finding[]) => (spoilerFree ? symptomsOnly(f) : f)
+  const liveFindings = useMemo(() => {
+    const f = findings(
+      graph,
+      liveLoad,
+      result,
+      sandbox ? undefined : level.targets,
+    )
+    return spoilerFree ? symptomsOnly(f) : f
+  }, [graph, liveLoad, result, level.targets, sandbox, spoilerFree])
 
   // --- the graded run: ramp, hold at peak, then pull the chaos lever --------
   const raf = useRef(0)
@@ -402,7 +409,12 @@ export function Play({
   )
 
   const header = (
-    <header className="flex shrink-0 items-center gap-2 border-b border-white/5 bg-slate-950/60 px-3 py-2 backdrop-blur">
+    <header
+      className="flex shrink-0 items-center gap-2 border-b border-white/5 bg-slate-950/60 px-3 pb-2 backdrop-blur"
+      // The page is a fixed 100dvh, so the notch inset goes inside the header
+      // rather than on the root, where it would push the tab bar off screen.
+      style={{ paddingTop: "calc(0.5rem + env(safe-area-inset-top, 0px))" }}
+    >
       <button
         type="button"
         onClick={onExit}
@@ -434,13 +446,15 @@ export function Play({
       grade={graded}
       level={level}
       provider={provider}
-      findings={findings(
-        graph,
-        level.load,
-        graded.peak,
-        level.targets,
-        graded.chaos,
-        level.chaos.label,
+      findings={reveal(
+        findings(
+          graph,
+          level.load,
+          graded.peak,
+          level.targets,
+          graded.chaos,
+          level.chaos.label,
+        ),
       )}
       onClose={() => setGraded(null)}
       onNext={next ? () => onNext(next.id) : undefined}

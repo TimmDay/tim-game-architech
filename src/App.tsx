@@ -107,8 +107,8 @@ export function App() {
   return (
     <div className="min-h-dvh">
       <div
-        className="sticky top-0 z-30 flex justify-end bg-gradient-to-b from-[#070a12] to-transparent px-4 py-3"
-        style={{ top: "env(safe-area-inset-top, 0px)" }}
+        className="sticky top-0 z-30 flex justify-end bg-gradient-to-b from-[#070a12] to-transparent px-4 pb-3"
+        style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top, 0px))" }}
       >
         {toggle}
       </div>

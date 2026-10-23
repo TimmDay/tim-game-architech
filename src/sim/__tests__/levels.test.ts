@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { LEVELS } from "~/levels"
 import { grade } from "../grade"
-import { findings } from "../findings"
+import { findings, symptomsOnly } from "../findings"
 
 describe.each(LEVELS)("$id", (level) => {
   it("has a reference solution that earns three stars", () => {
@@ -60,6 +60,30 @@ describe.each(LEVELS)("$id", (level) => {
       expect(
         f.some((x) => x.severity === "error" || x.severity === "warn"),
       ).toBe(true)
+    })
+
+    it("shows symptoms without naming the culprit before diagnosis", () => {
+      const starter = level.starter
+      const root = starter?.components.find(
+        (c) => c.id === level.rootCause?.componentId,
+      )
+      if (!starter || !root) return
+      const g = grade(starter, level.load, level.targets, level.chaos.faults)
+      const shown = symptomsOnly(
+        findings(
+          starter,
+          level.load,
+          g.peak,
+          level.targets,
+          g.chaos,
+          level.chaos.label,
+        ),
+      )
+      expect(shown.length).toBeGreaterThan(0)
+      for (const f of shown) {
+        expect(f.text).not.toContain(`{${root.kind}}`)
+        expect(f.concept).toBeUndefined()
+      }
     })
   }
 })

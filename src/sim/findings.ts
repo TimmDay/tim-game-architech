@@ -207,15 +207,33 @@ export function findings(
         !CATALOGUE[c.kind].optionalOnPath,
     )
     if (chaos.errorRate > 0.01 || dead.length > 0) {
-      const who = dead.map((c) => name(c)).join(", ")
       out.push({
         severity: "error",
         concept:
           dead.length > 0 ? "availability-zones" : "n-plus-one-redundancy",
-        text: `${chaosLabel}: ${pct(chaos.errorRate)} of requests fail${who ? `. Lost entirely: ${who}` : ""}.`,
+        text: `${chaosLabel}: ${pct(chaos.errorRate)} of requests fail.`,
       })
+      // Separate, and tied to the component, so repair mode can hold it back.
+      for (const c of dead)
+        out.push({
+          severity: "error",
+          componentId: c.id,
+          concept: "single-point-of-failure",
+          text: `${chaosLabel}: ${name(c)} lost every instance.`,
+        })
     }
   }
 
   return out
 }
+
+/**
+ * Repair mode before diagnosis: system-level symptoms only. Findings that
+ * point at a component, or link the concept that explains it, would hand the
+ * player the answer. The board's colours and per-component stats stay: those
+ * are the evidence to analyse.
+ */
+export const symptomsOnly = (items: Finding[]): Finding[] =>
+  items
+    .filter((f) => f.componentId === undefined)
+    .map((f) => ({ ...f, concept: undefined }))

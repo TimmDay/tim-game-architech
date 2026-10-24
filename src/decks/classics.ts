@@ -77,7 +77,7 @@ export const SHORT_LINKS = deck("short-links", [
     "Why put a cache in front of the database?",
     [
       "Clicks outnumber creates fifty to one, and a few links take most of the clicks.",
-      "The cache answers 3,352 of 3,920 clicks a second here, leaving the database 568.",
+      "The cache answers about 16,760 of 19,600 clicks a second here, leaving the database about 2,840.",
       "Links rarely change, so cached copies can live a long time.",
     ],
   ],
@@ -85,9 +85,9 @@ export const SHORT_LINKS = deck("short-links", [
     "decision",
     "Why does the cache need two nodes when the database has room to spare?",
     [
-      "The database is at 28% because the cache is there. Without it, it would face all 3,920 clicks: 196% of capacity.",
+      "The database is at 28% because the cache is there. Without it, it would face all 19,600 clicks: 196% of capacity.",
       "So the cache is no longer optional: losing it takes the site down.",
-      "A second node in another zone costs $25. Replicas big enough to survive without any cache cost $240.",
+      "A second node in another zone costs $150. Replicas big enough to survive without any cache cost $800.",
     ],
   ],
   [
@@ -288,7 +288,7 @@ export const GROUP_CHAT = deck("group-chat", [
     "decision",
     "Why not a relational database for messages?",
     [
-      "2,000 messages a second is four times what one {sql-primary} can write.",
+      "5,000 messages a second is well past the 3,000 or so one {sql-primary} can write.",
       "More instances are standbys: they add availability, not write capacity.",
       "A partitioned store adds write capacity with each partition.",
     ],
@@ -510,7 +510,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     "Why does fan-out happen in workers, not in the request?",
     [
       "A post with thousands of followers means thousands of timeline writes.",
-      "Done inline, the app tier runs at 98% and p99 reaches 3.4 seconds.",
+      "Done inline, the app tier runs at 136% and p99 reaches 1.7 seconds.",
       "Workers do it off the critical path; the author's request returns at once.",
     ],
   ],
@@ -528,7 +528,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     "Why keep timelines in a cache?",
     [
       "Active users open the app many times a day; their timeline should be in memory.",
-      "The cache answers 4,147 of 4,850 loads a second here.",
+      "The cache answers 20,734 of 24,250 loads a second here.",
       "Inactive users' timelines can be rebuilt from storage when they return.",
     ],
   ],
@@ -574,7 +574,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     [
       "Yes, for small apps, or where reads and posts are similar in number.",
       "It's simpler: no fan-out pipeline, no stored timelines.",
-      "Here it overloads the store: 97% busy, p99 528ms, and 30% of requests fail on the spike.",
+      "Here it overloads the store: 162% busy, p99 533ms, and 37% of requests fail before any spike.",
     ],
   ],
   [
@@ -644,7 +644,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     "resilience",
     "The timeline {cache} is wiped overnight. What happens at the morning peak?",
     [
-      "Every load misses and goes to the {nosql} store, which here runs at 97% without the cache: a stampede.",
+      "Every load misses and goes to the {nosql} store, which here runs at 162% without the cache: a stampede.",
       "Warm the cache for the most active users before traffic arrives.",
       "Let one request rebuild a timeline while others wait for it, rather than all rebuilding it at once.",
     ],
@@ -729,8 +729,8 @@ export const TICKET_DROP = deck("ticket-drop", [
     "decision",
     "Why a waiting room in front of the database?",
     [
-      "The on-sale minute brings 1,200 holds a second; the {sql-primary} takes 500.",
-      "Sent straight there, 58% fail, and failing fans retry, making it worse.",
+      "The on-sale minute brings 6,000 holds a second; the {sql-primary} takes 3,000.",
+      "Sent straight there, half fail, and failing fans retry, making it worse.",
       "In a line, everyone is served in turn at the rate the database can take.",
     ],
   ],
@@ -738,7 +738,7 @@ export const TICKET_DROP = deck("ticket-drop", [
     "decision",
     "How fast should the waiting room admit people?",
     [
-      "At the rate the system of record can take: here 500 a second, from ten workers at 50 each.",
+      "At the rate the system of record can take: here 3,000 a second, from six workers at 500 each.",
       "Admitting faster just moves the failure downstream.",
       "Measure it and adjust it on the day, rather than guessing.",
     ],
@@ -959,9 +959,9 @@ export const VIDEO_NIGHT = deck("video-night", [
     "decision",
     "Why is the CDN essential here?",
     [
-      "19,900 segment requests a second, and most are for popular videos.",
-      "The edge serves 17,960 of them; only 1,940 reach the origin.",
-      "Without it, even twenty app servers are swamped and the object store hits 398%.",
+      "20,000 segment requests a second, and most are for popular videos.",
+      "The edge serves 18,050 of them; only 1,950 reach the origin.",
+      "Without it, even twenty app servers are swamped and the object store hits 364%.",
     ],
   ],
   [
@@ -1024,7 +1024,7 @@ export const VIDEO_NIGHT = deck("video-night", [
     [
       "The {cdn} absorbs most of it if the segments are already at the edge.",
       "Warm the edge by pre-fetching the first segments before the premiere starts.",
-      "The origin and app tier see the misses: here they reach 85%.",
+      "The origin and app tier see the misses: here they reach about 70%.",
     ],
   ],
   [
@@ -1152,9 +1152,9 @@ export const RIDE_HAILING = deck("ride-hailing", [
     "decision",
     "Why not write every ping to a database?",
     [
-      "4,250 pings a second is more than eight times what one {sql-primary} can write.",
+      "21,250 pings a second is about seven times what one {sql-primary} can write.",
       "A durable write pays for safety a ping doesn't need: it's replaced in four seconds.",
-      "Memory is built for this: the {cache} takes every ping at 4% busy.",
+      "Memory is built for this: the {cache} takes every ping at 11% busy.",
     ],
   ],
   [
@@ -1242,7 +1242,7 @@ export const RIDE_HAILING = deck("ride-hailing", [
     "scale",
     "Rush hour in one city doubles its pings. What strains?",
     [
-      "The app tier, which here runs at 63% normally.",
+      "The app tier, which here runs at 56% normally.",
       "That city's cells, if they're partitioned by area: a hot spot.",
       "The cache barely notices; memory is rarely the bottleneck here.",
     ],
@@ -1252,7 +1252,7 @@ export const RIDE_HAILING = deck("ride-hailing", [
     "A zone goes dark at rush hour.",
     [
       "Drivers connected through it reconnect to servers in other zones and ping again.",
-      "The servers left must carry the load: here thirteen of twenty, at 96%.",
+      "The servers left must carry the load: here thirty of forty-five, at 83%.",
       "Trips in progress continue, because trip state is durable.",
     ],
   ],
@@ -1309,7 +1309,7 @@ export const TYPEAHEAD = deck("typeahead", [
     "What would you ask about the suggestions?",
     [
       "How many suggestions, and ranked by what: popularity, recency, personal history?",
-      "Are they personalised? That decides whether the edge can cache them.",
+      "Are they personalised? That decides whether one answer can be shared and cached.",
       "Do suggestions differ by language or country?",
     ],
     "How does personalisation change your caching?",
@@ -1356,14 +1356,14 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Suggestions are published content: filter harmful completions before they go live.",
       "Let users report a suggestion.",
-      "Have a fast path to remove one suggestion everywhere, including edge caches.",
+      "Have a fast path to remove one suggestion everywhere, including caches.",
     ],
   ],
   [
     "decision",
     "Why precompute suggestions rather than search on every keystroke?",
     [
-      "A search per keystroke adds about 70ms here; p99 reaches 238ms against a 200ms target.",
+      "A search per keystroke adds about 110ms here; p99 reaches 262ms against a 200ms target.",
       "The top ten for a prefix barely changes from minute to minute.",
       "So work it out once, in the background, and look it up in memory.",
     ],
@@ -1379,11 +1379,11 @@ export const TYPEAHEAD = deck("typeahead", [
   ],
   [
     "decision",
-    "Why can the CDN cache suggestions?",
+    "Should a CDN cache suggestions?",
     [
-      "They aren't personalised here, so everyone typing 'pizz' gets the same answer.",
-      "Popular prefixes are asked thousands of times a minute.",
-      "The edge serves 7,220 of 7,600 keystrokes a second.",
+      "It could: they aren't personalised here, so everyone typing 'pizz' gets the same answer.",
+      "But each answer is a few hundred bytes from memory, and edge fees of about $1 per million requests would add about $7,900 a month: more than the whole origin.",
+      "The browser's own cache is free: a few minutes' lifetime per prefix answers backspaces and retyping.",
     ],
   ],
   [
@@ -1401,16 +1401,16 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Personalised suggestions are more useful, but can't be cached at the edge.",
       "Shared ones cache beautifully, but ignore what the user cares about.",
-      "Blend them: a few personal ones from the device, the rest shared from the edge.",
+      "Blend them: a few personal ones from the device, the rest shared from the server.",
     ],
   ],
   [
     "tradeoff",
-    "How long should the CDN cache a prefix?",
+    "How long should a browser keep a prefix's answer?",
     [
       "Longer: more hits and less load.",
       "Shorter: trending topics appear faster, and removed suggestions disappear sooner.",
-      "Minutes is a common compromise, with explicit purges for removals.",
+      "Minutes is a common compromise. Nobody can purge a browser's cache, so keep it short.",
     ],
   ],
   [
@@ -1453,8 +1453,8 @@ export const TYPEAHEAD = deck("typeahead", [
     "scale",
     "Breaking news doubles traffic, and everyone types the same thing.",
     [
-      "Good news: identical prefixes are exactly what the edge caches best.",
-      "The app tier sees the misses: here 65% busy at double traffic.",
+      "Good news: identical prefixes are cheap lookups, and browsers answer repeats themselves.",
+      "The app tier takes the rest: here 80% busy at double traffic.",
       "But the news itself isn't in yesterday's suggestions: that's the freshness problem.",
     ],
   ],
@@ -1500,7 +1500,7 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Suggestion latency at p99, measured on the client, where the user feels it.",
       "How often a suggestion is picked, and at which keystroke: that's the product's success rate.",
-      "Edge hit rate, and the age of the current suggestion set.",
+      "Cache hit rate, and the age of the current suggestion set.",
     ],
   ],
   [
@@ -1509,14 +1509,14 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Validate a new set before publishing: size, top entries for common prefixes, banned terms.",
       "Keep the previous set, so rolling back is a switch, not a rebuild.",
-      "Purge the {cdn} after rolling back, or the edge keeps serving the bad set.",
+      "Short browser cache lifetimes mean the bad set leaves users' devices within minutes.",
     ],
   ],
   [
     "resilience",
     "A {cache} node holding suggestions is lost.",
     [
-      "Common prefixes keep coming from the {cdn}.",
+      "The other node holds every prefix too, so suggestions keep working.",
       "Reload the node from the last build; nothing is lost, because suggestions are rebuilt from the search log.",
       "Until then, return no suggestions for its prefixes: search itself still works.",
     ],

@@ -113,10 +113,10 @@ export const SLOW_PARTNER = deck("slow-partner", [
   ],
   [
     "tradeoff",
-    "Why seven workers when three would handle a normal evening?",
+    "Why so much spare worker capacity on a normal evening?",
     [
-      "On a slow day each call holds a worker for longer, and retries add calls.",
-      "The spare capacity is what keeps the queue from growing.",
+      "On a slow day each call holds its slot for longer, and retries add calls.",
+      "Here that takes the workers from 9% busy to 45%. Without timeouts, it's 369%.",
       "It's the same idea as N+1: pay for the bad day, not the average one.",
     ],
   ],
@@ -149,7 +149,7 @@ export const SLOW_PARTNER = deck("slow-partner", [
   ],
   [
     "scale",
-    "The provider caps you at 300 calls a second. How do you stay under it?",
+    "Your contract caps you at 200 calls a second. How do you stay under it?",
     [
       "Limit the workers' total call rate to the quota.",
       "Count retries against it: a slow day with immediate retries can blow through it.",
@@ -476,7 +476,7 @@ export const LOGIN_FLOOD = deck("login-flood", [
     "decision",
     "Why can't you just add servers?",
     [
-      "The attack is four times normal traffic. Even twenty servers fail 17% of requests and break the budget.",
+      "The attack is four times normal traffic. Even forty servers fail 16% of requests and break the budget.",
       "The attacker can always send more; you'd be paying for their traffic.",
       "Limiting is cheaper than absorbing.",
     ],
@@ -891,7 +891,7 @@ export const NOBODY_NOTICED = deck("nobody-noticed", [
     "decision",
     "How many workers, and why?",
     [
-      "Six: five can carry the 200 invoices a second while one is being replaced.",
+      "Three: two can carry the 20 invoices a second while one is being replaced.",
       "Sized for the bad day, not the average one: N+1.",
       "With alerts, a hung worker is a short dip, not a stopped pipeline.",
     ],

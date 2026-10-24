@@ -1,7 +1,11 @@
 import {
   CATALOGUE,
-  HEAVY_JOB_COST,
-  HEAVY_JOB_P99_MS,
+  DEFAULT_JOB,
+  inlineJobCost,
+  inlineJobMs,
+  monthlyUsageUsd,
+  NOSQL_KEY_LIMIT,
+  workerJobsPerSecond,
   LATENCY_INFLATION_CAP,
 } from "./catalogue"
 import type {
@@ -154,10 +158,15 @@ const retryLoad = (c: PlacedComponent | undefined) =>
 /** Stores that can be split by one of a level's partition keys. */
 const SHARDABLE = new Set<ComponentKind>(["sql-primary", "nosql"])
 /** Stores whose replication mode is the player's choice. */
-const TUNABLE = new Set<ComponentKind>(["sql-primary", "nosql"])
+/**
+ * Stores where letting every copy accept writes is a real option. Key-value
+ * stores can replicate leaderless or multi-region; a {sql-primary} is single
+ * leader, so in these levels it's always consistent.
+ */
+const TUNABLE = new Set<ComponentKind>(["nosql"])
 export const MAX_SHARDS = 8
 /** A strong write waits for a copy in another zone to confirm it. */
-export const QUORUM_P99_MS = 25
+export const QUORUM_P99_MS = 5
 /** A read that asks every shard waits for the slowest: this share of p99 per doubling. */
 export const SCATTER_P99_FACTOR = 0.5
 
@@ -190,7 +199,9 @@ export function consistencyOf(
   c: PlacedComponent,
   load: LoadProfile,
 ): Consistency | undefined {
-  if (!load.tunableConsistency || !TUNABLE.has(c.kind)) return undefined
+  if (!load.tunableConsistency) return undefined
+  if (c.kind === "sql-primary") return "strong"
+  if (!TUNABLE.has(c.kind)) return undefined
   return c.consistency ?? "strong"
 }
 
@@ -325,6 +336,9 @@ export function simulate(
     cacheable: reads * load.cacheableFraction,
   })
   const visits = new Map<string, number>()
+  // Workers pace what's behind them: anything beyond their throughput waits
+  // in the queue in front, rather than reaching the next component.
+  const workerPassed = new Map<string, number>()
   while (queue.length > 0) {
     const next = queue.shift()
     if (!next) break
@@ -351,6 +365,21 @@ export function simulate(
         cacheable: next.flow.cacheable - hits,
       }
     }
+    if (c.kind === "worker") {
+      const cap = workerJobsPerSecond(load) * (alive.get(c.id) ?? 0)
+      const passed = workerPassed.get(c.id) ?? 0
+      const total = out.reads + out.writes
+      const room = Math.max(0, cap - passed)
+      if (total > room) {
+        const k = total > 0 ? room / total : 0
+        out = {
+          reads: out.reads * k,
+          writes: out.writes * k,
+          cacheable: out.cacheable * k,
+        }
+      }
+      workerPassed.set(c.id, passed + Math.min(total, room))
+    }
     queue.push(...distribute(c.id, out))
   }
 
@@ -363,10 +392,18 @@ export function simulate(
     const inline = load.heavyWriteFraction > 0 && doesHeavyWorkInline(graph, c)
     const units = spec.scalesOut ? up : Math.min(up, 1)
     const writeCost = inline
-      ? 1 + load.heavyWriteFraction * (HEAVY_JOB_COST - 1)
+      ? 1 + load.heavyWriteFraction * (inlineJobCost(load) - 1)
       : 1
-    const readCap = spec.capacity.readRps * units
-    const writeCap = (spec.capacity.writeRps * units) / writeCost
+    // A worker's throughput depends on the job this level gives it.
+    const perUnit =
+      c.kind === "worker"
+        ? {
+            readRps: workerJobsPerSecond(load),
+            writeRps: workerJobsPerSecond(load),
+          }
+        : spec.capacity
+    const readCap = perUnit.readRps * units
+    const writeCap = (perUnit.writeRps * units) / writeCost
     const rho = (load: number, cap: number) =>
       load <= 0 ? 0 : cap <= 0 ? Infinity : load / cap
     // Servers and balancers spend one pool of CPU on reads and writes alike,
@@ -380,7 +417,7 @@ export function simulate(
       utilization >= 1
         ? LATENCY_INFLATION_CAP
         : Math.min(LATENCY_INFLATION_CAP, 1 / (1 - utilization))
-    const heavyP99 = inline && flow.writes > 0 ? HEAVY_JOB_P99_MS : 0
+    const heavyP99 = inline && flow.writes > 0 ? inlineJobMs(load) : 0
     const m: ComponentMetrics = {
       readRps: flow.reads,
       writeRps: flow.writes,
@@ -395,7 +432,7 @@ export function simulate(
       aliveInstances: up,
       behindAsync: isAsync,
     }
-    if (slow) slowDown(m, c, graph, slow, edgeFlow, flow)
+    if (slow) slowDown(m, c, graph, slow, edgeFlow, flow, load)
     if (faults.some((f) => f.kind === "poison-message")) poisoned(m, c, graph)
     const key = partitionKeyOf(c, load)
     if (key) shard(m, c, key, flow, up)
@@ -484,7 +521,21 @@ export function simulate(
       : 0,
     errorRate,
     availability: topologyAvailability(graph, asyncSet, load),
-    monthlyCostUsd: monthlyCost(graph),
+    monthlyCostUsd: Math.round(
+      monthlyCost(graph) +
+        graph.components.reduce((sum, c) => {
+          const f = nodeFlow.get(c.id)
+          return f
+            ? sum +
+                monthlyUsageUsd(
+                  CATALOGUE[c.kind],
+                  f.reads,
+                  f.writes,
+                  load.averageOfPeak,
+                )
+            : sum
+        }, 0),
+    ),
     backlogGrowthRps: backlog,
     connected,
   }
@@ -573,6 +624,7 @@ function slowDown(
   slow: Extract<Fault, { kind: "slow-dependency" }>,
   edgeFlow: Map<string, number>,
   flow: Flow,
+  load: LoadProfile,
 ) {
   const spec = CATALOGUE[c.kind]
   const byId = new Map(graph.components.map((x) => [x.id, x]))
@@ -600,8 +652,13 @@ function slowDown(
     held += share * wait
   }
   if (held <= 0) return
-  // Fewer threads free means less capacity, in proportion.
-  const k = 1 + held / Math.max(THREAD_FLOOR_MS, spec.baseLatency.p50Ms)
+  // Fewer threads free means less capacity, in proportion. A worker's
+  // ordinary time per job is the level's job; anything else, its p50.
+  const usual =
+    c.kind === "worker"
+      ? (load.job ?? DEFAULT_JOB).seconds * 1000
+      : spec.baseLatency.p50Ms
+  const k = 1 + held / Math.max(THREAD_FLOOR_MS, usual)
   scaleCapacity(m, k)
 }
 
@@ -646,7 +703,8 @@ function shard(
   up: number,
 ) {
   const spec = CATALOGUE[c.kind]
-  const n = c.kind === "nosql" ? Math.max(1, up) : Math.max(1, c.shards ?? 1)
+  if (c.kind === "nosql") return keyLimited(m, key, flow, up)
+  const n = Math.max(1, c.shards ?? 1)
   const units = up > 0 ? 1 : 0
   const hot = n === 1 ? 1 : Math.max(1 / n, Math.min(1, key.hotShare))
   const rest = n === 1 ? 0 : (1 - hot) / (n - 1)
@@ -686,6 +744,57 @@ function shard(
     n === 1
       ? utilization
       : Math.max(rho(quiet.reads, readCap), rho(quiet.writes, writeCap))
+}
+
+/**
+ * A {nosql} store, keyed. Its blocks of capacity are spread across every
+ * partition, so the table as a whole scales; but any one key has a ceiling of
+ * its own, so a key that takes a large share of the traffic is throttled
+ * however many blocks there are. Reads that don't name the key scan every
+ * partition.
+ */
+function keyLimited(
+  m: ComponentMetrics,
+  key: PartitionKey,
+  flow: Flow,
+  up: number,
+) {
+  const spec = CATALOGUE.nosql
+  const blocks = Math.max(0, up)
+  const s = key.scatterReads
+  const fanout = key.scatterFanout ?? Math.max(1, blocks)
+  const reads = flow.reads * (1 - s + s * fanout)
+  const rho = (load: number, cap: number) =>
+    load <= 0 ? 0 : cap <= 0 ? Infinity : load / cap
+  const table = Math.max(
+    rho(reads, spec.capacity.readRps * blocks),
+    rho(flow.writes, spec.capacity.writeRps * blocks),
+  )
+  const hotReads = flow.reads * (1 - s) * key.hotShare
+  const hotWrites = flow.writes * key.hotShare
+  const hottest = Math.max(
+    rho(hotReads, NOSQL_KEY_LIMIT.readRps),
+    rho(hotWrites, NOSQL_KEY_LIMIT.writeRps),
+  )
+  const utilization = Math.max(table, hottest)
+  const inflation =
+    utilization >= 1
+      ? LATENCY_INFLATION_CAP
+      : Math.min(LATENCY_INFLATION_CAP, 1 / (1 - utilization))
+  // Count refused requests, not the extra reads a scatter costs.
+  const readCap = spec.capacity.readRps * blocks
+  const tableDropped =
+    (reads > readCap ? flow.reads * (1 - readCap / reads) : 0) +
+    Math.max(0, flow.writes - spec.capacity.writeRps * blocks)
+  const keyDropped =
+    Math.max(0, hotReads - NOSQL_KEY_LIMIT.readRps) +
+    Math.max(0, hotWrites - NOSQL_KEY_LIMIT.writeRps)
+  m.utilization = utilization
+  m.p99Ms = spec.baseLatency.p99Ms * inflation
+  m.droppedRps = Math.max(tableDropped, keyDropped)
+  m.shards = Math.max(1, blocks)
+  m.hotShardShare = key.hotShare
+  m.restShardUtilization = table
 }
 
 /**

@@ -132,7 +132,7 @@ export const CONCEPTS: Record<ConceptId, Card> = {
   },
   pacelc: {
     title: "PACELC: the trade-off without a split",
-    body: "CAP only describes a network split. Else, in normal running, the choice is latency against consistency: a strongly consistent write waits for a copy in another zone to confirm it, every time. An eventually consistent write returns as soon as one copy has it, and the others catch up a little later.",
+    body: "CAP only describes a network split. Else, in normal running, the choice is latency against consistency: a strongly consistent write waits for a copy in another zone to confirm it, every time: a few milliseconds between zones, tens to hundreds between regions. An eventually consistent write returns as soon as one copy has it, and the others catch up a little later.",
     interview:
       "Splits are rare; the latency cost of strong consistency is paid on every write. Mention both halves: what happens during a split, and what each write costs the rest of the time.",
   },
@@ -282,7 +282,7 @@ export const CONCEPTS: Record<ConceptId, Card> = {
   },
   cdn: {
     title: "Content delivery networks",
-    body: "A {cdn} caches responses at points of presence near users. Cache hits never reach your origin, so a CDN absorbs traffic spikes for static or shared content almost for free.",
+    body: "A {cdn} caches responses at points of presence near users. Cache hits never reach your origin, so a CDN absorbs traffic spikes for static or shared content and cuts latency for distant users. It's billed per request (and, in real life, per gigabyte), so it pays off for heavy or popular content more than for tiny answers you could serve from memory.",
     interview:
       "Talk about cache keys, TTLs and purge on deploy. Mention it also shields you from some DDoS traffic.",
   },
@@ -393,7 +393,7 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
   },
   "app-server": {
     title: "{app-server}",
-    body: "Runs your application code in containers. Keep it stateless and it scales by adding instances. Capacity here: about 400 requests a second per instance.",
+    body: "Runs your application code in containers. Keep it stateless and it scales by adding instances. Capacity here: about 1,000 simple requests a second per instance, at about 2ms of CPU each.",
     interview:
       "State where sessions live and how you'd autoscale (CPU, request count).",
   },
@@ -405,7 +405,7 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
   },
   cache: {
     title: "{cache}",
-    body: "An in-memory key-value store. Sub-millisecond reads, tens of thousands a second per node. Losing it degrades rather than breaks the system, as long as the database behind it can take the misses.",
+    body: "An in-memory key-value store. Sub-millisecond reads, around a hundred thousand a second per node. Losing it degrades rather than breaks the system, as long as the database behind it can take the misses.",
     interview:
       "Cache-aside, TTLs, invalidation on write, and stampede protection.",
   },
@@ -439,12 +439,12 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
   },
   worker: {
     title: "{worker}",
-    body: "Processes jobs from a queue in the background. Slow per job but off the user's path. Here, about 50 jobs a second per instance.",
+    body: "Processes jobs from a queue in the background. Slow per job but off the user's path. Here an instance has four cores, so it runs four CPU-heavy jobs at once, or about a hundred that mostly wait on another service: its rate depends on how long each job takes.",
     interview: "Size it from arrival rate and job time; scale on queue depth.",
   },
   "object-store": {
     title: "{object-store}",
-    body: "Durable blob storage addressed by key. Effectively unlimited, very durable, a few tens of milliseconds per request.",
+    body: "Durable blob storage addressed by key. Effectively unlimited, very durable, a few tens of milliseconds per request. Requests to keys that share a prefix top out around 5,500 reads a second, which is why popular files go behind a {cdn}.",
     interview: "Files here, metadata in a database, delivery through a CDN.",
   },
   "search-index": {

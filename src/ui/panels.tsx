@@ -23,7 +23,7 @@ import { DECKS } from "~/decks"
 import { CONCEPTS, type ConceptId } from "~/levels/concepts"
 import type { Level } from "~/levels"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
-import { CATALOGUE } from "~/sim/catalogue"
+import { CATALOGUE, workerJobsPerSecond } from "~/sim/catalogue"
 import type { Finding } from "~/sim/findings"
 import type { Targets } from "~/sim/grade"
 import type { Settings } from "~/game/edit"
@@ -45,7 +45,7 @@ import type {
 } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import { plain } from "~/text"
-import { ms, nines, pct, rps, usd } from "./format"
+import { ms, nines, pct, priceNote, rps, usd } from "./format"
 import { MiniBlock } from "./MiniBlock"
 import { Rich } from "./Rich"
 
@@ -237,7 +237,7 @@ export function PalettePanel({
                   {n.short}
                 </span>
                 <span className="font-mono text-[10px] text-slate-500">
-                  {usd(spec.costPerInstanceMonthUsd)}/mo
+                  {priceNote(spec)}
                 </span>
               </button>
               {/* A sibling, not a child: a button can't nest inside a button. */}
@@ -274,34 +274,33 @@ function Stepper({
   onChange: (n: number) => void
   note?: string
 }) {
+  // Big tiers (tens of instances) also get steps of ten.
+  const big = max > 10
+  const btn = (delta: number, text: React.ReactNode, aria: string) => (
+    <button
+      type="button"
+      aria-label={aria}
+      disabled={delta < 0 ? value <= min : value >= max}
+      onClick={() => onChange(Math.min(max, Math.max(min, value + delta)))}
+      className="grid h-9 min-w-9 place-items-center rounded-lg border border-white/10 bg-white/5 px-1.5 font-mono text-[12px] text-slate-200 disabled:opacity-30"
+    >
+      {text}
+    </button>
+  )
   return (
     <div className="flex items-center justify-between gap-3">
-      <div>
+      <div className="min-w-0">
         <div className="text-[13px] text-slate-200">{label}</div>
         {note && <div className="text-[11px] text-slate-500">{note}</div>}
       </div>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          aria-label={`Fewer ${label}`}
-          disabled={value <= min}
-          onClick={() => onChange(value - 1)}
-          className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-200 disabled:opacity-30"
-        >
-          <Minus size={15} />
-        </button>
+      <div className="flex shrink-0 items-center gap-1">
+        {big && btn(-10, "−10", `Ten fewer ${label}`)}
+        {btn(-1, <Minus size={15} />, `Fewer ${label}`)}
         <span className="w-8 text-center font-mono text-lg text-white">
           {value}
         </span>
-        <button
-          type="button"
-          aria-label={`More ${label}`}
-          disabled={value >= max}
-          onClick={() => onChange(value + 1)}
-          className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-200 disabled:opacity-30"
-        >
-          <Plus size={15} />
-        </button>
+        {btn(1, <Plus size={15} />, `More ${label}`)}
+        {big && btn(10, "+10", `Ten more ${label}`)}
       </div>
     </div>
   )
@@ -374,15 +373,22 @@ function DataOptions({
           </select>
         </label>
       )}
-      {mode && (
+      {mode && c.kind === "sql-primary" && (
+        <p className="text-[12px] leading-snug text-slate-400">
+          <span className="text-slate-200">During a network split: </span>
+          one leader, so the side without a majority of its {d}{" "}
+          {d === 1 ? "copy" : "copies"} refuses. Every write waits for a
+          majority to confirm.
+        </p>
+      )}
+      {mode && c.kind === "nosql" && (
         <div>
           <div className="text-[13px] text-slate-200">
             During a network split
           </div>
           <div className="mb-1.5 text-[11px] text-slate-500">
-            {c.kind === "nosql" || CATALOGUE[c.kind].managed
-              ? "Three copies, one per zone"
-              : `${d} cop${d === 1 ? "y" : "ies"}: one per zone it's spread over`}
+            Three copies. Keep serving needs multi-writer replication
+            (leaderless, or writes in every region).
           </div>
           <div className="grid grid-cols-2 gap-1.5" role="radiogroup">
             {(
@@ -702,11 +708,14 @@ export function InspectPanel({
   const n = serviceName(c.kind, provider)
   const generic = serviceName(c.kind, "generic")
   const m = result?.perComponent[c.id]
-  const capacityNote = spec.readOnly
-    ? `${rps(spec.capacity.readRps)} reads each, no writes`
-    : spec.capacity.readRps === spec.capacity.writeRps
-      ? `${rps(spec.capacity.readRps)} each`
-      : `${rps(spec.capacity.readRps)} reads / ${rps(spec.capacity.writeRps)} writes`
+  const capacityNote =
+    c.kind === "worker"
+      ? `${rps(workerJobsPerSecond(load ?? {}))} jobs each, for this job`
+      : spec.readOnly
+        ? `${rps(spec.capacity.readRps)} reads each, no writes`
+        : spec.capacity.readRps === spec.capacity.writeRps
+          ? `${rps(spec.capacity.readRps)} each`
+          : `${rps(spec.capacity.readRps)} reads / ${rps(spec.capacity.writeRps)} writes`
 
   return (
     <div className="space-y-3">
@@ -720,7 +729,7 @@ export function InspectPanel({
             <div className="text-[12px] text-slate-500">{generic.name}</div>
           )}
           <div className="mt-0.5 font-mono text-[11px] text-slate-500">
-            {capacityNote} · {usd(spec.costPerInstanceMonthUsd)}/mo
+            {capacityNote} · {priceNote(spec)}
           </div>
         </div>
         <div className="flex flex-col gap-0.5">

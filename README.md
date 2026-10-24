@@ -11,7 +11,7 @@
 
 ## Modes
 
-**Build.** You get a brief (500 requests a second, p99 under 300ms, 99.9% available, $400 a month) and a palette. Place components on an isometric board, wire them together, size each tier, then run the load test. Traffic ramps to peak, then a chaos round fires: an instance crashes, a cache restarts cold, a whole availability zone goes dark.
+**Build.** You get a brief (1,500 requests a second, p99 under 300ms, 99.9% available, $1,200 a month) and a palette. Place components on an isometric board, wire them together, size each tier, then run the load test. Traffic ramps to peak, then a chaos round fires: an instance crashes, a cache restarts cold, a whole availability zone goes dark.
 
 **CAP trade-offs.** Five build levels where the chaos round is a network split: every machine stays up, but copies of the data can't reach each other. Each store gets a choice in the sidebar, refuse (consistent) or keep serving (available), and the right answer depends on the data: a payments ledger, a shopping basket, like counts, unique usernames. The same shelf adds sharding: set a SQL database's shard count and pick its partition key from the scenario's options, then watch for the key that piles every write onto one shard or sends every read to all of them. A sharded store is drawn sliced, with the busiest shard in its own colour.
 
@@ -45,11 +45,13 @@ Nine build levels, seven interview classics, five CAP trade-off levels, five pro
 
 `simulate()` in `src/sim/simulate.ts` is a pure function from a graph and a load profile to per-component metrics. The model is adapted from [architecture-simulator](https://github.com/TimmDay/architecture-simulator):
 
-- **Routers divide, callers duplicate.** A load balancer splits 400 rps between its targets; an app server makes each of its calls per request.
+- **Real sizes and prices.** `src/sim/catalogue.ts` gives each component a realistic per-instance capacity and on-demand price: about 1,000 simple requests a second for a 2 vCPU app server at $70 a month, 3,000 writes a second for a SQL primary. Managed services billed per request (CDN, queue, object store, serverless, OCR) are costed from the level's traffic, and a worker's rate comes from the level's job: how long it takes, and whether it computes or waits.
+- **Routers divide, callers duplicate.** A load balancer splits 1,000 rps between its targets; an app server makes each of its calls per request.
 - **Caches pass only misses** (and all writes) to what's behind them. The hit rate comes from the scenario, never from the player.
 - **Reads and writes have separate capacity.** A replica serves reads and refuses writes; a SQL primary's extra instances are standbys, not capacity.
 - **Latency climbs with utilisation** as 1 / (1 - ρ), capped. The p99 is the slowest synchronous path carrying at least 1% of requests.
-- **Async hand-offs** take everything behind them off the critical path. Slow consumers grow a backlog instead of failing requests.
+- **Async hand-offs** take everything behind them off the critical path. Workers pass on only what they get through; the rest waits in the queue as backlog instead of failing requests.
+- **One key has a ceiling.** A NoSQL store scales by adding capacity, but any single key tops out around 1,000 writes a second, so a hot key fails however much you buy.
 - **Availability** multiplies along the path and composes as 1 - (1 - a)^n across independent failure domains.
 
 The canvas only displays this output: packet rate per edge, block colour by utilisation, red packets bursting at overloaded targets.

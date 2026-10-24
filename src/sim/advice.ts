@@ -1,5 +1,11 @@
 import type { ConceptId } from "~/levels/concepts"
-import { CATALOGUE, HEAVY_JOB_COST, SATURATION_WARN } from "./catalogue"
+import {
+  CATALOGUE,
+  inlineJobCost,
+  inlineJobMs,
+  SATURATION_WARN,
+  workerJobsPerSecond,
+} from "./catalogue"
 import { behindAsync, doesHeavyWorkInline, failureDomains } from "./simulate"
 import type {
   ComponentKind,
@@ -187,12 +193,12 @@ export function report(
       doesHeavyWorkInline(graph, c)
     ) {
       const jobs = m.writeRps * load.heavyWriteFraction
-      const workers = Math.ceil(jobs / CATALOGUE.worker.capacity.writeRps / AIM)
+      const workers = Math.ceil(jobs / workerJobsPerSecond(load) / AIM)
       advice.push({
         severity: "error",
         componentId: c.id,
         concept: "async-processing",
-        why: `${name(c.kind)} does the slow jobs (${rps(jobs)}) while users wait. Each costs ${HEAVY_JOB_COST} times an ordinary write and adds about 1.8s.`,
+        why: `${name(c.kind)} does the slow jobs (${rps(jobs)}) while users wait. Each costs ${Math.round(inlineJobCost(load))} times an ordinary request and adds about ${ms(inlineJobMs(load))}.`,
         fix: `Hand the jobs to a {queue} and run ${workers} {worker} instance${workers === 1 ? "" : "s"} (${usd(workers * CATALOGUE.worker.costPerInstanceMonthUsd)}/month) to drain it.`,
         consider:
           "Users then get 'processing' instead of the result, so the product needs a way to tell them when it's done.",

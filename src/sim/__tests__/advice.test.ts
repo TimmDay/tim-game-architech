@@ -26,19 +26,19 @@ describe("the sandbox report", () => {
     const r = run(g)
     const a = r.advice.find((x) => x.componentId === "app")
     expect(r.status).toBe("broken")
-    // 1,000 requests at 400 each, aiming for 70%: four instances.
-    expect(a?.fix).toMatch(/Run 4 instances \(\+2, \$60\/month more\)/)
+    // 5,000 requests at 1,000 each, aiming for 70%: eight instances.
+    expect(a?.fix).toMatch(/Run 8 instances \(\+6, \$420\/month more\)/)
   })
 
   it("offers a cache for a database drowning in cacheable reads", () => {
     const g = graph(
       [
-        ["app", "app-server", 0, 0, 6, 2],
+        ["app", "app-server", 0, 0, 20, 2],
         ["db", "sql-primary", 0, 0, 2, 2],
       ],
       [`${C}>app`, "app>db"],
     )
-    const r = run(g, { ...SANDBOX_LOAD, peakRps: 2_400, readFraction: 0.95 })
+    const r = run(g, { ...SANDBOX_LOAD, peakRps: 12_000, readFraction: 0.95 })
     const a = r.advice.find((x) => x.componentId === "db")
     expect(a?.fix).toContain("{cache}")
     expect(a?.consider).toBeDefined()

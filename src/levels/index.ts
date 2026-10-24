@@ -97,7 +97,7 @@ const BUILD: Level[] = [
     title: "First Customers",
     tagline: "Your helpdesk app outgrew the laptop under the desk.",
     brief:
-      "A helpdesk startup just signed its first real customers. At peak you'll see 500 requests a second, mostly agents reading tickets. Put a {load-balancer} in front of a pool of {app-server} instances and give them a {sql-primary} to keep tickets in. Then make sure losing one server doesn't take everyone down.",
+      "A helpdesk startup just signed its first real customers. At peak you'll see 1,500 requests a second, mostly agents reading tickets. Put a {load-balancer} in front of a pool of {app-server} instances and give them a {sql-primary} to keep tickets in. Then make sure losing one server doesn't take everyone down.",
     scenario: {
       product: "the helpdesk",
       reads: "agents opening tickets",
@@ -106,7 +106,7 @@ const BUILD: Level[] = [
       records: "tickets, replies and customer accounts",
     },
     load: {
-      peakRps: 500,
+      peakRps: 1_500,
       readFraction: 0.8,
       cacheableFraction: 0.5,
       heavyWriteFraction: 0,
@@ -115,7 +115,7 @@ const BUILD: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 400,
+      budgetUsd: 1_200,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: {
@@ -148,7 +148,7 @@ const BUILD: Level[] = [
     title: "Front Page",
     tagline: "A story is trending and everyone reads the same 50 articles.",
     brief:
-      "A news site's logged-in feed is personalised, so the page itself can't sit at the edge, but the articles behind it are the same for everyone. Peak is 3,000 requests a second and 95% of them are reads. The {sql-primary} tops out around 2,000 reads a second. Keep p99 under 250ms on a budget that won't stretch to a fleet of replicas.",
+      "A news site's logged-in feed is personalised, so the page itself can't sit at the edge, but the articles behind it are the same for everyone. Peak is 15,000 requests a second and 95% of them are reads. The {sql-primary} tops out around 10,000 reads a second. Keep p99 under 250ms on a budget that won't stretch to a fleet of replicas.",
     scenario: {
       product: "the news site",
       reads: "readers loading their feed and articles",
@@ -157,7 +157,7 @@ const BUILD: Level[] = [
       records: "articles, comments and reader accounts",
     },
     load: {
-      peakRps: 3_000,
+      peakRps: 15_000,
       readFraction: 0.95,
       cacheableFraction: 0.9,
       heavyWriteFraction: 0,
@@ -166,7 +166,7 @@ const BUILD: Level[] = [
       p99Ms: 250,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 750,
+      budgetUsd: 3_300,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: {
@@ -190,7 +190,7 @@ const BUILD: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 14, 2],
+        ["app", "app-server", 4, 4, 27, 2],
         ["cache", "cache", 6, 3, 2, 2],
         ["db", "sql-primary", 8, 4, 2, 2],
       ],
@@ -206,7 +206,7 @@ const BUILD: Level[] = [
     title: "Going Viral",
     tagline: "One meme, twenty thousand requests a second.",
     brief:
-      "An image of a cat in a tiny hat has escaped containment. 20,000 requests a second want the same few images, and almost none of them write anything. Serving files from {app-server} instances would take a hundred of them. You have $100 a month. This level is about the image traffic: the site's own pages are static files too, and they're served the same way.",
+      "An image of a cat in a tiny hat has escaped containment. 10,000 requests a second want the same few images, and almost none of them write anything. The {object-store} that holds them answers about 5,500 reads a second for files that share a key prefix, as these do, and putting {app-server} instances in front doesn't change that. You have $9,000 a month. This level is about the image traffic: the site's own pages are static files too, and they're served the same way.",
     scenario: {
       product: "the meme site",
       reads: "people loading the same few images",
@@ -216,7 +216,7 @@ const BUILD: Level[] = [
       files: "every uploaded image",
     },
     load: {
-      peakRps: 20_000,
+      peakRps: 10_000,
       readFraction: 0.995,
       cacheableFraction: 0.95,
       heavyWriteFraction: 0,
@@ -225,7 +225,7 @@ const BUILD: Level[] = [
       p99Ms: 200,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 100,
+      budgetUsd: 9_000,
       writesReach: ["object-store"],
       noBacklog: false,
       stakes: {
@@ -258,7 +258,7 @@ const BUILD: Level[] = [
     title: "Upload Rush",
     tagline: "Every upload needs resizing, and resizing takes two seconds.",
     brief:
-      "A photo app: 600 requests a second, half of them uploads. Every upload must be resized into four sizes, which takes about two seconds of CPU. Users won't wait two seconds for a button to respond, and the resizing has to keep up with the uploads, or the backlog grows forever. The other half of the traffic is people browsing albums, which reads the photo details from the database. This level is about the uploads, so it leaves out how the photo files reach their screens.",
+      "A photo app: 200 requests a second, half of them uploads. Every upload must be resized into four sizes, which takes about half a second of CPU. Users won't wait that long every time they tap upload, and the resizing has to keep up with the uploads, or the backlog grows forever. The other half of the traffic is people browsing albums, which reads the photo details from the database. This level is about the uploads, so it leaves out how the photo files reach their screens.",
     scenario: {
       product: "the photo app",
       reads: "people browsing albums",
@@ -269,16 +269,17 @@ const BUILD: Level[] = [
       job: "resizing each upload into four sizes",
     },
     load: {
-      peakRps: 600,
+      peakRps: 200,
       readFraction: 0.5,
       cacheableFraction: 0.3,
       heavyWriteFraction: 1,
+      job: { seconds: 0.5, cpuBound: true },
     },
     targets: {
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.99,
-      budgetUsd: 650,
+      budgetUsd: 3_300,
       writesReach: ["object-store", "sql-primary"],
       noBacklog: true,
       stakes: {
@@ -304,10 +305,10 @@ const BUILD: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 3, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         ["db", "sql-primary", 6, 6],
         ["q", "queue", 6, 2],
-        ["workers", "worker", 8, 2, 8, 2],
+        ["workers", "worker", 8, 2, 16, 2],
         ["blobs", "object-store", 10, 3],
       ],
       [`${C}>lb`, "lb>app", "app>db", "app>q", "q>workers", "workers>blobs"],
@@ -322,7 +323,7 @@ const BUILD: Level[] = [
     title: "Step Counter",
     tagline: "A million wristbands, all syncing at once.",
     brief:
-      "A fitness app's wristbands sync step counts and heart rate every few minutes. Peak is 3,000 requests a second and seven in ten are syncs: writes, each one a small record for one user and one day. People open the app to see today and this week, always their own data, and nobody ever joins one user's records with another's. One {sql-primary} manages about 500 writes a second. The chaos round is the first Monday of January, when everyone's new resolution means 1.5 times the traffic.",
+      "A fitness app's wristbands sync step counts and heart rate every few minutes. Peak is 5,000 requests a second and seven in ten are syncs: writes, each one a small record for one user and one day. People open the app to see today and this week, always their own data, and nobody ever joins one user's records with another's. One {sql-primary} manages about 3,000 writes a second. The chaos round is the first Monday of January, when everyone's new resolution means 1.5 times the traffic.",
     scenario: {
       product: "the fitness app",
       reads: "people checking today's steps and this week's heart rate",
@@ -331,7 +332,7 @@ const BUILD: Level[] = [
       records: "step counts and heart-rate samples, by user and day",
     },
     load: {
-      peakRps: 3_000,
+      peakRps: 5_000,
       readFraction: 0.3,
       cacheableFraction: 0,
       heavyWriteFraction: 0,
@@ -340,7 +341,7 @@ const BUILD: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 650,
+      budgetUsd: 7_000,
       writesReach: ["durable"],
       noBacklog: true,
       stakes: {
@@ -368,8 +369,8 @@ const BUILD: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 12, 2],
-        ["steps", "nosql", 7, 4, 2],
+        ["app", "app-server", 4, 4, 9, 2],
+        ["steps", "nosql", 7, 4, 6],
       ],
       [`${C}>lb`, "lb>app", "app>steps"],
     ),
@@ -384,7 +385,7 @@ const BUILD: Level[] = [
     tagline:
       "A data centre is about to lose power. You just don't know which one.",
     brief:
-      "A payments dashboard promises 99.95% availability. 1,500 requests a second, mostly reads. This time, during the load test, a whole availability zone goes dark. Everything you put in only one zone goes dark with it.",
+      "A payments dashboard promises 99.95% availability. 7,500 requests a second, mostly reads. This time, during the load test, a whole availability zone goes dark. Everything you put in only one zone goes dark with it.",
     scenario: {
       product: "the payments dashboard",
       reads: "merchants checking balances and recent payments",
@@ -393,7 +394,7 @@ const BUILD: Level[] = [
       records: "payments, refunds and merchant accounts",
     },
     load: {
-      peakRps: 1_500,
+      peakRps: 7_500,
       readFraction: 0.9,
       cacheableFraction: 0.7,
       heavyWriteFraction: 0,
@@ -402,7 +403,7 @@ const BUILD: Level[] = [
       p99Ms: 250,
       maxErrorRate: 0.001,
       availability: 0.9995,
-      budgetUsd: 650,
+      budgetUsd: 2_600,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -419,7 +420,7 @@ const BUILD: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 8, 2],
+        ["app", "app-server", 4, 4, 16, 2],
         ["cache", "cache", 6, 3],
         ["db", "sql-primary", 8, 4, 2, 2],
       ],
@@ -436,7 +437,7 @@ const BUILD: Level[] = [
     tagline:
       "Search wants every order. So does the warehouse. So does checkout.",
     brief:
-      "An online shop takes 800 requests a second. Every order has to land in the {sql-primary}, become searchable in the {search-index}, and reach the {data-warehouse} for the finance team. The warehouse is built for big queries, not for sitting on the checkout path.",
+      "An online shop takes 4,000 requests a second. Every order has to land in the {sql-primary}, become searchable in the {search-index}, and reach the {data-warehouse} for the finance team. The warehouse is built for big queries, not for sitting on the checkout path.",
     scenario: {
       product: "the shop",
       reads: "customers browsing and searching",
@@ -446,7 +447,7 @@ const BUILD: Level[] = [
       events: "an order-placed event for every order",
     },
     load: {
-      peakRps: 800,
+      peakRps: 4_000,
       readFraction: 0.6,
       cacheableFraction: 0.4,
       heavyWriteFraction: 0,
@@ -455,7 +456,7 @@ const BUILD: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 800,
+      budgetUsd: 2_900,
       writesReach: ["sql-primary", "search-index", "data-warehouse"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -477,9 +478,9 @@ const BUILD: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 4, 2],
+        ["app", "app-server", 4, 4, 7, 2],
         ["db", "sql-primary", 6, 6, 2, 2],
-        ["stream", "event-stream", 6, 2],
+        ["stream", "event-stream", 6, 2, 3],
         ["search", "search-index", 9, 1],
         ["dw", "data-warehouse", 9, 3],
       ],
@@ -519,18 +520,20 @@ const LATER_BUILD: Level[] = [
       job: "reading each receipt photo with OCR",
     },
     brief:
-      "Freelancers log expenses for their tax return. They can type a receipt into a form, or photograph it and let OCR fill in merchant, date, amount and tax. Usage piles up before the filing deadline: the UK tax authority has had more than 600,000 returns filed on deadline day alone. Peak is 800 requests a second; a quarter are new receipts, and 60% of those are photos. The {doc-ai} takes seconds per receipt and caps how many calls you make each second.",
+      "Freelancers log expenses for their tax return. They can type a receipt into a form, or photograph it and let OCR fill in merchant, date, amount and tax. Usage piles up before the filing deadline: the UK tax authority has had more than 600,000 returns filed on deadline day alone. Peak is 200 requests a second; a quarter are new receipts, and 60% of those are photos. The {doc-ai} takes seconds per receipt, caps how many calls you make each second, and charges about a cent a page.",
     load: {
-      peakRps: 800,
+      peakRps: 200,
       readFraction: 0.75,
       cacheableFraction: 0.2,
       heavyWriteFraction: 0.6,
+      job: { seconds: 3, cpuBound: false },
+      averageOfPeak: 0.05,
     },
     targets: {
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 1_300,
+      budgetUsd: 45_000,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: false, abuse: true },
@@ -552,11 +555,11 @@ const LATER_BUILD: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 4, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         ["db", "sql-primary", 7, 6, 2, 2],
         ["blobs", "object-store", 5, 7],
         ["q", "queue", 6, 2],
-        ["workers", "worker", 8, 2, 4, 2],
+        ["workers", "worker", 8, 2, 2, 2],
         ["ocr", "doc-ai", 10, 2, 5],
       ],
       [
@@ -590,9 +593,9 @@ const LATER_BUILD: Level[] = [
         "a status-changed event each time a charger is marked in use or free",
     },
     brief:
-      "Drivers open the map to find a free charger nearby. They can mark a charger as in use while they charge, and leave notes for others ('bay 3 is blocked', 'card reader broken'). The US alone has over 250,000 public charging ports, and holiday road trips are the peak: Tesla reported more than two million Supercharger sessions over Thanksgiving 2025. Peak is 3,000 requests a second, nearly all map views; availability changes every few minutes.",
+      "Drivers open the map to find a free charger nearby. They can mark a charger as in use while they charge, and leave notes for others ('bay 3 is blocked', 'card reader broken'). The US alone has over 250,000 public charging ports, and holiday road trips are the peak: Tesla reported more than two million Supercharger sessions over Thanksgiving 2025. Peak is 10,000 requests a second, nearly all map views; availability changes every few minutes.",
     load: {
-      peakRps: 3_000,
+      peakRps: 10_000,
       readFraction: 0.95,
       cacheableFraction: 0.6,
       heavyWriteFraction: 0,
@@ -601,7 +604,7 @@ const LATER_BUILD: Level[] = [
       p99Ms: 400,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 600,
+      budgetUsd: 13_000,
       writesReach: ["nosql", "search-index"],
       noBacklog: true,
       stakes: {
@@ -632,11 +635,11 @@ const LATER_BUILD: Level[] = [
         ["dns", "dns", 1, 4],
         ["cdn", "cdn", 2, 3],
         ["lb", "load-balancer", 3, 2],
-        ["app", "app-server", 5, 4, 8, 2],
+        ["app", "app-server", 5, 4, 11, 2],
         ["cache", "cache", 7, 4, 2, 2],
-        ["kv", "nosql", 9, 5],
-        ["geo", "search-index", 7, 1],
-        ["stream", "event-stream", 6, 6],
+        ["kv", "nosql", 9, 5, 2],
+        ["geo", "search-index", 7, 1, 5],
+        ["stream", "event-stream", 6, 6, 2],
       ],
       [
         `${C}>dns`,
@@ -681,7 +684,7 @@ const REPAIR: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 600,
+      budgetUsd: 1_550,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: {
@@ -729,7 +732,7 @@ const REPAIR: Level[] = [
     title: "Black Friday",
     tagline: "Traffic tripled overnight and checkout is timing out.",
     brief:
-      "The shop scaled the app tier to ten instances last night and it's still falling over: 2,500 requests a second, nearly all of them browsing the same catalogue. Find the real bottleneck. Adding more of the wrong thing just burns money.",
+      "The shop scaled the app tier to twenty instances last night and it's still falling over: 12,500 requests a second, nearly all of them browsing the same catalogue. Find the real bottleneck. Adding more of the wrong thing just burns money.",
     scenario: {
       product: "the shop",
       reads: "shoppers browsing the catalogue",
@@ -738,7 +741,7 @@ const REPAIR: Level[] = [
       records: "products, orders and customers",
     },
     load: {
-      peakRps: 2_500,
+      peakRps: 12_500,
       readFraction: 0.9,
       cacheableFraction: 0.85,
       heavyWriteFraction: 0,
@@ -747,7 +750,7 @@ const REPAIR: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 700,
+      budgetUsd: 2_700,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: { signedIn: true, personalData: true, money: true, abuse: true },
@@ -766,7 +769,7 @@ const REPAIR: Level[] = [
     starter: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 10, 2],
+        ["app", "app-server", 4, 4, 20, 2],
         ["db", "sql-primary", 8, 4, 2, 2],
       ],
       [`${C}>lb`, "lb>app", "app>db"],
@@ -774,19 +777,19 @@ const REPAIR: Level[] = [
     rootCause: {
       componentId: "db",
       explanation:
-        "The {sql-primary} is being asked for 2,250 reads a second and tops out around 2,000. The app tier was never the problem. The catalogue is the same for everyone, so a {cache} takes almost all of those reads off the database.",
+        "The {sql-primary} is being asked for 11,250 reads a second and tops out around 10,000. The app tier was never the problem. The catalogue is the same for everyone, so a {cache} takes almost all of those reads off the database.",
     },
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 10, 2],
+        ["app", "app-server", 4, 4, 20, 2],
         ["cache", "cache", 6, 3],
         ["db", "sql-primary", 8, 4, 2, 2],
       ],
       [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
     ),
     concepts: ["finding-the-bottleneck", "cache-aside"],
-    hint: "Run the load test and look for the red block. It isn't the one with ten instances.",
+    hint: "Run the load test and look for the red block. It isn't the one with twenty instances.",
   },
   {
     id: "slow-checkout",
@@ -807,15 +810,17 @@ const REPAIR: Level[] = [
     },
     load: {
       peakRps: 400,
-      readFraction: 0.7,
+      readFraction: 0.98,
       cacheableFraction: 0.4,
       heavyWriteFraction: 1,
+      // Rendering an invoice in a headless browser: about 1.5 seconds of CPU.
+      job: { seconds: 1.5, cpuBound: true },
     },
     targets: {
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 750,
+      budgetUsd: 1_750,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -835,7 +840,7 @@ const REPAIR: Level[] = [
     starter: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 6, 2],
+        ["app", "app-server", 4, 4, 10, 2],
         ["db", "sql-primary", 7, 5, 2, 2],
         ["blobs", "object-store", 7, 2],
       ],
@@ -844,15 +849,15 @@ const REPAIR: Level[] = [
     rootCause: {
       componentId: "app",
       explanation:
-        "The {app-server} renders each invoice inline, so every order costs the user about 1.8 seconds and costs the tier twenty requests' worth of capacity. Hand the job to a {queue} and let {worker} instances render it in the background.",
+        "The {app-server} renders each invoice inline, so every order costs the user about 1.5 seconds and costs the tier 750 requests' worth of capacity. Hand the job to a {queue} and let {worker} instances render it in the background.",
     },
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 3, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         ["db", "sql-primary", 7, 6, 2, 2],
         ["q", "queue", 6, 2],
-        ["workers", "worker", 8, 2, 4, 2],
+        ["workers", "worker", 8, 2, 5, 2],
         ["blobs", "object-store", 10, 3],
       ],
       [`${C}>lb`, "lb>app", "app>db", "app>q", "q>workers", "workers>blobs"],
@@ -885,7 +890,7 @@ const REPAIR: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.9995,
-      budgetUsd: 600,
+      budgetUsd: 1_150,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -901,7 +906,7 @@ const REPAIR: Level[] = [
     starter: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 6, 3],
+        ["app", "app-server", 4, 4, 3, 3],
         ["db", "sql-primary", 7, 4, 1, 1],
       ],
       [`${C}>lb`, "lb>app", "app>db"],
@@ -914,7 +919,7 @@ const REPAIR: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 6, 3],
+        ["app", "app-server", 4, 4, 3, 3],
         ["db", "sql-primary", 7, 4, 2, 2],
       ],
       [`${C}>lb`, "lb>app", "app>db"],
@@ -948,7 +953,7 @@ const REPAIR: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 800,
+      budgetUsd: 2_200,
       writesReach: ["sql-primary", "data-warehouse"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -968,7 +973,7 @@ const REPAIR: Level[] = [
     starter: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 4, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         ["db", "sql-primary", 7, 6, 2, 2],
         ["dw", "data-warehouse", 7, 2],
       ],
@@ -977,12 +982,12 @@ const REPAIR: Level[] = [
     rootCause: {
       componentId: "dw",
       explanation:
-        "The {data-warehouse} sits on the synchronous path, so every request waits for it, and it can only answer about 50 small queries a second. Publish events to an {event-stream} and let the warehouse load them on its own schedule.",
+        "The {data-warehouse} sits on the synchronous path, so every request waits for it, and it can only answer about 20 small queries a second. Publish events to an {event-stream} and let the warehouse load them on its own schedule.",
     },
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 4, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         ["db", "sql-primary", 7, 6, 2, 2],
         ["stream", "event-stream", 6, 2],
         ["dw", "data-warehouse", 9, 2],
@@ -1009,7 +1014,7 @@ const REPAIR: Level[] = [
       events: "an order-placed event for every order",
     },
     load: {
-      peakRps: 800,
+      peakRps: 4_000,
       readFraction: 0.6,
       cacheableFraction: 0.4,
       heavyWriteFraction: 0,
@@ -1018,7 +1023,7 @@ const REPAIR: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 800,
+      budgetUsd: 2_900,
       writesReach: ["sql-primary", "search-index", "data-warehouse"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -1039,7 +1044,7 @@ const REPAIR: Level[] = [
     starter: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 4, 2],
+        ["app", "app-server", 4, 4, 7, 2],
         ["db", "sql-primary", 6, 6, 2, 2],
         ["q", "queue", 6, 2],
         ["search", "search-index", 9, 1],
@@ -1055,9 +1060,9 @@ const REPAIR: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 4, 2],
+        ["app", "app-server", 4, 4, 7, 2],
         ["db", "sql-primary", 6, 6, 2, 2],
-        ["stream", "event-stream", 6, 2],
+        ["stream", "event-stream", 6, 2, 3],
         ["search", "search-index", 9, 1],
         ["dw", "data-warehouse", 9, 3],
       ],
@@ -1095,9 +1100,9 @@ const CLASSICS: Level[] = [
       records: "every short code and the long URL it points to",
     },
     brief:
-      "Paste a long URL, get a short one; anyone who clicks it is redirected. Bitly has reported more than 6 billion clicks a month on links created by its users. Clicks outnumber new links about fifty to one, and a few viral links take most of them. Peak is 4,000 requests a second. The links live in a {sql-primary}, which manages about 2,000 reads a second on its own.",
+      "Paste a long URL, get a short one; anyone who clicks it is redirected. Bitly has reported more than 6 billion clicks a month on links created by its users. Clicks outnumber new links about fifty to one, and a few viral links take most of them. Peak is 20,000 requests a second. The links live in a {sql-primary}, which manages about 10,000 reads a second on its own.",
     load: {
-      peakRps: 4_000,
+      peakRps: 20_000,
       readFraction: 0.98,
       cacheableFraction: 0.9,
       heavyWriteFraction: 0,
@@ -1106,7 +1111,7 @@ const CLASSICS: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 850,
+      budgetUsd: 3_800,
       writesReach: ["sql-primary"],
       noBacklog: false,
       stakes: {
@@ -1132,7 +1137,7 @@ const CLASSICS: Level[] = [
       [
         ["dns", "dns", 1, 4],
         ["lb", "load-balancer", 3, 4],
-        ["app", "app-server", 5, 4, 16, 2],
+        ["app", "app-server", 5, 4, 32, 2],
         ["cache", "cache", 7, 3, 2, 2],
         ["db", "sql-primary", 9, 5, 2, 2],
       ],
@@ -1158,9 +1163,9 @@ const CLASSICS: Level[] = [
       job: "pushing each message to recipients who are offline",
     },
     brief:
-      "A messaging app. WhatsApp has said it delivers around 100 billion messages a day. Here, peak is 4,000 requests a second and half of them are messages being sent: 2,000 writes a second, every one of which must be stored and then delivered. Recipients who aren't online get a push notification. A {sql-primary} takes about 500 writes a second, and adding instances doesn't add write capacity.",
+      "A messaging app. WhatsApp has said it delivers around 100 billion messages a day. Here, peak is 10,000 requests a second and half of them are messages being sent: 5,000 writes a second, every one of which must be stored and then delivered. Recipients who aren't online get a push notification. A {sql-primary} takes about 3,000 writes a second, and adding instances doesn't add write capacity.",
     load: {
-      peakRps: 4_000,
+      peakRps: 10_000,
       readFraction: 0.5,
       cacheableFraction: 0.1,
       heavyWriteFraction: 0,
@@ -1169,7 +1174,7 @@ const CLASSICS: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 1_000,
+      budgetUsd: 10_500,
       writesReach: ["nosql", "event-stream"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: false, abuse: true },
@@ -1195,9 +1200,9 @@ const CLASSICS: Level[] = [
         ["dns", "dns", 1, 4],
         ["lb", "load-balancer", 3, 4],
         ["app", "app-server", 5, 4, 18, 3],
-        ["kv", "nosql", 8, 5, 2],
-        ["stream", "event-stream", 7, 2],
-        ["push", "serverless", 10, 2, 3],
+        ["kv", "nosql", 8, 5, 7],
+        ["stream", "event-stream", 7, 2, 7],
+        ["push", "serverless", 10, 2, 1],
       ],
       [`${C}>dns`, "dns>lb", "lb>app", "app>kv", "app>stream", "stream>push"],
     ),
@@ -1222,9 +1227,9 @@ const CLASSICS: Level[] = [
       job: "copying each new post into every follower's timeline",
     },
     brief:
-      "A social app's home timeline: the latest posts from everyone you follow. Twitter's engineers described 300,000 timeline reads a second against about 6,000 writes. Here, peak is 5,000 requests a second and 97% are timeline loads. Building a timeline at read time means querying everyone a user follows, every time they scroll. The alternative is to copy each post into followers' timelines when it's written, which is slow work per post.",
+      "A social app's home timeline: the latest posts from everyone you follow. Twitter's engineers described 300,000 timeline reads a second against about 6,000 writes. Here, peak is 25,000 requests a second and 97% are timeline loads. Building a timeline at read time means querying everyone a user follows, every time they scroll. The alternative is to copy each post into followers' timelines when it's written, which is slow work per post.",
     load: {
-      peakRps: 5_000,
+      peakRps: 25_000,
       readFraction: 0.97,
       cacheableFraction: 0.9,
       heavyWriteFraction: 1,
@@ -1233,7 +1238,7 @@ const CLASSICS: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 1_050,
+      budgetUsd: 10_000,
       writesReach: ["nosql"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: false, abuse: true },
@@ -1257,11 +1262,11 @@ const CLASSICS: Level[] = [
       [
         ["dns", "dns", 1, 4],
         ["lb", "load-balancer", 3, 4],
-        ["app", "app-server", 5, 4, 20, 2],
+        ["app", "app-server", 5, 4, 40, 2],
         ["cache", "cache", 7, 5, 2, 2],
-        ["kv", "nosql", 9, 6],
-        ["stream", "event-stream", 7, 2],
-        ["fanout", "worker", 9, 2, 5, 2],
+        ["kv", "nosql", 9, 6, 3],
+        ["stream", "event-stream", 7, 2, 2],
+        ["fanout", "worker", 9, 2, 25, 2],
       ],
       [
         `${C}>dns`,
@@ -1293,18 +1298,22 @@ const CLASSICS: Level[] = [
       job: "admitting the next fan from the waiting room to hold a seat",
     },
     brief:
-      "Tickets for a stadium tour go on sale at 10:00. For the 2022 Eras Tour presale, Ticketmaster reported 3.5 billion system requests, four times its previous peak. Here, peak is 4,000 requests a second, and the on-sale minute triples it. Nine in ten are fans refreshing the seat map; the rest try to hold seats. No seat may be sold twice, so holds go to one {sql-primary}, which manages about 500 writes a second. Nobody should see an error: making fans wait in line is fine.",
+      "Tickets for a stadium tour go on sale at 10:00. For the 2022 Eras Tour presale, Ticketmaster reported 3.5 billion system requests, four times its previous peak. Here, peak is 20,000 requests a second, and the on-sale minute triples it. Nine in ten are fans refreshing the seat map; the rest try to hold seats. No seat may be sold twice, so holds go to one {sql-primary}, which manages about 3,000 writes a second. Nobody should see an error: making fans wait in line is fine.",
     load: {
-      peakRps: 4_000,
+      peakRps: 20_000,
       readFraction: 0.9,
       cacheableFraction: 0.8,
       heavyWriteFraction: 0,
+      // A hold waits on row locks in the database: little CPU, a lot of waiting.
+      job: { seconds: 0.2, cpuBound: false },
+      // Quiet between on-sales.
+      averageOfPeak: 0.05,
     },
     targets: {
       p99Ms: 400,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 1_350,
+      budgetUsd: 7_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
       stakes: { signedIn: true, personalData: true, money: true, abuse: true },
@@ -1329,10 +1338,10 @@ const CLASSICS: Level[] = [
         ["dns", "dns", 1, 4],
         ["cdn", "cdn", 2, 3],
         ["lb", "load-balancer", 3, 2],
-        ["app", "app-server", 5, 4, 12, 2],
+        ["app", "app-server", 5, 4, 24, 2],
         ["replica", "sql-replica", 7, 6, 2],
         ["line", "queue", 6, 2],
-        ["admit", "worker", 8, 2, 10, 2],
+        ["admit", "worker", 8, 2, 6, 2],
         ["db", "sql-primary", 10, 4, 2, 2],
       ],
       [
@@ -1366,18 +1375,20 @@ const CLASSICS: Level[] = [
       job: "transcoding each upload into every resolution and bitrate",
     },
     brief:
-      "A video site. YouTube has said more than 500 hours of video are uploaded to it every minute. Viewers stream videos in short segments, so peak is 20,000 requests a second, nearly all of them for the same popular videos. One request in two hundred is an upload, and every upload must be transcoded into several resolutions before anyone can watch it, which takes minutes of compute.",
+      "A video site. YouTube has said more than 500 hours of video are uploaded to it every minute. Viewers stream videos in short segments, so peak is 20,000 requests a second, nearly all of them for the same popular videos. Uploads are rare by comparison, about one every two seconds, but every upload must be transcoded into several resolutions before anyone can watch it, which takes minutes of compute.",
     load: {
       peakRps: 20_000,
-      readFraction: 0.995,
+      readFraction: 0.999975,
       cacheableFraction: 0.95,
       heavyWriteFraction: 1,
+      // Transcoding one upload into five renditions: two minutes of CPU.
+      job: { seconds: 120, cpuBound: true },
     },
     targets: {
       p99Ms: 500,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 700,
+      budgetUsd: 23_500,
       writesReach: ["object-store"],
       noBacklog: true,
       stakes: {
@@ -1407,10 +1418,10 @@ const CLASSICS: Level[] = [
         ["dns", "dns", 1, 4],
         ["cdn", "cdn", 2, 3],
         ["lb", "load-balancer", 3, 2],
-        ["app", "app-server", 5, 4, 12, 2],
+        ["app", "app-server", 5, 4, 6, 2],
         ["videos", "object-store", 8, 6],
         ["jobs", "queue", 6, 2],
-        ["transcode", "worker", 8, 2, 5, 2],
+        ["transcode", "worker", 8, 2, 40, 2],
       ],
       [
         `${C}>dns`,
@@ -1444,9 +1455,9 @@ const CLASSICS: Level[] = [
         "every driver reports again within seconds, so a lost location is replaced almost at once.",
     },
     brief:
-      "Riders request a car; the app finds the nearest drivers and shows the car approaching. Uber's own developer docs describe driver location updates sent every 4 seconds. Here, peak is 5,000 requests a second, and 85% are location pings. Only the latest position matters for matching; the history is kept for pricing and ETA models. If a zone goes down mid rush hour, riders must still find cars.",
+      "Riders request a car; the app finds the nearest drivers and shows the car approaching. Uber's own developer docs describe driver location updates sent every 4 seconds. Here, peak is 25,000 requests a second, and 85% are location pings. Only the latest position matters for matching; the history is kept for pricing and ETA models. If a zone goes down mid rush hour, riders must still find cars.",
     load: {
-      peakRps: 5_000,
+      peakRps: 25_000,
       readFraction: 0.15,
       cacheableFraction: 1,
       heavyWriteFraction: 0,
@@ -1455,7 +1466,7 @@ const CLASSICS: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 950,
+      budgetUsd: 6_200,
       writesReach: ["cache", "data-warehouse"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -1480,9 +1491,9 @@ const CLASSICS: Level[] = [
       [
         ["dns", "dns", 1, 4],
         ["lb", "load-balancer", 3, 4],
-        ["app", "app-server", 5, 4, 20, 3],
+        ["app", "app-server", 5, 4, 45, 3],
         ["live", "cache", 8, 5, 2, 2],
-        ["stream", "event-stream", 7, 2],
+        ["stream", "event-stream", 7, 2, 40],
         ["dw", "data-warehouse", 10, 2],
       ],
       [`${C}>dns`, "dns>lb", "lb>app", "app>live", "app>stream", "stream>dw"],
@@ -1508,9 +1519,9 @@ const CLASSICS: Level[] = [
         "the suggestions are rebuilt from the search log every day, so a lost node is simply reloaded.",
     },
     brief:
-      "As someone types, show the ten most likely searches for what they've typed so far. Google says autocomplete cuts typing by about 25%. Every keystroke is a request, so peak is 8,000 a second, and suggestions are useless if they arrive after the next keystroke: p99 must stay under 200ms. Completed searches are logged so tomorrow's suggestions reflect today's trends.",
+      "As someone types, show the ten most likely searches for what they've typed so far. Google says autocomplete cuts typing by about 25%. Every keystroke is a request, so peak is 10,000 a second, and suggestions are useless if they arrive after the next keystroke: p99 must stay under 200ms. Completed searches are logged so tomorrow's suggestions reflect today's trends.",
     load: {
-      peakRps: 8_000,
+      peakRps: 10_000,
       readFraction: 0.95,
       cacheableFraction: 1,
       heavyWriteFraction: 0,
@@ -1519,7 +1530,7 @@ const CLASSICS: Level[] = [
       p99Ms: 200,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 600,
+      budgetUsd: 3_500,
       writesReach: ["data-warehouse"],
       noBacklog: true,
       stakes: {
@@ -1548,25 +1559,16 @@ const CLASSICS: Level[] = [
     reference: graph(
       [
         ["dns", "dns", 1, 4],
-        ["cdn", "cdn", 2, 3],
         ["lb", "load-balancer", 3, 2],
-        ["app", "app-server", 5, 4, 6, 2],
+        ["app", "app-server", 5, 4, 25, 2],
         ["topk", "cache", 7, 5, 2, 2],
-        ["stream", "event-stream", 7, 2],
+        ["stream", "event-stream", 7, 2, 2],
         ["dw", "data-warehouse", 10, 2],
       ],
-      [
-        `${C}>dns`,
-        "dns>cdn",
-        "cdn>lb",
-        "lb>app",
-        "app>topk",
-        "app>stream",
-        "stream>dw",
-      ],
+      [`${C}>dns`, "dns>lb", "lb>app", "app>topk", "app>stream", "stream>dw"],
     ),
     concepts: ["precomputation", "latency-budget", "cdn"],
-    hint: "There's no time to search on every keystroke. Work out the top suggestions for each prefix ahead of time, keep them in memory, and let the {cdn} answer the most common prefixes.",
+    hint: "There's no time to search on every keystroke. Work out the top suggestions for each prefix ahead of time, and keep them in memory, so each keystroke is a lookup.",
   },
 ]
 
@@ -1605,14 +1607,14 @@ const CAP: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 500,
-      writesReach: ["sql-primary"],
+      budgetUsd: 1_550,
+      writesReach: ["durable"],
       noBacklog: false,
       stakes: { signedIn: true, personalData: true, money: true, abuse: true },
       onSplit: "consistent",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
-    palette: ["dns", "load-balancer", "app-server", "sql-primary"],
+    palette: ["dns", "load-balancer", "app-server", "sql-primary", "nosql"],
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
@@ -1639,9 +1641,9 @@ const CAP: Level[] = [
       records: "every shopper's basket",
     },
     brief:
-      "An online shop's basket takes 3,000 requests a second at peak, three in ten of them adds and removals. Each refused add is a sale lost, so the business's rule is that the basket always works. If two copies disagree for a while, the shop can merge them later: showing an item someone removed is annoying, refusing their purchase is worse. A {sql-primary} manages about 500 writes a second. The chaos round cuts one zone off from the others.",
+      "An online shop's basket takes 15,000 requests a second at peak, three in ten of them adds and removals. Each refused add is a sale lost, so the business's rule is that the basket always works. If two copies disagree for a while, the shop can merge them later: showing an item someone removed is annoying, refusing their purchase is worse. A {sql-primary} manages about 3,000 writes a second. The chaos round cuts one zone off from the others.",
     load: {
-      peakRps: 3_000,
+      peakRps: 15_000,
       readFraction: 0.7,
       cacheableFraction: 0,
       heavyWriteFraction: 0,
@@ -1651,7 +1653,7 @@ const CAP: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 600,
+      budgetUsd: 8_500,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: {
@@ -1667,8 +1669,8 @@ const CAP: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 12, 2],
-        ["baskets", "nosql", 7, 4, 1, 1, { consistency: "eventual" }],
+        ["app", "app-server", 4, 4, 28, 2],
+        ["baskets", "nosql", 7, 4, 6, 1, { consistency: "eventual" }],
       ],
       [`${C}>lb`, "lb>app", "app>baskets"],
     ),
@@ -1690,9 +1692,9 @@ const CAP: Level[] = [
       records: "companies, projects, tasks and comments",
     },
     brief:
-      "A project-management tool serves 5,000 companies. Peak is 3,000 requests a second and 1,200 of them are writes, more than double what one {sql-primary} takes. You'll split the data into shards, and the partition key decides which shard each record lives on. A good key spreads the writes evenly and lets the common reads go to a single shard. The biggest customer is about an eighth of all traffic. Pick the shard count and the key in the sidebar.",
+      "A project-management tool serves 5,000 companies. Peak is 15,000 requests a second and 6,000 of them are writes, double what one {sql-primary} takes. You'll split the data into shards, and the partition key decides which shard each record lives on. A good key spreads the writes evenly and lets the common reads go to a single shard. The biggest customer is about an eighth of all traffic. Pick the shard count and the key in the sidebar.",
     load: {
-      peakRps: 3_000,
+      peakRps: 15_000,
       readFraction: 0.6,
       cacheableFraction: 0,
       heavyWriteFraction: 0,
@@ -1722,7 +1724,7 @@ const CAP: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 1_500,
+      budgetUsd: 5_900,
       writesReach: ["sql-primary"],
       noBacklog: false,
       stakes: {
@@ -1740,7 +1742,7 @@ const CAP: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 15, 2],
+        ["app", "app-server", 4, 4, 30, 2],
         [
           "db",
           "sql-primary",
@@ -1771,9 +1773,9 @@ const CAP: Level[] = [
       records: "every like, by post and by user",
     },
     brief:
-      "A singer with a hundred million followers posts a photo, and four in ten of the app's likes now go to it. Peak is 3,000 requests a second, half of them likes. Counts can be a few seconds stale, and a like must never fail: if a split leaves the copies apart, they can be added up later. Likes live in sharded {sql-primary} storage. Watch the busiest shard: one post on one shard is more than any single primary can take.",
+      "A singer with a hundred million followers posts a photo, and four in ten of the app's likes now go to it. Peak is 6,000 requests a second, half of them likes. Counts can be a few seconds stale, and a like must never fail: if a split leaves the copies apart, they can be added up later. Likes live in a {nosql} store, which spreads keys across its partitions, but any one key tops out around 1,000 writes a second, however much capacity you buy.",
     load: {
-      peakRps: 3_000,
+      peakRps: 6_000,
       readFraction: 0.5,
       cacheableFraction: 0.8,
       heavyWriteFraction: 0,
@@ -1785,12 +1787,16 @@ const CAP: Level[] = [
           label: "Post ID + random suffix",
           hotShare: 0.04,
           scatterReads: 0.3,
+          // A count reads all ten suffixes.
+          scatterFanout: 10,
         },
         {
           id: "user",
           label: "ID of who liked",
           hotShare: 0.002,
           scatterReads: 0.95,
+          // Counting one post's likes scans every page of the table.
+          scatterFanout: 50,
         },
       ],
     },
@@ -1798,8 +1804,8 @@ const CAP: Level[] = [
       p99Ms: 400,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 1_500,
-      writesReach: ["sql-primary"],
+      budgetUsd: 5_500,
+      writesReach: ["durable"],
       noBacklog: false,
       stakes: {
         signedIn: true,
@@ -1810,20 +1816,20 @@ const CAP: Level[] = [
       onSplit: "available",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
-    palette: ["dns", "load-balancer", "app-server", "cache", "sql-primary"],
+    palette: ["dns", "load-balancer", "app-server", "cache", "nosql"],
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 12, 2],
+        ["app", "app-server", 4, 4, 10, 2],
         ["cache", "cache", 6, 3, 2, 2],
         [
           "db",
-          "sql-primary",
+          "nosql",
           8,
           4,
-          2,
-          2,
-          { shards: 4, partitionKey: "salted", consistency: "eventual" },
+          4,
+          1,
+          { partitionKey: "salted", consistency: "eventual" },
         ],
       ],
       [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
@@ -1846,9 +1852,9 @@ const CAP: Level[] = [
       records: "accounts and their usernames",
     },
     brief:
-      "A new social network opens sign-ups. Peak is 2,400 requests a second and 960 of them are writes, so one {sql-primary} isn't enough: shard it. Usernames must be unique. If both sides of a network split accept the same name, two people end up with it, and one of them loses it later. Refusing sign-ups on the cut-off side for a minute is fine. Pick the key, the shard count, the copies per shard and what each shard does during a split.",
+      "A new social network opens sign-ups. Peak is 15,000 requests a second and 6,000 of them are writes, so one {sql-primary} isn't enough: shard it. Usernames must be unique. If both sides of a network split accept the same name, two people end up with it, and one of them loses it later. Refusing sign-ups on the cut-off side for a minute is fine. Pick the key, the shard count, the copies per shard and what each shard does during a split.",
     load: {
-      peakRps: 2_400,
+      peakRps: 15_000,
       readFraction: 0.6,
       cacheableFraction: 0,
       heavyWriteFraction: 0,
@@ -1878,18 +1884,18 @@ const CAP: Level[] = [
       p99Ms: 400,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 1_500,
-      writesReach: ["sql-primary"],
+      budgetUsd: 6_300,
+      writesReach: ["durable"],
       noBacklog: false,
       stakes: { signedIn: true, personalData: true, money: false, abuse: true },
       onSplit: "consistent",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
-    palette: ["dns", "load-balancer", "app-server", "sql-primary"],
+    palette: ["dns", "load-balancer", "app-server", "sql-primary", "nosql"],
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 10, 2],
+        ["app", "app-server", 4, 4, 30, 2],
         [
           "db",
           "sql-primary",
@@ -1929,18 +1935,20 @@ const OPS: Level[] = [
       job: "charging each order through the payment provider",
     },
     brief:
-      "A food-delivery app takes 1,200 requests a second at dinner time, and one in ten places an order. Each order is charged through a payment provider: a {third-party-api} you don't run, with a quota of 300 calls a second per block. The chaos round is the provider slowing down: every call takes five seconds longer. Browsing must keep working, no order may be lost, and nobody may be charged twice.",
+      "A food-delivery app takes 1,200 requests a second at dinner time, and one in ten places an order. Each order is charged through a payment provider: a {third-party-api} you don't run, with a quota of 100 calls a second per block. The chaos round is the provider slowing down: every call takes five seconds longer. Browsing must keep working, no order may be lost, and nobody may be charged twice.",
     load: {
       peakRps: 1_200,
       readFraction: 0.9,
       cacheableFraction: 0,
       heavyWriteFraction: 0,
+      // A charge is a call to the provider: about 150ms, nearly all waiting.
+      job: { seconds: 0.15, cpuBound: false },
     },
     targets: {
       p99Ms: 350,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 800,
+      budgetUsd: 1_450,
       writesReach: ["sql-primary", "third-party-api"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -1963,11 +1971,11 @@ const OPS: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 5, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         ["db", "sql-primary", 6, 6, 2, 2],
         ["charges", "queue", 6, 2],
-        ["pay", "worker", 8, 2, 7, 2],
-        ["provider", "third-party-api", 10, 2],
+        ["pay", "worker", 8, 2, 2, 2],
+        ["provider", "third-party-api", 10, 2, 2],
       ],
       [
         `${C}>lb`,
@@ -1998,18 +2006,20 @@ const OPS: Level[] = [
       job: "turning each upload into page previews",
     },
     brief:
-      "A document app takes 800 requests a second, and one in five is an upload that needs page previews made by a {worker}. The chaos round is a batch of corrupt files that crash the converter every time they're tried. The queue keeps handing them back, so they're retried forever, and the uploads behind them wait. The previews must keep up.",
+      "A document app takes 800 requests a second, and one in twenty is an upload that needs page previews made by a {worker}. The chaos round is a batch of corrupt files that crash the converter every time they're tried. The queue keeps handing them back, so they're retried forever, and the uploads behind them wait. The previews must keep up.",
     load: {
       peakRps: 800,
-      readFraction: 0.8,
+      readFraction: 0.95,
       cacheableFraction: 0,
       heavyWriteFraction: 1,
+      // Rendering a few pages of previews: about half a second of CPU.
+      job: { seconds: 0.5, cpuBound: true },
     },
     targets: {
       p99Ms: 400,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 420,
+      budgetUsd: 1_900,
       writesReach: ["object-store"],
       noBacklog: true,
       stakes: {
@@ -2034,10 +2044,10 @@ const OPS: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 4, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         ["files", "object-store", 7, 6],
         ["jobs", "queue", 6, 2],
-        ["convert", "worker", 8, 2, 5, 2],
+        ["convert", "worker", 8, 2, 8, 2],
       ],
       [
         `${C}>lb`,
@@ -2066,9 +2076,9 @@ const OPS: Level[] = [
       records: "accounts and watch history",
     },
     brief:
-      "A streaming service serves 2,000 requests a second at peak. Passwords leaked from another site are being tried against yours: in the chaos round, attackers send four times your normal traffic at the sign-in endpoint, and someone probes the API without signing in at all. Real users must keep working, and nobody unsigned may read anything.",
+      "A streaming service serves 10,000 requests a second at peak. Passwords leaked from another site are being tried against yours: in the chaos round, attackers send four times your normal traffic at the sign-in endpoint, and someone probes the API without signing in at all. Real users must keep working, and nobody unsigned may read anything.",
     load: {
-      peakRps: 2_000,
+      peakRps: 10_000,
       readFraction: 0.9,
       cacheableFraction: 0.6,
       heavyWriteFraction: 0,
@@ -2077,7 +2087,7 @@ const OPS: Level[] = [
       p99Ms: 350,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 600,
+      budgetUsd: 2_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
       stakes: { signedIn: true, personalData: true, money: false, abuse: true },
@@ -2100,7 +2110,7 @@ const OPS: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 8, 2],
+        ["app", "app-server", 4, 4, 16, 2],
         ["cache", "cache", 6, 3, 2, 2],
         ["db", "sql-primary", 8, 4, 2, 2],
       ],
@@ -2125,10 +2135,10 @@ const OPS: Level[] = [
       files: "attached images and instrument files",
     },
     brief:
-      "Research labs keep their results in an online notebook: 600 requests a second, three in ten adding measurements or files. A day of results can be a day of fieldwork nobody can repeat, so the labs' contract says a restore loses at most 15 minutes. The chaos round is a migration that deletes a column of results. It runs on the primary, and the standby copies it straight away.",
+      "Research labs keep their results in an online notebook: 600 requests a second, one in ten adding measurements or files. A day of results can be a day of fieldwork nobody can repeat, so the labs' contract says a restore loses at most 15 minutes. The chaos round is a migration that deletes a column of results. It runs on the primary, and the standby copies it straight away.",
     load: {
       peakRps: 600,
-      readFraction: 0.7,
+      readFraction: 0.9,
       cacheableFraction: 0,
       heavyWriteFraction: 0,
     },
@@ -2136,7 +2146,7 @@ const OPS: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 400,
+      budgetUsd: 1_550,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: false,
       stakes: {
@@ -2162,7 +2172,7 @@ const OPS: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 3, 2],
+        ["app", "app-server", 4, 4, 2, 2],
         [
           "db",
           "sql-primary",
@@ -2205,18 +2215,20 @@ const OPS: Level[] = [
       job: "rendering each invoice as a PDF",
     },
     brief:
-      "A billing system takes 400 requests a second, and half of them create invoices that {worker} instances render as PDFs. The chaos round is the quiet kind of failure: the workers hang on a stuck connection. They don't crash, so health checks stay green and nothing restarts them. Invoices must keep going out.",
+      "A billing system takes 400 requests a second, and one in twenty creates an invoice that {worker} instances render as a PDF. The chaos round is the quiet kind of failure: the workers hang on a stuck connection. They don't crash, so health checks stay green and nothing restarts them. Invoices must keep going out.",
     load: {
       peakRps: 400,
-      readFraction: 0.5,
+      readFraction: 0.95,
       cacheableFraction: 0,
       heavyWriteFraction: 1,
+      // Filling in one invoice template as a PDF: about 300ms of CPU.
+      job: { seconds: 0.3, cpuBound: true },
     },
     targets: {
       p99Ms: 350,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 650,
+      budgetUsd: 1_600,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -2240,7 +2252,7 @@ const OPS: Level[] = [
         ["app", "app-server", 4, 4, 2, 2],
         ["db", "sql-primary", 6, 6, 2, 2],
         ["jobs", "queue", 6, 2],
-        ["render", "worker", 8, 2, 6, 2],
+        ["render", "worker", 8, 2, 3, 2],
         ["pdfs", "object-store", 10, 3],
       ],
       [`${C}>lb`, "lb>app", "app>db", "app>jobs", "jobs>render", "render>pdfs"],
@@ -2278,7 +2290,7 @@ export const levelById = (id: string) => LEVELS.find((l) => l.id === id)
 
 /** Free play: every component, no targets that matter. */
 export const SANDBOX_LOAD: LoadProfile = {
-  peakRps: 1_000,
+  peakRps: 5_000,
   readFraction: 0.8,
   cacheableFraction: 0.6,
   heavyWriteFraction: 0,

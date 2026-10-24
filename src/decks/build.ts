@@ -18,11 +18,11 @@ export const deck = (levelId: string, rows: Row[]): DeckCard[] =>
 export const FIRST_CUSTOMERS = deck("first-customers", [
   [
     "clarify",
-    "Before drawing anything: what would you ask about the 500 requests a second?",
+    "Before drawing anything: what would you ask about the 1,500 requests a second?",
     [
-      "Is 500 the peak or the average? What does the daily curve look like, and is there a Monday-morning spike when every agent logs in?",
+      "Is 1,500 the peak or the average? What does the daily curve look like, and is there a Monday-morning spike when every agent logs in?",
       "What's the read/write split? Agents mostly read tickets, but replies and status changes are writes.",
-      "How fast is it growing? Designing for 500 is different from designing for 500 that doubles every quarter.",
+      "How fast is it growing? Designing for 1,500 is different from designing for 1,500 that doubles every quarter.",
     ],
     "If they say 'it doubles every six months', which part of your design breaks first?",
   ],
@@ -78,9 +78,9 @@ export const FIRST_CUSTOMERS = deck("first-customers", [
     "decision",
     "How did you decide on three app servers rather than two?",
     [
-      "Each handles about 400 requests a second. Two cope with 500, but losing one leaves 400 of capacity for 500 of traffic.",
+      "Each handles about 1,000 requests a second. Two cope with 1,500, but losing one leaves 1,000 of capacity for 1,500 of traffic.",
       "N+1: provision so peak still fits with one instance gone (crash, deploy or bad host).",
-      "Three instances run at about 42% busy, which also keeps tail latency down.",
+      "Three instances run at about 50% busy, which also keeps tail latency down.",
     ],
     "During a rolling deploy you take one out on purpose. Does that change the number?",
   ],
@@ -88,7 +88,7 @@ export const FIRST_CUSTOMERS = deck("first-customers", [
     "decision",
     "Why add a standby to the database instead of a read replica?",
     [
-      "The problem is availability, not load: the database is only 20% busy.",
+      "The problem is availability, not load: the database is only about 12% busy.",
       "A standby sits in another zone and is promoted on failure. A replica serves reads but needs manual promotion.",
       "Both cost the same; only one addresses the actual risk.",
     ],
@@ -124,7 +124,7 @@ export const FIRST_CUSTOMERS = deck("first-customers", [
     "alternative",
     "Would you put a cache in this design? Defend the answer either way.",
     [
-      "Not yet: the database is at 20% and p99 is within target. A cache adds staleness and another thing to run.",
+      "Not yet: the database is at 12% and p99 is within target. A cache adds staleness and another thing to run.",
       "Add one when the database is the bottleneck or latency matters more than consistency.",
       "Saying 'not yet, and here's the signal that would change my mind' is a strong answer.",
     ],
@@ -294,8 +294,8 @@ export const FRONT_PAGE = deck("front-page", [
     "decision",
     "Why two cache nodes, when one handles the load easily?",
     [
-      "Not for capacity: one node handles 50,000 reads a second.",
-      "For the cold start. If the only node restarts, all 2,850 reads a second hit a database that tops out around 2,000.",
+      "Not for capacity: one node handles 100,000 reads a second.",
+      "For the cold start. If the only node restarts, all 14,250 reads a second hit a database that tops out around 10,000.",
       "The second node keeps serving while the first warms up.",
     ],
   ],
@@ -313,7 +313,7 @@ export const FRONT_PAGE = deck("front-page", [
     "tradeoff",
     "Cache vs read replicas for this workload: compare them properly.",
     [
-      "A replica takes about 2,000 reads a second for $120. A cache node takes 50,000 for $25.",
+      "A replica takes about 10,000 reads a second for $400. A cache node takes 100,000 for $150.",
       "Replicas usually trail the primary by milliseconds, sometimes seconds under load; a cache is as stale as its TTL.",
       "Replicas serve any query; a cache only helps data that's shared and hot.",
     ],
@@ -386,7 +386,7 @@ export const FRONT_PAGE = deck("front-page", [
     "resilience",
     "The cache cluster goes completely down. What's your plan?",
     [
-      "The database can't take 2,850 reads a second, so you must shed or degrade.",
+      "The database can't take 14,250 reads a second, so you must shed or degrade.",
       "Serve a static 'top stories' fallback, rate-limit expensive feed requests, protect the database with a circuit breaker.",
       "Warm the cache gradually when it returns, not all at once.",
     ],
@@ -490,7 +490,7 @@ export const GOING_VIRAL = deck("going-viral", [
     "Why does nothing in this design run your own code?",
     [
       "Serving a static file needs no logic: storage plus a cache at the edge does it.",
-      "50 app servers just to read files from storage would cost $1,500 a month.",
+      "App servers in front would still send every request to the store, which tops out at 5,500 a second for these files.",
       "Every component you don't run is one that can't crash at 3am.",
     ],
   ],
@@ -535,7 +535,7 @@ export const GOING_VIRAL = deck("going-viral", [
     "alternative",
     "Why not run image servers behind a load balancer?",
     [
-      "It works, but costs about fifteen times the budget and adds things to operate.",
+      "Not without a cache: every request still reaches the store. And it's more to operate.",
       "It's justified when you need logic per request: on-the-fly resizing, access checks, watermarking.",
       "Even then, put a CDN in front of it.",
     ],
@@ -551,10 +551,10 @@ export const GOING_VIRAL = deck("going-viral", [
   ],
   [
     "scale",
-    "Traffic goes from 20,000 to 200,000 requests a second. What breaks first?",
+    "Traffic goes from 10,000 to 100,000 requests a second. What breaks first?",
     [
       "Probably not the CDN: they're built for this.",
-      "The origin: misses scale with traffic, so 10% of 200,000 is 20,000 a second against a store that handles 5,000.",
+      "The origin: misses scale with traffic, so 10% of 100,000 is 10,000 a second against a store that serves 5,500.",
       "An origin shield (a CDN tier in front of the origin) collapses repeated misses from many edge locations into one.",
     ],
   ],
@@ -563,7 +563,7 @@ export const GOING_VIRAL = deck("going-viral", [
     "How would you estimate the monthly bandwidth bill?",
     [
       "Requests per second × average image size × seconds in a month.",
-      "20,000 a second × 200KB is about 4GB a second: roughly 10 petabytes a month. Bandwidth dwarfs every other cost.",
+      "10,000 a second × 200KB is about 2GB a second. At an average of a third of peak, that's about 1.6 petabytes a month, and bandwidth dwarfs every other cost.",
       "That's why image size and format are the biggest levers.",
     ],
   ],
@@ -702,8 +702,8 @@ export const UPLOAD_RUSH = deck("upload-rush", [
     "decision",
     "Why does the app server hand the resize to a queue instead of doing it?",
     [
-      "The resize takes about two seconds. The user shouldn't wait for it.",
-      "It costs about 20 requests' worth of CPU, which would make the app tier huge.",
+      "The resize takes about half a second of CPU. The user shouldn't wait for it.",
+      "It costs about 250 requests' worth of CPU, which would make the app tier huge.",
       "The queue also absorbs bursts: workers drain it at their own pace.",
     ],
   ],
@@ -711,8 +711,8 @@ export const UPLOAD_RUSH = deck("upload-rush", [
     "decision",
     "How did you size the worker pool?",
     [
-      "300 uploads a second, 50 jobs a second per worker: 6 workers at 100%.",
-      "Eight runs at 75%, leaving headroom for bursts and for losing one.",
+      "100 uploads a second, about 8 a second per 4-core worker: 12.5 workers at 100%.",
+      "Sixteen run at 78%, leaving headroom for bursts and for losing one.",
       "In production, autoscale on queue depth or the age of the oldest message.",
     ],
     "Why is CPU a poor autoscaling signal for workers?",
@@ -749,7 +749,7 @@ export const UPLOAD_RUSH = deck("upload-rush", [
     "A worker pool vs serverless functions triggered by each upload?",
     [
       "Functions: no pool to size or scale, and you pay per job.",
-      "Pool: cheaper at a steady 300 a second, more control over memory and libraries.",
+      "Pool: cheaper at a steady 100 a second, more control over memory and libraries.",
       "Functions have time and memory limits that large images can hit.",
     ],
   ],
@@ -773,19 +773,19 @@ export const UPLOAD_RUSH = deck("upload-rush", [
   ],
   [
     "scale",
-    "The database is at 60% on writes. What's your plan as uploads grow?",
+    "Uploads double every year. What's the next ceiling, and what's your plan?",
     [
-      "It's the next ceiling, so plan before it hits.",
-      "Batch metadata writes, or write processing status less often.",
+      "Workers first: every upload is half a second of CPU, so the pool grows in step with uploads.",
+      "The database is at about 3% on writes, so it's far behind; batch status writes when it isn't.",
       "Long term: partition by user, or move upload metadata to a store that scales writes horizontally.",
     ],
   ],
   [
     "scale",
-    "A burst brings 3,000 uploads a second for ten minutes. What happens?",
+    "A burst brings 1,000 uploads a second for ten minutes. What happens?",
     [
-      "The queue grows: eight workers finish 400 a second, so 2,600 more arrive each second than leave.",
-      "That's about 1.6 million queued jobs. Once normal uploads resume, eight workers have only 100 a second to spare, so draining takes over four hours.",
+      "The queue grows: sixteen workers finish about 128 a second, so about 870 more arrive each second than leave.",
+      "That's about 520,000 queued jobs. Once normal uploads resume, sixteen workers have only about 28 a second to spare, so draining takes about five hours.",
       "Autoscale workers on queue depth, and tell users processing may be slow.",
     ],
   ],
@@ -945,7 +945,7 @@ export const ZONE_OUTAGE = deck("zone-outage", [
     "Why must each zone be able to carry the whole peak on its own?",
     [
       "With two zones, losing one leaves half your instances for all your traffic.",
-      "So eight instances, four per zone: four can carry 1,500 a second at about 94% busy.",
+      "So sixteen instances, eight per zone: eight can carry 7,500 a second at about 94% busy.",
       "Busy but not failing is the goal during an outage.",
     ],
     "Is running at 94% during an outage acceptable? What's the risk?",
@@ -955,7 +955,7 @@ export const ZONE_OUTAGE = deck("zone-outage", [
     "Why leave the cache in one zone when everything else is in two?",
     [
       "Losing it degrades the system rather than breaking it: reads fall through to the database.",
-      "The database can absorb all 1,350 reads a second at about 68%.",
+      "The database can absorb all 6,750 reads a second at about 68%.",
       "A deliberate cost decision, and it only holds as long as the database can absorb a cold cache.",
     ],
   ],
@@ -1150,7 +1150,7 @@ export const FEED_THE_ANALYSTS = deck("feed-the-analysts", [
     [
       "It's built for big scans, not small fast lookups: seconds per query.",
       "Checkout would wait on it, and fail when it's busy or down.",
-      "Asynchronously, it just ingests 320 events a second, which is trivial for it.",
+      "Asynchronously, it just loads 1,600 events a second, which is easy for it.",
     ],
   ],
   [
@@ -1212,7 +1212,7 @@ export const FEED_THE_ANALYSTS = deck("feed-the-analysts", [
     "scale",
     "Order volume grows 10×. What do you check?",
     [
-      "The database primary is at 64%, so it's the first to break.",
+      "The database primary is at 53% on writes, so it's the first to break.",
       "Stream throughput: add partitions, but changing partition count reshuffles keys.",
       "Search indexing rate, which is often the slowest consumer.",
     ],
@@ -1361,9 +1361,9 @@ export const SHOEBOX_RECEIPTS = deck("shoebox-receipts", [
     "decision",
     "How did you size the OCR quota?",
     [
-      "120 photo jobs a second at peak, 180 on deadline day.",
-      "Each block of quota is 40 a second, so five blocks run at 60% normally and 90% on deadline day.",
-      "Three blocks would fall 60 jobs a second behind on deadline day, and the queue would never drain.",
+      "30 photo jobs a second at peak, 45 on deadline day.",
+      "Each block of quota is 10 a second, so five blocks run at 60% normally and 90% on deadline day.",
+      "Three blocks would fall 15 jobs a second behind on deadline day, and the queue would never drain.",
     ],
   ],
   [
@@ -1422,11 +1422,11 @@ export const SHOEBOX_RECEIPTS = deck("shoebox-receipts", [
   ],
   [
     "scale",
-    "On deadline day the database reaches 96% on writes. What are your options?",
+    "OCR is almost all of the bill. How do you bring it down?",
     [
-      "Batch the OCR result writes, or write extracted fields to a separate table or store.",
-      "Defer non-urgent writes (analytics, audit copies) through a queue.",
-      "Longer term: partition by user, since receipts never cross users.",
+      "Skip duplicates before calling OCR: an image hash catches the same receipt uploaded twice.",
+      "Read easy receipts on the device first, and only send the hard ones to the cloud.",
+      "Cap pages per upload, and make retries idempotent so a timeout isn't billed twice.",
     ],
   ],
   [
@@ -1480,7 +1480,7 @@ export const SHOEBOX_RECEIPTS = deck("shoebox-receipts", [
     [
       "Queue age: how long the oldest photo has been waiting.",
       "OCR throttling responses and latency from the provider.",
-      "Database write utilisation, which is the next ceiling.",
+      "Pages sent to OCR per hour, which is the bill.",
     ],
   ],
   [
@@ -1546,7 +1546,7 @@ export const PLUG_FINDER = deck("plug-finder", [
     "Why put a CDN in front of data that changes every few minutes?",
     [
       "Thousands of drivers ask the same question about the same area every few seconds.",
-      "A 30-second cache answers most of them from the edge: about 1,600 of 2,850 map views a second here.",
+      "A 30-second cache answers most of them from the edge: about 5,400 of 9,500 map views a second here.",
       "The cost is up to 30 seconds of staleness, which drivers can live with.",
     ],
   ],
@@ -1761,7 +1761,7 @@ export const STEP_COUNTER = deck("step-counter", [
     "decision",
     "Why a {nosql} store rather than a {sql-primary}?",
     [
-      "2,100 writes a second is four times one primary's limit, and standbys add no write capacity.",
+      "3,500 writes a second is more than one primary's limit of about 3,000, and growing; standbys add no write capacity.",
       "Every read is by one user and a date range, and nothing is ever joined.",
       "A key-value store spreads users across partitions and grows by adding capacity.",
     ],
@@ -1778,10 +1778,10 @@ export const STEP_COUNTER = deck("step-counter", [
   ],
   [
     "decision",
-    "How big is each instance's share, and why two?",
+    "How many blocks of capacity, and why six?",
     [
-      "One instance would run at 84% normally and 126% on the January spike.",
-      "Two run at 42%, and 63% on the spike.",
+      "Five blocks would run at 70% normally and 105% on the January spike.",
+      "Six run at 58%, and 88% on the spike.",
       "Size for the busy day, not the average one.",
     ],
   ],
@@ -1825,8 +1825,8 @@ export const STEP_COUNTER = deck("step-counter", [
     "alternative",
     "Could you queue the writes and keep SQL?",
     [
-      "A queue smooths bursts, but drains at the database's speed: 500 a second.",
-      "With 2,100 arriving, the queue grows forever.",
+      "A queue smooths bursts, but drains at the database's speed: about 3,000 a second.",
+      "With 3,500 arriving, the queue grows forever.",
       "It helps short spikes, not a steady rate above the limit.",
     ],
   ],

@@ -68,6 +68,12 @@ export type ComponentSpec = {
   /** False for a SQL primary: more instances are standbys, not more capacity. */
   scalesOut: boolean
   costPerInstanceMonthUsd: number
+  /**
+   * Usage pricing, per million reads and writes it handles. Managed services
+   * (queues, gateways, functions, object storage, OCR) are billed this way.
+   * Costed from the traffic at peak, scaled down to an average month.
+   */
+  costPerMillion?: { reads: number; writes: number }
   maxInstances: number
 }
 
@@ -136,6 +142,12 @@ export type PartitionKey = {
   hotShare: number
   /** Share of reads that don't name the key, so they ask every shard. */
   scatterReads: number
+  /**
+   * In a {nosql} store, how many reads one scattered read costs: ten for a
+   * counter split over ten keys, far more for a scan of the whole table.
+   * Absent: one read per block.
+   */
+  scatterFanout?: number
 }
 
 export type Edge = {
@@ -160,6 +172,17 @@ export type LoadProfile = {
    * PDF rendering). Done synchronously, they sit on the user's critical path.
    */
   heavyWriteFraction: number
+  /**
+   * How long one heavy job keeps a worker busy, in seconds. CPU-bound jobs
+   * (resizing, rendering) use a core each; waiting jobs (calling a slow API)
+   * can run many at once. Unset: a generic short job.
+   */
+  job?: { seconds: number; cpuBound: boolean }
+  /**
+   * Average traffic over a month as a share of this peak, for usage billing.
+   * Unset: AVERAGE_OF_PEAK. A seasonal product (a tax deadline) is far lower.
+   */
+  averageOfPeak?: number
   /**
    * Partition keys the scenario offers. Absent (every level before the CAP
    * shelf), stores aren't sharded and the engine behaves as it always has.

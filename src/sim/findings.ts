@@ -1,5 +1,5 @@
 import type { ConceptId } from "~/levels/concepts"
-import { CATALOGUE, SATURATION_WARN } from "./catalogue"
+import { CATALOGUE, inlineJobMs, SATURATION_WARN } from "./catalogue"
 import { DURABLE_KINDS, MAJORITY_SERVES, type Targets, writesAt } from "./grade"
 import {
   behindAsync,
@@ -173,7 +173,7 @@ export function findings(
         severity: "error",
         componentId: c.id,
         concept: "async-processing",
-        text: `${name(c)} does slow jobs while the user waits, adding about 1.8s to every write and eating its capacity.`,
+        text: `${name(c)} does slow jobs while the user waits, adding about ${ms(inlineJobMs(load))} to every write and eating its capacity.`,
       })
     }
 

@@ -229,7 +229,7 @@ export const FULL_BASKET = deck("full-basket", [
     "clarify",
     "What would you ask about the traffic?",
     [
-      "How many adds and removals at peak, compared with views? Here it's 900 writes a second, more than one SQL primary takes.",
+      "How many adds and removals at peak, compared with views? Here it's 4,500 writes a second, more than one SQL primary takes.",
       "Is there a seasonal peak, such as a holiday sale, that sets the size?",
       "How big does a basket get? A few items, or hundreds for business buyers?",
     ],
@@ -284,7 +284,7 @@ export const FULL_BASKET = deck("full-basket", [
     "decision",
     "Why a {nosql} store rather than a {sql-primary} for baskets?",
     [
-      "900 writes a second is 180% of one primary. A partitioned store spreads them.",
+      "4,500 writes a second is 150% of one primary. A partitioned store spreads them.",
       "Baskets are looked up by one key and never joined, which is what a key-value store is built for.",
       "Many such stores let each copy accept writes and reconcile, which is the behaviour the basket needs.",
     ],
@@ -313,7 +313,7 @@ export const FULL_BASKET = deck("full-basket", [
     [
       "A write returns once one copy has it, instead of waiting for another zone to confirm.",
       "That's PACELC: even without a split, you're trading consistency for lower latency.",
-      "Here it saves about 25ms per request.",
+      "Here it saves about 5ms per request, between zones. With copies in other regions it's tens of milliseconds or more.",
     ],
   ],
   [
@@ -338,7 +338,7 @@ export const FULL_BASKET = deck("full-basket", [
     "alternative",
     "Why not a {sql-primary} with standbys, which keeps one true basket?",
     [
-      "It can't take 900 writes a second.",
+      "It can't take 4,500 writes a second.",
       "During a split, a consistent store refuses the minority side, which here means failed adds.",
       "It's the right home for orders, once a basket becomes a purchase.",
     ],
@@ -478,8 +478,8 @@ export const TENANT_SPLIT = deck("tenant-split", [
     "decision",
     "How many shards?",
     [
-      "Enough that the busiest is comfortably under capacity: four here, with the busiest at 60%.",
-      "Three leaves it at 80%, where latency climbs.",
+      "Enough that the busiest is comfortably under capacity: four here, with the busiest at 50%.",
+      "Three would run it at 67%, with p99 at 285ms against a 300ms target: it works today, with little room to grow.",
       "Many systems create far more logical shards than machines, so they can move shards between machines later without re-splitting.",
     ],
   ],
@@ -541,7 +541,7 @@ export const TENANT_SPLIT = deck("tenant-split", [
     "alternative",
     "Could you keep one big primary and move reads to replicas?",
     [
-      "Replicas help reads, but here the problem is writes: 1,200 a second against one primary's 500.",
+      "Replicas help reads, but here the problem is writes: 6,000 a second against one primary's 3,000.",
       "Bigger hardware buys time, not a solution, and has a ceiling.",
       "Sharding is the step that raises the write ceiling.",
     ],
@@ -672,7 +672,7 @@ export const LIKE_STORM = deck("like-storm", [
     "Why doesn't adding shards fix the celebrity's post?",
     [
       "All likes for one post ID go to one shard, however many shards there are.",
-      "40% of likes is 600 a second, more than one shard can write.",
+      "40% of likes is 1,200 a second, more than one key can take, however much capacity the store has.",
       "The fix is to change the key, not the number of shards.",
     ],
     "How would you spot a hot key before it melts a shard?",
@@ -701,7 +701,7 @@ export const LIKE_STORM = deck("like-storm", [
     [
       "A {cache} holding each post's total for a few seconds.",
       "On a miss, the app sums the sub-keys and refreshes the cache.",
-      "The cache takes 1,140 of the 1,500 count reads a second here.",
+      "The cache takes 2,280 of the 3,000 count reads a second here.",
     ],
   ],
   [
@@ -718,7 +718,7 @@ export const LIKE_STORM = deck("like-storm", [
     "Keying likes by the user who liked: better or worse?",
     [
       "It spreads writes evenly, including the celebrity's likes.",
-      "But a post's count then needs every shard, every time it isn't cached.",
+      "But a post's count then means scanning the whole table, every time it isn't cached.",
       "'Have I liked this?' becomes cheap, which is a real query too.",
     ],
   ],
@@ -838,7 +838,7 @@ export const CLAIM_YOUR_NAME = deck("claim-your-name", [
     "clarify",
     "What would you ask about the launch?",
     [
-      "How many sign-ups in the first hour? Here it's 960 writes a second, more than one SQL primary takes.",
+      "How many sign-ups in the first hour? Here it's 6,000 writes a second, more than one SQL primary takes.",
       "Is there a waitlist to invite in batches?",
       "Will people rush for short, popular names at the same moment?",
     ],

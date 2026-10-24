@@ -39,7 +39,7 @@ export const QUIZZES: Record<string, Question[]> = {
   "step-counter": q([
     [
       "Why can't one {sql-primary} take the syncs, however many standbys it has?",
-      "2,100 writes a second is four times its limit, and standbys add none",
+      "3,500 writes a second is over its limit, and standbys add none",
       [
         "SQL databases can't store numbers as small as step counts",
         "Standbys only accept reads from users in their own zone",
@@ -71,14 +71,14 @@ export const QUIZZES: Record<string, Question[]> = {
       6,
     ],
     [
-      "Why two {nosql} instances rather than one?",
-      "At 84%, one runs too hot for the p99 target and fails the spike",
+      "Why six {nosql} blocks rather than five?",
+      "Five handle a normal day, but fail the January spike",
       [
-        "Managed stores need at least two instances to start",
-        "Two instances halve the latency",
-        "Each instance can only hold half a million users' records at most",
+        "Managed stores need an even number of blocks",
+        "A sixth block halves the latency of every read",
+        "Each block can only hold a sixth of all the users' records",
       ],
-      "One runs at 84% normally (p99 over target) and 126% on the spike, failing 14% of requests. Two run at 63% on the spike.",
+      "Five run at 70% normally but 105% on the spike, so requests fail. Six run at 88% on the spike.",
       7,
     ],
     [
@@ -116,7 +116,7 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "Could a {queue} in front of a {sql-primary} solve the write volume?",
-      "No: it drains at 500 a second, so it grows by 1,600 a second",
+      "No: it drains at 3,000 a second, so it grows by 500 a second",
       [
         "Yes: queues make databases accept more writes",
         "Yes, as long as there are enough workers",
@@ -168,7 +168,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "The provider cancels the slow calls itself",
         "Nothing: workers are behind a queue, so how long they wait never matters to anyone",
       ],
-      "Here the queue falls 98 orders a second behind. With a half-second timeout, seven workers keep up.",
+      "Here the queue falls 87 orders a second behind. With a half-second timeout, two workers keep up.",
       6,
     ],
     [
@@ -205,14 +205,14 @@ export const QUIZZES: Record<string, Question[]> = {
       16,
     ],
     [
-      "Why seven workers when three would cover a normal evening?",
-      "A slow day holds each worker longer, and retries add calls",
+      "Why size the workers for far more than a normal evening?",
+      "A slow day holds each call longer, and retries add calls",
       [
-        "Payment providers require at least seven callers",
-        "Workers can only run in groups of seven",
+        "Payment providers require a minimum number of callers",
+        "Workers must always come in matching pairs per zone",
         "The extra workers are standbys that only start when the provider is down",
       ],
-      "Pay for the bad day: with timeouts and backoff, seven run at 86% while the provider is slow.",
+      "Pay for the bad day: with timeouts and backoff, the workers go from 9% to 45% busy while the provider is slow.",
       11,
     ],
     [
@@ -280,7 +280,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Corrupt files can only be read by one worker",
         "More workers make the queue hand out messages more slowly, which makes it worse",
       ],
-      "It takes nine workers instead of five, $525 against a $420 budget, and they still spend most of their time failing.",
+      "It takes thirteen workers instead of eight, $2,349 against a $1,900 budget, and they still spend most of their time failing.",
       6,
     ],
     [
@@ -386,7 +386,7 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "Why not add servers to absorb the attack?",
-      "Even twenty servers fail 17% of requests, and break the budget",
+      "Even forty servers fail 16% of requests, and break the budget",
       [
         "Servers can't be added during an attack",
         "Attack traffic can't reach app servers",
@@ -620,14 +620,14 @@ export const QUIZZES: Record<string, Question[]> = {
       6,
     ],
     [
-      "Why six workers rather than five?",
-      "Five must carry the load while one is being replaced",
+      "Why three workers rather than two?",
+      "Two must carry the load while one is being replaced",
       [
-        "The queue requires an even number of consumers",
-        "Six is the most the budget allows",
-        "The sixth worker only renders invoices for the largest customers",
+        "The queue requires an odd number of consumers",
+        "Three is the most the budget allows",
+        "The third worker only renders invoices for the largest customers",
       ],
-      "Sized for the bad day: with one replaced at a time, five run at 80% and keep up.",
+      "Sized for the bad day: with one replaced at a time, two run at 75% and keep up.",
       7,
     ],
     [
@@ -739,7 +739,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Reads must be sent to every copy and compared before answering",
         "The database must be stopped for a while each night to bring the copies back into agreement",
       ],
-      "That's the 'else' half of PACELC: latency for consistency, on every write. Here it's 25ms.",
+      "That's the 'else' half of PACELC: latency for consistency, on every write. Here it's about 5ms between zones; between regions it's tens of milliseconds.",
       9,
     ],
     [
@@ -856,7 +856,7 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "Why a {nosql} store rather than a {sql-primary} for baskets?",
-      "900 writes a second is 180% of one primary",
+      "4,500 writes a second is 150% of one primary",
       [
         "SQL databases can't store lists of items",
         "A {sql-primary} can't be placed in more than one zone",
@@ -873,7 +873,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "It sends every write to a {cache} first",
         "It uses fewer {app-server} instances, which leaves more network capacity for the database",
       ],
-      "PACELC's else half: without a split, you trade consistency for latency. Here, about 25ms per request.",
+      "PACELC's else half: without a split, you trade consistency for latency. Here, about 5ms per request between zones; across regions, far more.",
       10,
     ],
     [
@@ -952,7 +952,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Tasks would be split between zones",
         "Two tasks could end up with the same ID if they were created on different shards",
       ],
-      "85% of reads would scatter to all four shards and wait for the slowest: p99 reaches 348ms.",
+      "85% of reads would scatter to all four shards and wait for the slowest: p99 reaches 350ms.",
       9,
     ],
     [
@@ -978,14 +978,14 @@ export const QUIZZES: Record<string, Question[]> = {
       2,
     ],
     [
-      "Why four shards and not three?",
-      "With three, the busiest runs at 80% and misses the p99 target",
+      "Why four shards rather than three?",
+      "Three would run the busiest at 67%, with little room to grow",
       [
         "Shard counts must be even",
         "Three shards can't hold the biggest company",
         "Each zone must hold exactly two shards, so the count must be a multiple of two",
       ],
-      "The busiest shard sets the latency. Four keeps it at 60%.",
+      "The busiest shard sets the latency: with three, p99 is 285ms against a 300ms target. Four keeps it at 50%.",
       6,
     ],
     [
@@ -996,7 +996,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Each standby slows the primary down",
         "Standbys are only allowed in the same zone as their primary, so they don't help",
       ],
-      "One primary takes every write. 1,200 a second is 240% of one; only splitting the data raises the ceiling.",
+      "One primary takes every write. 6,000 a second is 200% of one; only splitting the data raises the ceiling.",
       13,
     ],
     [
@@ -1053,7 +1053,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "More shards means more copies of each like",
         "Adding shards makes every count read slower, which cancels out the benefit to writes",
       ],
-      "The key decides the shard. 40% of likes on one key is 600 a second on one shard, whatever the count.",
+      "The key decides the shard. 40% of likes on one key is 1,200 a second, past what one key can take, whatever the capacity.",
       5,
     ],
     [
@@ -1091,13 +1091,13 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "Keying likes by the user who liked: what's the catch?",
-      "A post's count needs every shard when it isn't cached",
+      "Counting a post means scanning the whole table",
       [
         "The celebrity's likes still land on one shard",
         "Users can like each post only once",
         "It stops 'have I liked this?' working, since that query needs the post's key",
       ],
-      "Writes spread evenly, but counting a post is now a scatter-gather. The {cache} hides most of it.",
+      "Writes spread evenly, but counting a post becomes a scan. Even behind the {cache}, the store can't keep up.",
       10,
     ],
     [
@@ -1187,7 +1187,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Two copies can't be in different zones",
         "The third copy holds the email index, which doesn't fit on the first two copies",
       ],
-      "Two copies are $360 cheaper here, but a split leaves each side with one of two, so every shard refuses.",
+      "Two copies are $1,200 cheaper here, but a split leaves each side with one of two, so every shard refuses.",
       7,
     ],
     [
@@ -1277,7 +1277,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Caches can generate short codes faster than databases",
         "Redirects must be served from memory by the HTTP spec",
       ],
-      "Skewed reads plus data that almost never changes is the ideal case: here the cache answers 3,352 of 3,920 clicks a second.",
+      "Skewed reads plus data that almost never changes is the ideal case: here the cache answers about 16,760 of 19,600 clicks a second.",
       7,
     ],
     [
@@ -1288,7 +1288,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Two nodes halve the cache's latency",
         "A single cache node can't store a billion links",
       ],
-      "The database is only calm because the cache is there. Lose the only node and nearly half of requests fail; a second node costs $25.",
+      "The database is only calm because the cache is there. Lose the only node and nearly half of requests fail; a second node costs $150.",
       8,
     ],
     [
@@ -1379,7 +1379,7 @@ export const QUIZZES: Record<string, Question[]> = {
   "group-chat": q([
     [
       "Why can't a single {sql-primary} store the messages?",
-      "2,000 writes a second is four times its limit",
+      "5,000 writes a second is well past its limit",
       [
         "SQL databases can't store text longer than 255 characters",
         "Messages need to be deleted after delivery",
@@ -1502,7 +1502,7 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "Why does fan-out happen in workers rather than in the post request?",
-      "Done inline, it keeps the app tier at 98% and p99 at 3.4 seconds",
+      "Done inline, it pushes the app tier to 136% and p99 to 1.7 seconds",
       [
         "Workers are allowed to write to more tables",
         "The app servers can't see the follow graph",
@@ -1535,13 +1535,13 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "What happens without the timeline {cache}?",
-      "The {nosql} store runs at 97% and fails 30% of requests on the spike",
+      "The {nosql} store runs at 162% and fails 37% of requests at peak",
       [
         "Timelines show posts in the wrong order",
         "Fan-out workers stop processing events",
         "Posts are lost whenever the store restarts, because nothing keeps a copy of the timelines",
       ],
-      "Building every timeline at read time puts all 4,850 loads a second on the store.",
+      "Building every timeline at read time puts all 24,250 loads a second on the store.",
       14,
     ],
     [
@@ -1610,18 +1610,18 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "Holds go straight to the database in the on-sale minute. What happens?",
-      "58% of holds fail, and failing fans retry",
+      "Half the holds fail, and failing fans retry",
       [
         "The database adds capacity automatically",
         "Holds succeed but take a few seconds longer",
         "The load balancer starts rejecting seat-map views",
       ],
-      "1,200 holds a second against a 500-a-second limit. Retries make the overload worse.",
+      "6,000 holds a second against a 3,000-a-second limit. Retries make the overload worse.",
       7,
     ],
     [
       "At what rate should the waiting room admit fans?",
-      "The rate the {sql-primary} can take holds: here 500 a second",
+      "The rate the {sql-primary} can take holds: here 3,000 a second",
       [
         "As fast as fans arrive, so nobody waits",
         "One fan per second, to be safe",
@@ -1733,13 +1733,13 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "What happens without the {cdn}?",
-      "All 19,900 segment requests reach the origin, and the object store hits 398%",
+      "All 20,000 segment requests reach the origin, and the object store hits 364%",
       [
         "Videos play at a lower resolution",
         "Uploads stop being transcoded",
         "Only viewers outside the home region are affected, because their requests have the farthest to travel",
       ],
-      "Even twenty app servers can't serve that. The edge normally absorbs 17,960 a second.",
+      "Even twenty app servers can't serve that. The edge normally absorbs 18,050 a second.",
       8,
     ],
     [
@@ -1829,7 +1829,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Caches are more durable than databases",
         "Pings must be encrypted, which only caches support",
       ],
-      "The cache takes all 4,250 pings a second at 4% busy.",
+      "The cache takes all 21,250 pings a second at 11% busy.",
       6,
     ],
     [
@@ -1935,7 +1935,7 @@ export const QUIZZES: Record<string, Question[]> = {
   typeahead: q([
     [
       "Why not query a {search-index} on every keystroke?",
-      "It adds about 70ms, and p99 misses the 200ms target",
+      "It adds about 110ms, and p99 misses the 200ms target",
       [
         "Search indexes can't match the start of a word",
         "It would return suggestions in the wrong language",
@@ -1956,14 +1956,14 @@ export const QUIZZES: Record<string, Question[]> = {
       7,
     ],
     [
-      "Why can the {cdn} cache suggestions here?",
-      "They aren't personalised, so everyone typing a prefix gets the same answer",
+      "Why not put a {cdn} in front of suggestions here?",
+      "At this volume, edge fees cost more than the origin",
       [
-        "Suggestions never change once published",
-        "Browsers refuse uncached responses",
-        "Keystrokes are too small and frequent for app servers to handle efficiently, so the edge must take them",
+        "Suggestions are personalised, so none can be shared",
+        "A CDN can't cache responses under a kilobyte",
+        "Edge caches can't be purged when a suggestion is removed",
       ],
-      "The edge serves 7,220 of 7,600 keystrokes a second.",
+      "Each answer is a few hundred bytes from memory. The edge would add about $7,900 a month; the browser's cache is free.",
       8,
     ],
     [
@@ -1979,13 +1979,13 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "What's the cost of personalising suggestions?",
-      "They can no longer be cached at the edge",
+      "They can no longer be shared or cached",
       [
         "They become less accurate",
         "They need a relational database",
         "They can only show three results",
       ],
-      "Blend: a few personal ones on the device, the rest shared from the edge.",
+      "Blend: a few personal ones on the device, the rest shared from the server.",
       10,
     ],
     [
@@ -1994,7 +1994,7 @@ export const QUIZZES: Record<string, Question[]> = {
       [
         "To make suggestions more accurate",
         "Because browsers limit how many requests a page can send per second to one site",
-        "So the CDN can cache longer",
+        "So the cache can hold answers longer",
       ],
       "And cancel in-flight requests when a newer keystroke arrives.",
       12,
@@ -2068,14 +2068,14 @@ export const QUIZZES: Record<string, Question[]> = {
       6,
     ],
     [
-      "Peak is 120 photo jobs a second and 180 on deadline day. Each OCR block handles 40 a second. How many blocks?",
+      "Peak is 30 photo jobs a second and 45 on deadline day. Each OCR block handles 10 a second. How many blocks?",
       "Five, so deadline day runs at 90%",
       [
         "Three, which covers the normal peak exactly",
         "Four, which handles deadline day at 100%",
         "Ten, to be safe on any day of the year",
       ],
-      "Three would fall 60 jobs a second behind on deadline day and never drain. Five keep up at 90%.",
+      "Three would fall 15 jobs a second behind on deadline day and never drain. Five keep up at 90%.",
       7,
     ],
     [
@@ -2123,14 +2123,14 @@ export const QUIZZES: Record<string, Question[]> = {
       16,
     ],
     [
-      "On deadline day the {sql-primary} reaches 96% on writes. Why so high?",
-      "Each photo writes twice: a pending row, then the results",
+      "OCR is billed per page. Where does most of this design's bill go?",
+      "The OCR calls, at about a cent per page",
       [
-        "Readers run so many reports that writes slow down",
-        "The queue writes every message to the database too",
-        "Photos are stored inside the database as large blobs",
+        "The database, because each photo writes to it twice",
+        "The object store, because every photo is kept for years",
+        "The workers, because each one waits seconds on every call",
       ],
-      "Write amplification: 200 receipts a second become 320 writes. Batch the result writes or partition by user.",
+      "About $39,400 of $40,700. At a cent a page, millions of pages add up: hash images to skip duplicates and read easy receipts on the device.",
       14,
     ],
     [
@@ -2166,7 +2166,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Map data has to be served from the edge by law",
         "The CDN stores check-ins until the app is ready for them",
       ],
-      "A 30-second edge cache answers most map views, about 1,600 of 2,850 a second here, at the cost of brief staleness.",
+      "A 30-second edge cache answers most map views, about 5,400 of 9,500 a second here, at the cost of brief staleness.",
       5,
     ],
     [
@@ -2177,7 +2177,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "The key-value store runs out of storage space",
         "The event stream drops status-changed events",
       ],
-      "p99 rises to about 2.5 seconds, and the road-trip spike fails nearly half of requests. Fifteen app servers break the budget and the index still overloads.",
+      "And the road trip overloads both. Doubling the origin would work, and cost less than the edge's requests: the {cdn} is there for the spike and for nearby answers.",
       13,
     ],
     [
@@ -2272,18 +2272,18 @@ export const QUIZZES: Record<string, Question[]> = {
 
   "first-customers": q([
     [
-      "Peak is 500 requests a second and each {app-server} handles about 400. Why does the design use three instances rather than two?",
-      "Two cope at peak, but once one fails the survivor faces 500 with 400 of capacity",
+      "Peak is 1,500 requests a second and each {app-server} handles about 1,000. Why does the design use three instances rather than two?",
+      "Two cope at peak, but once one fails the survivor faces 1,500 with 1,000 of capacity",
       [
-        "Two instances can't serve 500 requests a second between them, even when both are healthy",
+        "Two instances can't serve 1,500 requests a second between them, even when both are healthy",
         "Three instances are needed so that there's one in each of three availability zones",
         "The database connection pool needs at least three clients to stay warm",
       ],
-      "N+1: two instances are 63% busy at peak, but lose one and 400 of capacity faces 500 of traffic. Three survive losing one.",
+      "N+1: two instances are 75% busy at peak, but lose one and 1,000 of capacity faces 1,500 of traffic. Three survive losing one.",
       6,
     ],
     [
-      "The {sql-primary} is only 20% busy. Why add a second instance?",
+      "The {sql-primary} is only about 12% busy. Why add a second instance?",
       "A single instance in one zone caps the whole system's availability below 99.9%",
       [
         "To double read capacity before peak traffic arrives, since reads are 80% of the load",
@@ -2328,7 +2328,7 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "Should this design have a {cache}?",
-      "Not yet: the database is at 20% busy and latency is already within target",
+      "Not yet: the database is at about 12% busy and latency is already within target",
       [
         "Yes, because every production system should have a cache in front of its database",
         "Yes, because a cache would make the database standby unnecessary",
@@ -2407,14 +2407,14 @@ export const QUIZZES: Record<string, Question[]> = {
       5,
     ],
     [
-      "One {cache} node handles 50,000 reads a second, far more than needed. Why run two?",
+      "One {cache} node handles 100,000 reads a second, far more than needed. Why run two?",
       "So one node restarting cold doesn't send every read to the database",
       [
         "Two nodes double the hit rate, because each holds a different half of the articles",
         "Cache nodes must always run in pairs for their data to be consistent",
         "So writes can go to one node and reads to the other without contention",
       ],
-      "A cold cache passes all 2,850 reads a second to a database that tops out near 2,000. The second node stays warm.",
+      "A cold cache passes all 14,250 reads a second to a database that tops out near 10,000. The second node stays warm.",
       6,
     ],
     [
@@ -2436,7 +2436,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Read replicas are never consistent with the primary, even after a few seconds",
         "A cache can also absorb the writes, which replicas can't",
       ],
-      "A replica takes about 2,000 reads a second for $120; a cache node 50,000 for $25. Replicas win for arbitrary queries, not hot shared data.",
+      "A replica takes about 10,000 reads a second for $400; a cache node 100,000 for $150. Replicas win for arbitrary queries, not hot shared data.",
       8,
     ],
     [
@@ -2505,7 +2505,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "The CDN runs your application code at each edge location instead",
         "App servers can't read files from object storage without a database in between",
       ],
-      "50 app servers just to pass files through would cost $1,500 a month, against a $100 budget.",
+      "App servers would still send every request to the store, which serves about 5,500 a second for these files.",
       4,
     ],
     [
@@ -2531,14 +2531,14 @@ export const QUIZZES: Record<string, Question[]> = {
       6,
     ],
     [
-      "Traffic grows from 20,000 to 200,000 requests a second. What breaks first?",
+      "Traffic grows from 10,000 to 100,000 requests a second. What breaks first?",
       "The origin, because cache misses grow in step with total traffic",
       [
         "The CDN, because edge locations can only serve a fixed number of requests",
         "DNS, because every request needs a fresh lookup at that volume",
         "Nothing, because a CDN absorbs any amount of traffic for any origin",
       ],
-      "10% misses of 200,000 is 20,000 a second against a 5,000 origin. An origin shield collapses repeated misses.",
+      "10% misses of 100,000 is 10,000 a second against an origin that serves 5,500. An origin shield collapses repeated misses.",
       11,
     ],
     [
@@ -2549,7 +2549,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Object storage capacity, because every upload is kept forever",
         "CDN compute time, because edges charge per request processed",
       ],
-      "20,000 requests a second at 200KB is about 4GB a second. Smaller formats and sizes are the biggest lever.",
+      "10,000 requests a second at 200KB is about 2GB a second. Smaller formats and sizes are the biggest lever.",
       12,
     ],
     [
@@ -2612,7 +2612,7 @@ export const QUIZZES: Record<string, Question[]> = {
   "upload-rush": q([
     [
       "Why must the resize leave the request path?",
-      "It takes seconds of CPU per photo, and the user doesn't need to wait for it",
+      "It takes half a second of CPU per photo, and the user doesn't need to wait for it",
       [
         "Because a queue makes each resize run faster than it would on an app server",
         "Because app servers can't load image-processing libraries safely",
@@ -2622,14 +2622,14 @@ export const QUIZZES: Record<string, Question[]> = {
       4,
     ],
     [
-      "300 uploads a second, 50 jobs a second per worker. How many workers would you run?",
-      "Eight, which leaves headroom to lose one",
+      "100 uploads a second, about 8 a second per worker. How many workers would you run?",
+      "Sixteen, which leaves headroom to lose one",
       [
-        "Six, which is exactly enough to match the arrival rate",
-        "Three, because only half the traffic is uploads",
-        "Fifty, so each worker handles about six jobs a second",
+        "Thirteen, which is exactly enough to match the arrival rate",
+        "Eight, because only half the traffic is uploads",
+        "A hundred, one for every upload that arrives each second",
       ],
-      "Six would be 100% busy with no headroom. Eight run at 75% and survive losing one (seven at 86%).",
+      "12.5 would be 100% busy with no headroom. Sixteen run at 78% and survive losing one (fifteen at 83%).",
       5,
     ],
     [
@@ -2710,14 +2710,14 @@ export const QUIZZES: Record<string, Question[]> = {
       17,
     ],
     [
-      "A burst of 3,000 uploads a second for ten minutes hits eight workers. What happens?",
-      "The queue grows to over a million jobs and takes hours to drain",
+      "A burst of 1,000 uploads a second for ten minutes hits sixteen workers. What happens?",
+      "The queue grows to about half a million jobs and takes hours to drain",
       [
         "Uploads start failing as soon as the workers are saturated",
         "The workers process the burst at their usual speed with no delay",
         "The queue rejects new messages once it reaches a million",
       ],
-      "About 1.6 million jobs queue up. Delay is the cost; autoscale on depth, and tell users it may be slow.",
+      "About 520,000 jobs queue up. Delay is the cost; autoscale on depth, and tell users it may be slow.",
       13,
     ],
   ]),
@@ -2731,7 +2731,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Because the load balancer only ever routes to one zone at a time",
         "Because each zone serves users in a different geographic region",
       ],
-      "Eight instances, four per zone: after an outage, four carry 1,500 a second at about 94%.",
+      "Sixteen instances, eight per zone: after an outage, eight carry 7,500 a second at about 94%.",
       5,
     ],
     [
@@ -2742,7 +2742,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Caches replicate themselves across zones automatically",
         "The cache isn't on the request path, so it doesn't count",
       ],
-      "The database takes all 1,350 reads at about 68%. This holds only while the database can absorb a cold cache.",
+      "The database takes all 6,750 reads at about 68%. This holds only while the database can absorb a cold cache.",
       6,
     ],
     [
@@ -2836,7 +2836,7 @@ export const QUIZZES: Record<string, Question[]> = {
       "Search and the warehouse both need every order. Why use an {event-stream} rather than a {queue}?",
       "A queue hands each message to only one of its consumers",
       [
-        "Queues are too slow to keep up with 320 orders a second",
+        "Queues are too slow to keep up with 1,600 orders a second",
         "Event streams are cheaper to run than queues at this volume",
         "Queues can only hold one message at a time per consumer",
       ],
@@ -2851,7 +2851,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "It's eventually consistent, so it may lose orders",
         "It charges per query, so checkout would get expensive",
       ],
-      "Synchronously, checkout would wait on it and fail when it's busy. Asynchronously it ingests 320 events a second easily.",
+      "Synchronously, checkout would wait on it and fail when it's busy. Asynchronously it loads 1,600 events a second easily.",
       5,
     ],
     [
@@ -3077,7 +3077,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "A cache also makes order writes faster during the sale",
         "Databases can't be resized once they're in production",
       ],
-      "It caches almost perfectly: a $25 cache absorbs about 1,800 reads a second, with no risky migration mid-sale.",
+      "It caches almost perfectly: a $150 cache absorbs about 9,000 reads a second, with no risky migration mid-sale.",
       5,
     ],
     [
@@ -3121,7 +3121,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "The load balancer, as connections pile up",
         "DNS lookups, as shoppers arrive from new networks",
       ],
-      "Orders and baskets all go to one primary, now at 50%. Long term: partition or use a store that scales writes.",
+      "Orders and baskets all go to one primary, now at 42%. Long term: partition or use a store that scales writes.",
       13,
     ],
     [
@@ -3194,25 +3194,25 @@ export const QUIZZES: Record<string, Question[]> = {
       2,
     ],
     [
-      "Why does moving PDFs to a queue let the app tier shrink from six instances to three?",
+      "Why does moving PDFs to a queue let the app tier shrink from ten instances to two?",
       "Rendering PDFs inline was using most of its CPU",
       [
         "Queues make each app server process requests faster",
         "The database takes over the rendering work instead",
         "Fewer customers check out once invoices are delayed",
       ],
-      "Each inline render cost about 20 requests' worth of CPU. The work moves to workers sized for it.",
+      "Each inline render cost about 750 requests' worth of CPU. The work moves to workers sized for it.",
       5,
     ],
     [
-      "120 orders a second, 50 renders a second per worker. How many workers?",
-      "Four, so three can still keep up if one dies",
+      "8 orders a second, about 2.7 renders a second per worker. How many workers?",
+      "Five, so four can still keep up if one dies",
       [
-        "Two, since 120 divided by 50 rounds down to two",
-        "Twelve, one for every ten orders a second",
-        "One, since invoices are asynchronous anyway",
+        "Two, since 8 divided by 2.7 rounds down to two",
+        "Eight, one for every order a second",
+        "None, since invoices are asynchronous anyway",
       ],
-      "2.4 at 100% is the minimum. Four run at 60%; three still keep up at 80% if one dies.",
+      "Three at 100% is the minimum. Five run at 60%; four still keep up at 75% if one dies.",
       6,
     ],
     [
@@ -3374,7 +3374,7 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "How would you justify the standby to a non-technical stakeholder?",
-      "Compare what an outage costs with $120 a month",
+      "Compare what an outage costs with $400 a month",
       [
         "Walk them through how synchronous replication works",
         "Point out that all serious companies run standbys",

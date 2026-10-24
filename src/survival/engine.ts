@@ -1,5 +1,5 @@
 import { CATALOGUE } from "~/sim/catalogue"
-import { monthlyCost, simulate } from "~/sim/simulate"
+import { simulate } from "~/sim/simulate"
 import type {
   ComponentKind,
   Fault,
@@ -35,9 +35,9 @@ export const MIX: Record<
   },
   uploads: {
     label: "Upload flood",
-    blurb: "Half the writes are slow jobs that mustn't block users.",
+    blurb: "Most writes are uploads: slow jobs that mustn't block users.",
     load: {
-      readFraction: 0.5,
+      readFraction: 0.9,
       cacheableFraction: 0.3,
       heavyWriteFraction: 0.6,
     },
@@ -93,10 +93,18 @@ export function rng(seed: number) {
   }
 }
 
-export const START_RPS = 300
+export const START_RPS = 1_000
 export const GROWTH = 1.3
-export const START_BUDGET = 500
-export const BUDGET_GROWTH = 1.17
+/** What a minimal resilient stack costs before any traffic. */
+export const BUDGET_BASE = 1_100
+/**
+ * What each request a second adds to the month, for the costliest mix: a
+ * checkout rush past one database's writes, or an upload flood's workers,
+ * messages and stored files. Browsing waves leave room to spare.
+ */
+export const BUDGET_PER_RPS = 0.85
+/** Room to spare over a sensible design, so there's more than one answer. */
+export const BUDGET_MARGIN = 1.2
 export const LIVES = 3
 
 const round10 = (n: number) => Math.round(n / 10) * 10
@@ -119,14 +127,12 @@ export function wave(seed: number, n: number): Wave {
     const pick = pool.splice(Math.floor(r() * pool.length), 1)[0]
     if (pick) incidents.push(pick)
   }
+  const peakRps = round10(START_RPS * Math.pow(GROWTH, n - 1))
   return {
     n,
     mix,
-    load: {
-      peakRps: round10(START_RPS * Math.pow(GROWTH, n - 1)),
-      ...MIX[mix].load,
-    },
-    budget: round10(START_BUDGET * Math.pow(BUDGET_GROWTH, n - 1)),
+    load: { peakRps, ...MIX[mix].load },
+    budget: round10(BUDGET_MARGIN * (BUDGET_BASE + BUDGET_PER_RPS * peakRps)),
     incidents,
   }
 }
@@ -163,8 +169,12 @@ export function playWave(graph: Graph, w: Wave): WaveOutcome {
   return { survived: reasons.length === 0, peak, hit, reasons }
 }
 
+/** What the design costs a month at this wave's traffic. */
+export const waveCost = (graph: Graph, w: Wave) =>
+  simulate(graph, w.load).monthlyCostUsd
+
 export const canLaunch = (graph: Graph, w: Wave) =>
-  monthlyCost(graph) <= w.budget
+  waveCost(graph, w) <= w.budget
 
 /** Every component you run yourself, available from the start. */
 export const SURVIVAL_PALETTE = (

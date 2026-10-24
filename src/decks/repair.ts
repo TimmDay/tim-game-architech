@@ -79,7 +79,7 @@ export const LOST_WRITES = deck("lost-writes", [
     "tradeoff",
     "Keep the replica, or remove it after the fix?",
     [
-      "Remove: $120 a month saved, simpler, no lag.",
+      "Remove: $400 a month saved, simpler, no lag.",
       "Keep: read headroom, a warm copy for reporting queries, and faster recovery options.",
       "Either is defensible. Say what you'd measure to decide.",
     ],
@@ -237,7 +237,7 @@ export const BLACK_FRIDAY = deck("black-friday", [
     "decision",
     "How did you identify the database as the real bottleneck?",
     [
-      "Its utilisation was over 100%: 2,250 reads a second against about 2,000 of capacity.",
+      "Its utilisation was over 100%: 11,250 reads a second against about 10,000 of capacity.",
       "The app tier was at 63%, so not saturated.",
       "Always find the saturated component; scaling anything else only adds cost.",
     ],
@@ -247,7 +247,7 @@ export const BLACK_FRIDAY = deck("black-friday", [
     "Why is a cache the right fix rather than a bigger database?",
     [
       "The catalogue is identical for every shopper, so it caches almost perfectly.",
-      "A $25 cache absorbs about 1,800 reads a second.",
+      "A $150 cache absorbs about 9,000 reads a second.",
       "A bigger database means a failover or migration in the middle of the busiest day of the year.",
     ],
   ],
@@ -274,8 +274,8 @@ export const BLACK_FRIDAY = deck("black-friday", [
     "tradeoff",
     "Read replicas vs a cache for the catalogue?",
     [
-      "Replicas: any query, near-real-time, $120 each, take minutes to add.",
-      "Cache: only shared hot data, a little stale, $25, and absorbs far more.",
+      "Replicas: any query, near-real-time, $400 each, take minutes to add.",
+      "Cache: only shared hot data, a little stale, $150, and absorbs far more.",
       "For a hot, identical catalogue, the cache wins on cost and capacity.",
     ],
   ],
@@ -319,7 +319,7 @@ export const BLACK_FRIDAY = deck("black-friday", [
     "scale",
     "With the cache in place, what's the next bottleneck?",
     [
-      "Database writes: orders and baskets at 50% now, and they all go to one primary.",
+      "Database writes: orders and baskets at 42% now, and they all go to one primary.",
       "Then the app tier at higher traffic.",
       "Partitioning baskets or moving them to a store that scales writes horizontally is the long-term fix.",
     ],
@@ -429,9 +429,9 @@ export const SLOW_CHECKOUT = deck("slow-checkout", [
   ],
   [
     "decision",
-    "Why does moving the PDF to a queue shrink the app tier from six instances to three?",
+    "Why does moving the PDF to a queue shrink the app tier from ten instances to two?",
     [
-      "Each inline render cost about 20 requests' worth of CPU.",
+      "Each inline render cost about 750 requests' worth of CPU.",
       "Without it, each instance handles ordinary requests only.",
       "The render work doesn't disappear; it moves to workers sized for it.",
     ],
@@ -440,8 +440,8 @@ export const SLOW_CHECKOUT = deck("slow-checkout", [
     "decision",
     "How many workers, and how do you decide?",
     [
-      "120 orders a second at 50 renders a second per worker: 2.4 at 100%.",
-      "Four gives headroom and survives losing one.",
+      "8 orders a second at about 2.7 renders a second per worker: three at 100%.",
+      "Five gives headroom and survives losing one.",
       "Scale on the age of the oldest job, so invoices never get too far behind.",
     ],
   ],
@@ -633,7 +633,7 @@ export const THREE_AM_PAGE = deck("three-am-page", [
     "decision",
     "Does the app tier need changes as well?",
     [
-      "Six instances over three zones: losing one zone leaves four, enough for peak at 75%.",
+      "Three instances over three zones: losing one zone leaves two, enough for peak at 60%.",
       "The app must reconnect to the new primary after failover, so check DNS caching and connection pools.",
       "Retries with backoff smooth over the failover window.",
     ],
@@ -752,7 +752,7 @@ export const THREE_AM_PAGE = deck("three-am-page", [
     "How would you explain the cost of the standby to a non-technical stakeholder?",
     [
       "In outage terms: 'one zone failure takes us down for hours; with this, it's a minute'.",
-      "In money: what the last outage cost vs $120 a month.",
+      "In money: what the last outage cost vs $400 a month.",
       "Avoid jargon; translate nines into minutes of downtime.",
     ],
   ],
@@ -1031,7 +1031,7 @@ export const HALF_THE_ORDERS = deck("half-the-orders", [
     [
       "Per-message acknowledgement and automatic retry become per-consumer offset management.",
       "No built-in dead-letter handling; you build it.",
-      "Streams cost more and need retention and partition planning.",
+      "Streams need retention and partition planning. They're billed by the shard-hour, not per message: cheaper at high volume, dearer at a trickle.",
     ],
   ],
   [

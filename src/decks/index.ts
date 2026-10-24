@@ -39,6 +39,7 @@ import {
   POISON_PILL,
   SLOW_PARTNER,
 } from "./ops"
+import { TOPICS } from "./topics"
 import type { DeckCard } from "./types"
 
 export const DECKS: Record<string, DeckCard[]> = {
@@ -73,4 +74,10 @@ export const DECKS: Record<string, DeckCard[]> = {
   "three-am-page": THREE_AM_PAGE,
   "analytics-ate-prod": ANALYTICS_ATE_PROD,
   "half-the-orders": HALF_THE_ORDERS,
+  ...Object.fromEntries(TOPICS.map((t) => [t.id, t.cards])),
 }
+
+/** Fundamentals topics' titles, by deck id: a deck's heading when it has no level. */
+export const DECK_TITLES: Record<string, string> = Object.fromEntries(
+  TOPICS.map((t) => [t.id, t.title]),
+)

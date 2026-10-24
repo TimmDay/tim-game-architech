@@ -23,6 +23,7 @@ import { Welcome } from "~/screens/Welcome"
 import { subscribeProfile } from "~/game/profile"
 import { LockedLevel } from "~/screens/LockedLevel"
 import { isComplete, isUnlocked, missingPrereqs } from "~/game/progression"
+import { DECK_TITLES } from "~/decks"
 import { Deck } from "~/screens/Deck"
 import { Home } from "~/screens/Home"
 import { Play } from "~/screens/Play"
@@ -66,7 +67,7 @@ function parse(hash: string): Route {
   if (screen === "codex") return { screen: "codex" }
   if (screen === "retention") return { screen: "retention" }
   if (screen === "survival") return { screen: "survival" }
-  if (screen === "deck" && id && levelById(id))
+  if (screen === "deck" && id && (levelById(id) || DECK_TITLES[id]))
     return { screen: "deck", levelId: id }
   if (screen === "play" && id && (id === "sandbox" || levelById(id)))
     return { screen: "play", levelId: id }
@@ -184,14 +185,15 @@ function AppScreens({
 
   if (route.screen === "deck") {
     const level = levelById(route.levelId)
-    if (!level) return null
+    const topic = DECK_TITLES[route.levelId]
+    if (!level && !topic) return null
     return (
       <Deck
-        key={level.id}
-        level={level}
+        key={route.levelId}
+        source={{ id: route.levelId, title: level?.title ?? topic ?? "" }}
         provider={provider}
         onBack={() => history.back()}
-        onPlay={() => go(`/play/${level.id}`)}
+        onPlay={level ? () => go(`/play/${level.id}`) : undefined}
         toggle={toggle}
       />
     )

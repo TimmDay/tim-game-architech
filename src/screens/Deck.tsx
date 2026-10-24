@@ -19,7 +19,6 @@ import {
 import { updateReview } from "~/game/points-store"
 import { seeCard } from "~/game/review"
 import { loadDeckMarks, saveDeckMarks, type CardMark } from "~/game/storage"
-import type { Level } from "~/levels"
 import type { Provider } from "~/providers/names"
 import { Rich } from "~/ui/Rich"
 
@@ -55,22 +54,25 @@ function shuffled<T>(items: T[], seed: number): T[] {
 }
 
 /**
- * A level's discussion deck. Each card is a prompt to answer out loud; the
+ * A discussion deck: a level's, or a Fundamentals topic's. Each card is a prompt to answer out loud; the
  * back holds what a strong answer covers and where an interviewer goes next.
  */
 export function Deck({
-  level,
+  source,
   provider,
   onBack,
   onPlay,
   toggle,
 }: {
-  level: Level
+  /** Which deck: a level's id and title, or a topic's. */
+  source: { id: string; title: string }
   provider: Provider
   onBack: () => void
-  onPlay: () => void
+  /** Absent for Fundamentals topics, which have no level to play. */
+  onPlay?: () => void
   toggle: React.ReactNode
 }) {
+  const level = source
   const all = useMemo(() => DECKS[level.id] ?? [], [level.id])
   const [marks, setMarks] = useState(() => loadDeckMarks(level.id))
   const [filter, setFilter] = useState<Filter>("all")
@@ -173,13 +175,15 @@ export function Deck({
               {level.title}
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={onPlay}
-            className="rounded-lg border border-white/15 px-3 py-1.5 text-[13px] text-slate-200 hover:border-white/30"
-          >
-            Play the level
-          </button>
+          {onPlay && (
+            <button
+              type="button"
+              onClick={onPlay}
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-[13px] text-slate-200 hover:border-white/30"
+            >
+              Play the level
+            </button>
+          )}
         </div>
         <p className="mt-2 text-[14px] leading-relaxed text-slate-400">
           Answer each prompt out loud, as you would in the room, then flip it to

@@ -8,6 +8,7 @@ import {
   FlaskConical,
   GraduationCap,
   Hammer,
+  Library,
   Siren,
   Split,
   Star,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
+import { TOPICS } from "~/decks/topics"
 import { TrophyRoom } from "~/ui/TrophyRoom"
 import { useReview } from "~/game/points-store"
 import { bestSurvivalWave, dueQueue } from "~/game/review"
@@ -313,7 +315,7 @@ export function Home({
         <Siren size={22} />,
         "The failures a load test never shows: a partner that slows to a crawl, a message that fails forever, a login flood, a bad migration, a worker that hangs without crashing. Only the production settings in each component's sidebar get you through.",
         ops,
-        "text-emerald-200",
+        "text-orange-200",
       )}
       {section(
         "Repair",
@@ -322,6 +324,7 @@ export function Home({
         repair,
         "text-rose-200",
       )}
+      <FundamentalsSection onDeck={onDeck} />
       <SurvivalSection progress={progress} onOpen={onSurvival} />
       <RetentionSection onOpen={onRetention} />
       <TrophyRoom />
@@ -389,6 +392,42 @@ function SurvivalSection({
 }
 
 /** The third mode: revising what you've already met, on a schedule. */
+/** Discussion decks that aren't tied to a scenario. Always open. */
+function FundamentalsSection({ onDeck }: { onDeck: (id: string) => void }) {
+  return (
+    <section className="mt-12">
+      <h2 className="font-display flex items-center gap-2 text-2xl font-bold text-sky-200">
+        <Library size={22} /> Fundamentals
+      </h2>
+      <p className="mt-1 mb-4 max-w-xl text-[14px] text-slate-400">
+        What interviews ask about beyond any one design: storage engines,
+        transactions, consensus, estimation, the interview itself. Answer out
+        loud, flip, and mark what you knew.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {TOPICS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onDeck(t.id)}
+            className="flex flex-col rounded-2xl border border-white/8 bg-gradient-to-b from-white/[0.05] to-white/[0.01] p-4 text-left transition hover:-translate-y-0.5 hover:border-sky-300/40"
+          >
+            <span className="font-display text-[17px] font-bold text-white">
+              {t.title}
+            </span>
+            <span className="mt-1 text-[13px] leading-snug text-slate-400">
+              {t.blurb}
+            </span>
+            <span className="mt-3 inline-flex items-center gap-1.5 font-mono text-[11px] text-sky-200/80">
+              <Layers size={12} /> {t.cards.length} cards
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function RetentionSection({ onOpen }: { onOpen: () => void }) {
   const state = useReview()
   // "Now" is fixed for the visit; reopening the page refreshes it.

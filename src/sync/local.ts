@@ -1,6 +1,7 @@
 import { backend, scoped } from "~/game/profile"
 import { normalize, type ReviewState } from "~/game/review"
 import { deviceId } from "~/game/device"
+import { DECKS } from "~/decks"
 import { LEVELS } from "~/levels"
 import { EMPTY_SAVE, type Save } from "./save"
 
@@ -27,9 +28,11 @@ const put = (key: string, profile: string | null, value: unknown) => {
 export function readSave(profile: string | null): Save {
   const decks: Save["decks"] = {}
   const quizzes: Save["quizzes"] = {}
+  for (const id of Object.keys(DECKS)) {
+    const d = get<Save["decks"][string]>(`lb.deck.${id}`, profile)
+    if (d && Object.keys(d).length) decks[id] = d
+  }
   for (const l of LEVELS) {
-    const d = get<Save["decks"][string]>(`lb.deck.${l.id}`, profile)
-    if (d && Object.keys(d).length) decks[l.id] = d
     const q = get<Save["quizzes"][string]>(`lb.quiz.${l.id}`, profile)
     if (q) quizzes[l.id] = q
   }

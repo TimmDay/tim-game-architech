@@ -2,7 +2,7 @@ import { deviceId } from "~/game/device"
 import clsx from "clsx"
 import { Brain, Check, ChevronLeft, Play, RotateCcw, X } from "lucide-react"
 import { useMemo, useState } from "react"
-import { DECKS } from "~/decks"
+import { DECK_TITLES, DECKS } from "~/decks"
 import { CATEGORY_LABEL, type DeckCard } from "~/decks/types"
 import { getReview, updateReview, useReview } from "~/game/points-store"
 import { dueQueue, nextDue, review, reviewValue } from "~/game/review"
@@ -13,7 +13,13 @@ import { QUIZZES, type Question } from "~/quiz/questions"
 import { Rich } from "~/ui/Rich"
 
 type Item =
-  | { id: string; kind: "card"; card: DeckCard; level: Level }
+  | {
+      id: string
+      kind: "card"
+      card: DeckCard
+      /** Where the card comes from, for the heading: a level or a topic. */
+      from: string
+    }
   | { id: string; kind: "mc"; q: Question; options: string[]; level: Level }
   | { id: string; kind: "level"; level: Level }
 
@@ -35,8 +41,8 @@ function resolve(id: string): Item | undefined {
   const [kind, a, b] = id.split(":")
   if (kind === "card" && a && b) {
     const card = DECKS[a]?.find((c) => c.id === `${a}:${b}`)
-    const level = levelById(a)
-    return card && level ? { id, kind: "card", card, level } : undefined
+    const from = levelById(a)?.title ?? DECK_TITLES[a]
+    return card && from ? { id, kind: "card", card, from } : undefined
   }
   if (kind === "mc" && a && b) {
     const q = QUIZZES[a]?.[Number(b)]
@@ -170,7 +176,8 @@ export function Retention({
           <>
             <div className="mt-5 flex items-center justify-between font-mono text-[11px] text-slate-500">
               <span>
-                {index + 1} / {queue.length} · {item.level.title}
+                {index + 1} / {queue.length} ·{" "}
+                {item.kind === "card" ? item.from : item.level.title}
               </span>
               <span className={weak ? "text-amber-300" : undefined}>
                 {item.kind === "level"

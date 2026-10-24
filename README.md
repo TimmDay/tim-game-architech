@@ -23,6 +23,8 @@
 
 **Survival.** An arcade mode: keep one architecture alive through endless waves. Traffic grows about 30% a wave, the mix shifts between browsing surges, checkout rushes and floods of slow jobs, and from wave 3 a random disaster hits (a crash, a zone outage, a cold cache, a failed database, a traffic spike). Your budget grows each wave; you have three lives. Waves are seeded, and tests pin the balance: a sensible design reaches wave 10 or more, and a starter stack dies within a few waves.
 
+**Fundamentals.** Ten discussion decks that aren't tied to a scenario, always open: the interview itself, estimation and latency, storage engines and indexes, transactions and isolation, real-time and consensus, event logs and distributed transactions, observability, shipping safely, frontend and APIs, and architecture styles. They're brought across from the earlier architecture-simulator drill.
+
 **Retention.** A third mode for revision. Every deck card, quiz question and passed scenario you've met goes on a spaced schedule: things you know come back after 3, 7, 14, then 30 days; things you missed come back tomorrow. Passed scenarios come back after a week, to rebuild from an empty board.
 
 **Points.** 1 per new flash card, 2 per newly correct quiz answer, 50 per scenario passed. In Retention, a right answer earns 1, or 2 if you'd missed it before, and a scenario revisit earns 25. First-time awards are given once, so retrying can't farm them.

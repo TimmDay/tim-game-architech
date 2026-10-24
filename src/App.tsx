@@ -14,10 +14,11 @@ import { Codex } from "~/screens/Codex"
 import { Retention } from "~/screens/Retention"
 import { Survival } from "~/screens/Survival"
 import { SURVIVAL_REQUIRES } from "~/survival/engine"
-import { PointsChip, StarsChip } from "~/ui/PointsChip"
+import { PointsChip, StarsChip, Tally } from "~/ui/PointsChip"
 import { starCount } from "~/game/achievements"
 import { AchievementToaster } from "~/ui/AchievementToaster"
 import { UpdateToast } from "~/ui/UpdateToast"
+import { StreakCelebration, StreakChip } from "~/ui/Streak"
 import { MuteButton } from "~/ui/MuteButton"
 import { AccountButton } from "~/ui/AccountButton"
 import { useAuth } from "~/auth/auth"
@@ -95,6 +96,7 @@ export function App() {
     <>
       <AppScreens progress={progress} setProgress={setProgress} />
       <AchievementToaster progress={progress} />
+      <StreakCelebration />
       <UpdateToast />
     </>
   )
@@ -123,8 +125,11 @@ function AppScreens({
   // Points travel with the provider toggle, so every screen's header shows both.
   const toggle = (
     <div className="flex items-center gap-2">
-      <StarsChip stars={starCount(progress)} />
-      <PointsChip />
+      <Tally>
+        <StreakChip />
+        <StarsChip stars={starCount(progress)} />
+        <PointsChip />
+      </Tally>
       <MuteButton />
       <AccountButton />
       <ProviderToggle

@@ -21,7 +21,7 @@ export function PointsChip() {
 
   return (
     <span
-      className="relative flex items-center gap-1 rounded-full border border-amber-300/25 bg-amber-300/[0.07] px-2.5 py-1 font-mono text-[11px] font-semibold text-amber-200"
+      className="relative flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-200"
       title="Points"
       aria-label={`${total} points`}
     >
@@ -43,12 +43,21 @@ export function PointsChip() {
 export function StarsChip({ stars }: { stars: number }) {
   return (
     <span
-      className="flex items-center gap-1 rounded-full border border-amber-300/25 bg-amber-300/[0.07] px-2.5 py-1 font-mono text-[11px] font-semibold text-amber-200"
+      className="flex items-center gap-1 font-mono text-[11px] font-semibold text-amber-200"
       title="Stars"
       aria-label={`${stars} stars`}
     >
       <Star size={12} className="fill-amber-300 text-amber-300" />
       {stars}
+    </span>
+  )
+}
+
+/** Streak, stars and points in one pill: the top bar is short of room on a phone. */
+export function Tally({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-300/[0.07] px-2.5 py-1">
+      {children}
     </span>
   )
 }

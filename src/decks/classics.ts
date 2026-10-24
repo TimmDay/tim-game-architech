@@ -3470,3 +3470,187 @@ export const NEAR_ME = deck("near-me", [
     ],
   ],
 ])
+
+export const TOP_PLAYERS = deck("top-players", [
+  [
+    "clarify",
+    "What would you ask about the leaderboard?",
+    [
+      "Global, per region, per friends list, or all of them?",
+      "A player's best score, latest, or total over the season?",
+      "When does the season reset, and what happens to old boards?",
+    ],
+    "How do friends lists change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about reads?",
+    [
+      "Top 100 only, or 'my rank' and the players around me too?",
+      "How fresh must ranks be: instant, or within a minute?",
+      "How many players are ranked: thousands, or tens of millions?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about cheating?",
+    [
+      "Can the client be trusted to report its own score? Never fully.",
+      "Is every game verified, or only scores near the top?",
+      "What happens to a cheater's past scores once they're caught?",
+    ],
+  ],
+  [
+    "product",
+    "What keeps players coming back to the leaderboard?",
+    [
+      "Seeing their rank move after every game.",
+      "Boards they can actually climb: friends and regions, not only the world.",
+      "Trust that the top isn't full of cheaters.",
+    ],
+  ],
+  [
+    "decision",
+    "Why keep the ranking in sorted sets in memory?",
+    [
+      "A sorted set keeps every entry in order as scores change, and answers 'top 100' or 'my rank' in microseconds.",
+      "A database would sort millions of rows for every rank check.",
+      "Here two cache nodes take every score and rank check at about 8% busy.",
+    ],
+  ],
+  [
+    "decision",
+    "If the ranking is in memory, where's the truth?",
+    [
+      "Each player's best score, stored durably in {nosql}, keyed by player.",
+      "If the cache loses its data, the ranking is rebuilt from those bests.",
+      "Scores reach the store through a stream, so a slow store never slows a game.",
+    ],
+  ],
+  [
+    "decision",
+    "Why write only new bests to the store?",
+    [
+      "Only about one submission in five beats a player's best.",
+      "That cuts the store's writes from 15,000 a second to 3,000.",
+      "Keep every submission somewhere cheap if anti-cheat needs history.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "One global sorted set, or many smaller ones?",
+    [
+      "One set is simplest, and exact.",
+      "But it lives on one node, so at tens of millions of players it becomes a hot spot.",
+      "Split by score range or region, and merge the tops of each when asked.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Exact ranks for everyone, or approximate below the top?",
+    [
+      "Exact ranks at the top matter, and are cheap.",
+      "Far down the board, '1,204,331th' changes every second and means little.",
+      "Show a percentile there, like 'top 12%', computed less often.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the database just sort scores when asked?",
+    [
+      "'Order by score, take 100' on millions of rows, for every request, is far too much work.",
+      "Here a {sql-primary} would also need to take 15,000 writes a second: five times its limit.",
+      "Recomputing every minute works, with ranks a minute stale.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you store the ranking under one key in {nosql}?",
+    [
+      "Then the whole board is one key, on one partition.",
+      "It would take 3,000 writes a second, three times what a key allows.",
+      "Spread writes by player, and keep the ordering in memory.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the players. What changes?",
+    [
+      "Split the global set across nodes by score range, and merge the tops.",
+      "Stream shards and workers scale out by partition.",
+      "Per-region and friends boards stay small however big the game gets.",
+    ],
+  ],
+  [
+    "scale",
+    "How do you show a friends leaderboard?",
+    [
+      "Look up the player's friends' best scores and sort that small list.",
+      "With a few hundred friends, it's quick on demand.",
+      "Cache it briefly; it changes only when a friend plays.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two players have exactly the same score.",
+    [
+      "Decide the tie-break: earlier score first is the usual rule.",
+      "Fold it into the sorted value, for example the score plus a fraction for time.",
+      "Otherwise ranks flicker between them.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The season ends at midnight. A game finishes at 00:00:03.",
+    [
+      "Decide by when the game ended, not when the score arrived.",
+      "Freeze the board at the deadline, then accept late scores for a short grace period.",
+      "Publish final ranks only after the grace period.",
+    ],
+  ],
+  [
+    "resilience",
+    "A cache node holding the ranking dies.",
+    [
+      "Its replica takes over, so ranks keep working.",
+      "If both are lost, rebuild the sorted set from every player's stored best.",
+      "Rebuilding millions of entries takes minutes: show the last snapshot until it's done.",
+    ],
+  ],
+  [
+    "resilience",
+    "The season's last hour brings 1.5 times the traffic.",
+    [
+      "App servers and stream shards have the headroom: they rise to 75%.",
+      "The store falls a little behind on bests and catches up after, since it's behind the stream.",
+      "Ranks stay instant, because they come from memory.",
+    ],
+  ],
+  [
+    "security",
+    "How do you keep cheaters off the board?",
+    [
+      "Never trust the client's score: verify games on the server, or check replays for scores near the top.",
+      "Flag impossible scores and sudden jumps for review.",
+      "Rate-limit submissions per player, so nobody can submit thousands of games a minute.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Rank-check latency, and the cache's memory as the board grows.",
+      "How far the stored bests trail the ranking.",
+      "Scores flagged as suspicious, per hour.",
+    ],
+  ],
+  [
+    "observability",
+    "A player says their rank didn't change after a high score. How do you check?",
+    [
+      "Look up their score in the sorted set, and their stored best.",
+      "Check whether the score was flagged and held for review.",
+      "Check the stream's lag, in case it was just late.",
+    ],
+  ],
+])

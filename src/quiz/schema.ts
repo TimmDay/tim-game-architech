@@ -27,6 +27,38 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "top-players": s([
+    [
+      "What's the durable store's key?",
+      "Player ID, holding their best score and when",
+      [
+        "The leaderboard's name, holding every score",
+        "The score, holding the player's ID",
+        "The game's ID, holding its result",
+      ],
+      "Keyed by player, writes spread evenly. The ordering lives in memory.",
+    ],
+    [
+      "What does the sorted set's value need, besides the score?",
+      "A tie-break folded in, such as when it was set",
+      [
+        "The player's full profile",
+        "Every game the player has played",
+        "Nothing: equal scores share a rank",
+      ],
+      "With the time folded in, equal scores always come out in the same order.",
+    ],
+    [
+      "Which request gives a player their rank and neighbours?",
+      "GET /boards/:season/me?around=5",
+      [
+        "GET /boards/:season, then search the list",
+        "POST /boards/:season with every score",
+        "GET /players/:id/scores, sorted on the phone",
+      ],
+      "The server reads a small range around the player's position in the sorted set.",
+    ],
+  ]),
   "near-me": s([
     [
       "How should a place's location be indexed for nearby search?",

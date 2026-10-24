@@ -76,12 +76,26 @@ export type Grade = {
 }
 
 /** Writes arriving at the best-fed component of a given sink. */
-export function writesAt(graph: Graph, result: SimResult, sink: WriteSink) {
+export function writesAt(
+  graph: Graph,
+  result: SimResult,
+  sink: WriteSink,
+  /** Writes a worker passes on per job: a store fed only by workers gets that share. */
+  emits = 1,
+) {
   const kinds = sink === "durable" ? DURABLE_KINDS : [sink]
   let best = 0
   for (const c of graph.components) {
     if (!kinds.includes(c.kind)) continue
-    best = Math.max(best, result.perComponent[c.id]?.writeRps ?? 0)
+    const into = graph.edges.filter((e) => e.to === c.id)
+    const fedByWorkers =
+      into.length > 0 &&
+      into.every(
+        (e) => graph.components.find((x) => x.id === e.from)?.kind === "worker",
+      )
+    // Counted as the writes it stands for, so aggregation isn't a lost write.
+    const w = result.perComponent[c.id]?.writeRps ?? 0
+    best = Math.max(best, fedByWorkers && emits > 0 ? w / emits : w)
   }
   return best
 }
@@ -122,7 +136,8 @@ export function grade(
       id: "writes",
       pass:
         targets.writesReach.every(
-          (s) => writesAt(graph, peak, s) >= expectedWrites * 0.99,
+          (s) =>
+            writesAt(graph, peak, s, load.job?.emits) >= expectedWrites * 0.99,
         ) &&
         typedWrites.every((t) =>
           t.to.some(

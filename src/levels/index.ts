@@ -2408,6 +2408,96 @@ const CLASSICS: Level[] = [
     concepts: ["geospatial-indexing", "cache-aside", "precomputation"],
     hint: "Search by map cell, not by latitude and longitude ranges. Popular cells are asked about constantly, so cache each cell's results in front of the {search-index}.",
   },
+  {
+    id: "top-players",
+    mode: "build",
+    track: "classic",
+    requires: ["step-counter"],
+    title: "Top Players",
+    tagline: "A global ranking that changes fifteen thousand times a second.",
+    scenario: {
+      product: "the leaderboard",
+      reads: "players checking the top 100 and their own rank",
+      writes: "players finishing a game and submitting a score",
+      hot: "the ranking itself: every player's score, in order",
+      records: "each player's best score this season",
+      events: "a score-submitted event for every finished game",
+      job: "recording a player's new best score",
+      memoryOnly:
+        "the ranking can be rebuilt from every player's stored best score",
+    },
+    brief:
+      "A mobile game's season leaderboard: everyone wants to see the top 100 and where they stand. Peak is 30,000 requests a second: 15,000 finished games submitting a score and 15,000 rank checks. A ranking is one ordered list, so keyed in a {nosql} store it's a single key, and one key takes about 1,000 writes a second. In-memory sorted sets keep millions of entries in order and answer 'what's my rank?' in microseconds. About one submission in five beats that player's best. In the chaos round the season's last hour brings 1.5 times the traffic.",
+    load: {
+      peakRps: 30_000,
+      readFraction: 0.5,
+      cacheableFraction: 1,
+      heavyWriteFraction: 1,
+      // Comparing with the player's best: cheap, and only one in five
+      // submissions is a new best worth storing.
+      job: { seconds: 0.002, cpuBound: true, emits: 0.2 },
+      partitionKeys: [
+        {
+          id: "player",
+          label: "Player ID",
+          hotShare: 0.0001,
+          scatterReads: 0,
+        },
+        { id: "board", label: "Leaderboard", hotShare: 1, scatterReads: 0 },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 11_600,
+      writesReach: ["cache", "nosql"],
+      noBacklog: "peak",
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
+      label: "The season's last hour (1.5x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+      "queue",
+      "event-stream",
+      "worker",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 60, 2],
+        ["ranks", "cache", 7, 2, 2, 2],
+        ["scores", "event-stream", 7, 6, 30],
+        ["best", "worker", 9, 6, 12, 2],
+        ["players", "nosql", 11, 6, 4, 1, { partitionKey: "player" }],
+      ],
+      [
+        `${C}>dns`,
+        "dns>lb",
+        "lb>app",
+        "app>ranks",
+        "app>scores",
+        "scores>best",
+        "best>players",
+      ],
+    ),
+    concepts: ["hot-keys", "ephemeral-state", "fan-out"],
+    hint: "Keep the ranking in sorted sets in the {cache}, which add a score and answer a rank in microseconds. Store each player's best score durably, keyed by player, so the ranking can be rebuilt.",
+  },
 ]
 
 /**

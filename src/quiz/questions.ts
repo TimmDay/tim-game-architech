@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "top-players": q([
+    [
+      "Why keep the ranking in sorted sets in memory?",
+      "They answer 'top 100' and 'my rank' in microseconds",
+      [
+        "Memory is cheaper than disk for any data",
+        "Databases can't store numbers in order",
+        "Sorted sets never lose their contents",
+      ],
+      "A database would sort millions of rows per rank check. Here two cache nodes take everything at about 8%.",
+      4,
+    ],
+    [
+      "If the ranking lives in memory, where's the truth?",
+      "Each player's best, stored durably and keyed by player",
+      [
+        "Nowhere: the cache is the only copy",
+        "In every player's phone",
+        "In the load balancer's logs",
+      ],
+      "If the cache loses its data, the ranking is rebuilt from the stored bests.",
+      5,
+    ],
+    [
+      "Why write only new bests to the store?",
+      "Only one submission in five beats a player's best",
+      [
+        "The store can't hold old scores",
+        "Players only care about their first game",
+        "It makes the sorted set smaller",
+      ],
+      "That cuts the store's writes from 15,000 a second to 3,000.",
+      6,
+    ],
+    [
+      "Why not store the whole ranking under one {nosql} key?",
+      "One key takes 1,000 writes a second, and it needs 3,000",
+      [
+        "Keys can't hold numbers",
+        "Each player needs their own table",
+        "It would sort the players alphabetically",
+      ],
+      "Spread writes by player, and keep the ordering in memory.",
+      10,
+    ],
+    [
+      "One sorted set gets too big for one node. What then?",
+      "Split it by score range or region, and merge the tops",
+      [
+        "Store every score twice",
+        "Drop the players outside the top million",
+        "Recompute it from the database every second",
+      ],
+      "Per-region and friends boards also stay small however big the game gets.",
+      7,
+    ],
+    [
+      "Far down the board, what should a player see?",
+      "A percentile, like 'top 12%'",
+      [
+        "Their exact rank, updated every second",
+        "Nothing until they reach the top 100",
+        "Their rank from the start of the season",
+      ],
+      "'1,204,331th' changes constantly and means little. Compute it less often.",
+      8,
+    ],
+    [
+      "Two players have the same score. How do you stop their ranks flickering?",
+      "Fold a tie-break, like time, into the sorted value",
+      [
+        "Pick one at random on each request",
+        "Show them both at the same rank and skip the next",
+        "Ignore the second player's score",
+      ],
+      "Earlier score first is the usual rule.",
+      13,
+    ],
+    [
+      "A game finishes three seconds after the season ends. Does it count?",
+      "Decide by when the game ended, with a short grace period",
+      [
+        "No, scores after midnight are deleted",
+        "Yes, the board never closes",
+        "Only if the player was in the top 100",
+      ],
+      "Freeze the board at the deadline, accept late arrivals briefly, then publish final ranks.",
+      14,
+    ],
+    [
+      "How do you keep cheaters off the board?",
+      "Verify games on the server, and flag impossible scores",
+      [
+        "Trust the score the client reports",
+        "Hide the leaderboard from everyone",
+        "Only allow one game per day",
+      ],
+      "Rate-limit submissions per player too.",
+      17,
+    ],
+    [
+      "A player's rank didn't move after a high score. What do you check first?",
+      "Their score in the sorted set, and whether it was flagged",
+      [
+        "The size of the cache",
+        "How many players there are",
+        "The load balancer's settings",
+      ],
+      "Then the stream's lag, in case it was just late.",
+      19,
+    ],
+  ]),
   "near-me": q([
     [
       "Why search by map cell rather than latitude and longitude ranges?",

@@ -502,6 +502,34 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "top-players": {
+    overview:
+      "Keep the ranking in memory, and the truth on disk. Every score goes into sorted sets in the {cache}, which answer 'top 100' and 'my rank' in microseconds; every score also goes onto an {event-stream}, and {worker} instances store each player's best score in a {nosql} store keyed by player, so the ranking can be rebuilt if the cache is lost.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. A finished game's score is checked (was this game real?) and added to the season's sorted set in the {cache}.",
+      "Rank checks read the sorted set: the top 100 is a range at the top, and a player's rank is their position, both fast at millions of entries.",
+      "The score is also published to the {event-stream}. {worker} instances compare it with the player's stored best and write only improvements.",
+      "Bests live in the {nosql} store, keyed by player. If the cache loses a node, the ranking is rebuilt from them.",
+    ],
+    numbers: [
+      "30,000 requests a second: 15,000 scores and 15,000 rank checks.",
+      "Sixty {app-server} instances run at 50%, and 75% in the season's last hour.",
+      "Two {cache} nodes take every score and every rank check at about 8% busy: sorted sets are built for exactly this.",
+      "Thirty {event-stream} shards run at 50%. Twelve workers check scores at 63% (94% in the last hour), and one in five is a new best: 3,000 writes a second to four {nosql} blocks at 75%. In the last hour the store falls a little behind, then catches up.",
+      "Keying the ranking itself in {nosql} makes the whole board one key: 3,000 writes a second against the 1,000 a key takes. Ranking in a {sql-primary} means 15,000 writes a second, five times what it takes.",
+      "Cost: $1 + about $262 for the {load-balancer} + 60 × $70 + 2 × $150 + 30 × $25 + 12 × $120 + 4 × $950 = $10,753 of $11,600.",
+    ],
+    tradeoffs: [
+      "The ranking lives in memory, so losing the cache means rebuilding it from the stored bests. Two nodes, one copying the other, make that rare.",
+      "One sorted set holds the whole board on one node. Past tens of millions of players, split it by score range or region, and combine the tops.",
+      "Ranks for players far down the board change constantly and matter little. Show 'top 12%' instead of '1,204,331th', and compute it less often.",
+    ],
+    alternatives: [
+      "Storing every submission rather than each best: full history for anti-cheat, but five times the writes.",
+      "Recomputing the board from the database every minute: simple, but ranks are a minute stale and the query is heavy.",
+      "Separate boards per region or per friends list: smaller sorted sets, and often more interesting to players than a global rank.",
+    ],
+  },
   "near-me": {
     overview:
       "Find places by map cell, and cache each popular cell's results. The {app-server} turns a search into the map cells it covers and reads their results from the {cache}; misses go to a {search-index} built for geographic queries. Places live in the {sql-primary}, and every change flows through an {event-stream} into the index.",

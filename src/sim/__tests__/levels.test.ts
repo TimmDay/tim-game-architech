@@ -483,6 +483,20 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toContain("traffic")
   })
 
+  it("top players: keying the ranking itself in NoSQL makes the board one hot key", () => {
+    const l = level("top-players")
+    const g = patch(l.reference, "players", { partitionKey: "board" })
+    expect(failed(l, g)).toContain("backlog")
+  })
+
+  it("top players: without the sorted sets, or without durable bests, writes go missing", () => {
+    const l = level("top-players")
+    expect(failed(l, rewire(l.reference, ["ranks"]))).toContain("writes")
+    expect(
+      failed(l, rewire(l.reference, ["scores", "best", "players"])),
+    ).toContain("writes")
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

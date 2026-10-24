@@ -33,6 +33,9 @@ import { OFFERS } from "~/sim/practices"
 import {
   carries,
   consistencyOf,
+  GLOBAL_KINDS,
+  regionsOf,
+  SPLIT_ACROSS_REGIONS,
   copies,
   MAX_SHARDS,
   partitionKeyOf,
@@ -906,6 +909,20 @@ export function InspectPanel({
             c.instances < c.zones
               ? `Only ${c.instances} instance${c.instances === 1 ? "" : "s"}: ${c.instances} zone${c.instances === 1 ? "" : "s"} really used`
               : "Failure domains the instances are spread over"
+          }
+        />
+      )}
+      {load?.regions && !GLOBAL_KINDS.has(c.kind) && (
+        <Stepper
+          label="Regions"
+          value={regionsOf(c)}
+          min={1}
+          max={3}
+          onChange={(v) => onSet(c.id, { regions: v })}
+          note={
+            SPLIT_ACROSS_REGIONS.has(c.kind)
+              ? "Instances are shared out between the regions"
+              : "A full copy runs in each region, at the full price each"
           }
         />
       )}

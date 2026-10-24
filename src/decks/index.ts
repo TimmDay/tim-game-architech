@@ -12,6 +12,7 @@ import {
 import {
   BALANCE_SHEET,
   CLAIM_YOUR_NAME,
+  WORLDWIDE,
   FULL_BASKET,
   LIKE_STORM,
   TENANT_SPLIT,
@@ -87,6 +88,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "tenant-split": TENANT_SPLIT,
   "like-storm": LIKE_STORM,
   "claim-your-name": CLAIM_YOUR_NAME,
+  worldwide: WORLDWIDE,
   "slow-partner": SLOW_PARTNER,
   "poison-pill": POISON_PILL,
   "login-flood": LOGIN_FLOOD,

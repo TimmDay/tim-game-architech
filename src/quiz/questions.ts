@@ -1156,6 +1156,110 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  worldwide: q([
+    [
+      "What must run in both regions for distant users to be fast?",
+      "Everything on their request path",
+      ["Only the app servers", "Only the database", "Only DNS"],
+      "One component left behind puts the ocean back on every request.",
+      4,
+    ],
+    [
+      "Why a store that writes locally in each region?",
+      "With one leader, distant writes cross the ocean",
+      [
+        "Local stores never disagree",
+        "It halves the cost of storage",
+        "Regions can't read each other's data",
+      ],
+      "It's the AP choice: fast and always available, with copies that briefly disagree.",
+      5,
+    ],
+    [
+      "What does strong consistency across regions cost?",
+      "Every write waits for the other region",
+      [
+        "Nothing, until the regions disagree",
+        "Reads must be sent to both regions",
+        "The store must pause every night to sync",
+      ],
+      "About 150ms instead of 5: here it pushes p99 to 336ms.",
+      7,
+    ],
+    [
+      "A region dies. What can be lost with asynchronous replication?",
+      "The last second or two of writes",
+      [
+        "Everything written that day",
+        "Nothing, ever",
+        "Only the other region's data",
+      ],
+      "Synchronous replication loses nothing, and costs the ocean on every write. Choose per kind of data.",
+      8,
+    ],
+    [
+      "How are users sent to the right region?",
+      "DNS answers with the nearest healthy region",
+      [
+        "The app redirects them after the first request",
+        "Each user picks a region when they sign up",
+        "All traffic goes to one region, which forwards it",
+      ],
+      "Keep answers short-lived so a failover takes effect in minutes.",
+      6,
+    ],
+    [
+      "How big must each region be?",
+      "Big enough to carry everyone if the other fails",
+      [
+        "Half the size of the home region",
+        "Exactly its share of normal traffic",
+        "As small as possible, to save money",
+      ],
+      "Here thirty app servers per region run at 33%, and 67% after losing one.",
+      12,
+    ],
+    [
+      "Two people claim the same username in different regions at once. What prevents a duplicate?",
+      "One place decides each claim",
+      [
+        "Each region checks its own copy",
+        "The later claim is renamed",
+        "Replication merges the two accounts",
+      ],
+      "Route claims to one region, or a strongly consistent store, and pay the ocean once per claim.",
+      14,
+    ],
+    [
+      "Why might you give each user a home region?",
+      "No conflicts, and data stays in its country",
+      [
+        "It makes every request faster everywhere",
+        "It removes the need for backups",
+        "It doubles the available storage",
+      ],
+      "The cost is slow access while travelling.",
+      10,
+    ],
+    [
+      "The link between regions fails, but both are up. What happens?",
+      "Each keeps serving; they sync when it returns",
+      [
+        "Both regions stop accepting writes",
+        "One region shuts itself down",
+        "Users are sent to the far region",
+      ],
+      "Writes queue for replication, and the copies merge when the link is back.",
+      16,
+    ],
+    [
+      "What's the most useful number to watch between regions?",
+      "Replication lag",
+      ["Total disk space", "The number of regions", "DNS query counts"],
+      "Watch latency per region and each region's spare capacity too.",
+      18,
+    ],
+  ]),
   "claim-your-name": q([
     [
       "During a split, why should a name shard refuse sign-ups without a majority?",

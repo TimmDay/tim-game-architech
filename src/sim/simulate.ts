@@ -114,6 +114,17 @@ export function aliveInstances(
     // stays stuck while health checks keep passing.
     if (f.kind === "silent-stall" && f.target === c.kind)
       alive = watched ? alive - 1 : 0
+    // A region outage takes everything that runs only in that region,
+    // managed services included. DNS, the edge and other people's APIs are
+    // global, and carry on.
+    if (f.kind === "region-outage" && !GLOBAL_KINDS.has(c.kind)) {
+      // Compute loses its share; a store or balancer keeps its full copy in
+      // the regions still standing.
+      const regions = regionsOf(c)
+      if (regions <= 1) alive = 0
+      else if (SPLIT_ACROSS_REGIONS.has(c.kind))
+        alive -= Math.ceil(c.instances / regions)
+    }
     if (f.kind === "zone-outage" && !spec.managed) {
       // Round-robin placement: zone 0 holds the ceiling share.
       const zones = Math.max(1, Math.min(c.zones, c.instances))
@@ -249,6 +260,21 @@ export function copies(c: PlacedComponent): number {
 }
 
 /** Only a {sql-primary} pays per shard: a {nosql} store's shards are its instances. */
+/** Global services: no region to lose, and nothing to copy per region. */
+export const GLOBAL_KINDS = new Set<ComponentKind>([
+  "dns",
+  "cdn",
+  "third-party-api",
+])
+/** Compute: its instances are shared out between regions, not copied. */
+export const SPLIT_ACROSS_REGIONS = new Set<ComponentKind>([
+  "app-server",
+  "serverless",
+  "worker",
+])
+export const regionsOf = (c: PlacedComponent) =>
+  GLOBAL_KINDS.has(c.kind) ? 1 : Math.max(1, c.regions ?? 1)
+
 const paidShards = (c: PlacedComponent) =>
   c.kind === "sql-primary"
     ? Math.min(MAX_SHARDS, Math.max(1, c.shards ?? 1))
@@ -258,7 +284,12 @@ export function monthlyCost(graph: Graph): number {
   return graph.components.reduce(
     (sum, c) =>
       sum +
-      CATALOGUE[c.kind].costPerInstanceMonthUsd * c.instances * paidShards(c),
+      CATALOGUE[c.kind].costPerInstanceMonthUsd *
+        c.instances *
+        paidShards(c) *
+        // Compute splits its instances between regions; anything that holds
+        // data or routes traffic runs a full copy in each.
+        (SPLIT_ACROSS_REGIONS.has(c.kind) ? 1 : regionsOf(c)),
     0,
   )
 }
@@ -524,7 +555,17 @@ export function simulate(
     const key = partitionKeyOf(c, load)
     if (key) shard(m, c, key, flow, up)
     const mode = consistencyOf(c, load)
-    if (mode) replicate(m, c, mode, flow, split)
+    if (mode) replicate(m, c, mode, flow, split, load)
+    // One writer for the whole world: a SQL primary spread over regions
+    // still takes every write in its home region, across the ocean for
+    // distant users.
+    else if (
+      c.kind === "sql-primary" &&
+      regionsOf(c) >= 2 &&
+      (load.regions?.farShare ?? 0) >= P99_PATH_SHARE &&
+      flow.writes > 0
+    )
+      m.p99Ms += load.regions?.rttMs ?? 0
     perComponent[c.id] = m
   }
 
@@ -604,7 +645,8 @@ export function simulate(
     dataLossMinutes: dataLoss,
     exposed,
     p99Ms: connected
-      ? criticalPathP99(graph, perComponent, perEdge, offered)
+      ? criticalPathP99(graph, perComponent, perEdge, offered) +
+        oceanCrossing(graph, load, asyncSet)
       : 0,
     errorRate,
     availability: topologyAvailability(graph, asyncSet, load),
@@ -626,6 +668,36 @@ export function simulate(
     backlogGrowthRps: backlog,
     connected,
   }
+}
+
+/**
+ * What distant users add to the p99: the round trip between regions, unless
+ * everything on their synchronous path runs in more than one region.
+ */
+function oceanCrossing(
+  graph: Graph,
+  load: LoadProfile,
+  asyncSet: Set<string>,
+): number {
+  const far = load.regions?.farShare ?? 0
+  if (far < P99_PATH_SHARE) return 0
+  const live = new Set<string>()
+  const walk = (id: string) => {
+    for (const e of graph.edges)
+      if (e.from === id && !live.has(e.to)) {
+        live.add(e.to)
+        walk(e.to)
+      }
+  }
+  walk(CLIENT_ID)
+  const local = graph.components.every(
+    (c) =>
+      !live.has(c.id) ||
+      asyncSet.has(c.id) ||
+      GLOBAL_KINDS.has(c.kind) ||
+      regionsOf(c) >= 2,
+  )
+  return local ? 0 : (load.regions?.rttMs ?? 0)
 }
 
 /**
@@ -896,9 +968,14 @@ function replicate(
   mode: Consistency,
   flow: Flow,
   split: boolean,
+  load: LoadProfile,
 ) {
   const d = copies(c)
-  if (mode === "strong" && d >= 2) m.p99Ms += QUORUM_P99_MS
+  // A strong write waits for a copy to confirm: in another zone, or, once the
+  // store spans regions, across an ocean.
+  const crossRegion = regionsOf(c) >= 2 && load.regions
+  if (mode === "strong" && d >= 2)
+    m.p99Ms += crossRegion ? (load.regions?.rttMs ?? 0) : QUORUM_P99_MS
   if (!split) return
   const all = flow.reads + flow.writes
   // The split cuts off the zone holding a single copy, as an outage would.

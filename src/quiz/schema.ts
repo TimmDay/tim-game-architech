@@ -635,6 +635,28 @@ export const SCHEMA: Record<string, SchemaQuestion[]> = {
       "A conditional update, or a row lock, makes the check and the debit one step. Read-then-write races.",
     ],
   ]),
+  worldwide: s([
+    [
+      "What does each record need so two regions' edits can be merged?",
+      "A version, and the region and time it was written",
+      [
+        "Nothing: the later arrival wins",
+        "A lock held by the writing region",
+        "The full history of every edit",
+      ],
+      "Copies compare versions when they sync, and apply one rule everywhere, so both end up the same.",
+    ],
+    [
+      "Where should a username's uniqueness be checked?",
+      "In one place for the world, strongly consistent",
+      [
+        "In each region's own copy",
+        "In the user's browser before sending",
+        "In whichever region is fastest",
+      ],
+      "Local writes would hand one name to two people. Claims are rare enough to pay the ocean once.",
+    ],
+  ]),
   "claim-your-name": s([
     [
       "How is a username kept unique across shards?",

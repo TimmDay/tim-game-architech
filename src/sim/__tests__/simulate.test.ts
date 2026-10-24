@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { graph } from "~/levels"
-import { CLIENT_ID as C, type Fault, type LoadProfile } from "../types"
+import {
+  CLIENT_ID as C,
+  type Fault,
+  type LoadProfile,
+  type PlacedComponent,
+} from "../types"
 import { QUORUM_P99_MS, simulate, topologyAvailability } from "../simulate"
 
 const load = (o: Partial<LoadProfile> = {}): LoadProfile => ({
@@ -513,4 +518,58 @@ it("sends a caller's reads to its search index, and only its writes to the prima
   const r = simulate(g, load())
   expect(r.perComponent.db?.readRps).toBe(0)
   expect(r.perComponent.db?.writeRps).toBeCloseTo(200)
+})
+
+describe("regions", () => {
+  const far = load({ regions: { farShare: 0.4, rttMs: 150 } })
+  const stack = (regions: number) =>
+    graph(
+      [
+        ["app", "app-server", 0, 0, 4, 2],
+        ["kv", "nosql", 0, 0, 1, 1, { consistency: "eventual" }],
+      ],
+      [`${C}>app`, "app>kv"],
+    ).components.map((c) => ({ ...c, regions })) as PlacedComponent[]
+  const g = (regions: number) => ({
+    components: stack(regions),
+    edges: [
+      { id: `${C}>app`, from: C, to: "app" },
+      { id: "app>kv", from: "app", to: "kv" },
+    ],
+  })
+
+  it("makes distant users pay the round trip unless everything runs near them", () => {
+    const one = simulate(g(1), far).p99Ms
+    const two = simulate(g(2), far).p99Ms
+    expect(one - two).toBeCloseTo(150)
+  })
+
+  it("takes everything that runs in only one region down in a region outage", () => {
+    const outage = [{ kind: "region-outage" as const }]
+    expect(simulate(g(1), far, outage).errorRate).toBeCloseTo(1)
+    expect(simulate(g(2), far, outage).errorRate).toBe(0)
+  })
+
+  it("copies a store into each region, and shares compute between them", () => {
+    // Two regions: the four app servers are split, the store is doubled.
+    expect(
+      simulate(g(2), far).monthlyCostUsd - simulate(g(1), far).monthlyCostUsd,
+    ).toBe(950)
+  })
+
+  it("makes a strong write wait for another region", () => {
+    const tunable = load({
+      tunableConsistency: true,
+      regions: { farShare: 0, rttMs: 150 },
+    })
+    const kv = (consistency: "strong" | "eventual") => ({
+      ...g(2),
+      components: g(2).components.map((c) =>
+        c.id === "kv" ? { ...c, consistency } : c,
+      ),
+    })
+    const strong = simulate(kv("strong"), tunable).p99Ms
+    const eventual = simulate(kv("eventual"), tunable).p99Ms
+    expect(strong - eventual).toBeCloseTo(150)
+  })
 })

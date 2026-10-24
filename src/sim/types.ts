@@ -87,6 +87,12 @@ export type PlacedComponent = {
   /** Failure domains the instances are spread across. Ignored for managed specs. */
   zones: number
   /**
+   * Regions (continents, roughly) it runs in. Offered only in levels that
+   * declare regions. Compute splits its instances between them; a store or
+   * load balancer runs a full copy in each.
+   */
+  regions?: number
+  /**
    * Shards the data is split into, each with its own primary and standbys.
    * Only a {sql-primary} in a level that offers partition keys uses it.
    */
@@ -224,12 +230,21 @@ export type LoadProfile = {
   tunableConsistency?: boolean
   /** Named slices of the traffic that users can send somewhere directly. */
   traffic?: TrafficType[]
+  /**
+   * The level offers regions. `farShare`: the share of users on another
+   * continent from the home region, who pay `rttMs` on every request unless
+   * everything they touch runs near them too. 0: everyone is close, so a
+   * second region only buys survival of a region outage.
+   */
+  regions?: { farShare: number; rttMs: number }
 }
 
 export type Fault =
   /** One instance of every component of this kind crashes. */
   | { kind: "kill-instance"; target: ComponentKind }
   | { kind: "zone-outage" }
+  /** A whole region goes dark: everything that runs only there is gone. */
+  | { kind: "region-outage" }
   | { kind: "traffic-spike"; multiplier: number }
   /**
    * One zone loses contact with the others. Nothing crashes: every machine is

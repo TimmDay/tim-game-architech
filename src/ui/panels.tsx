@@ -949,7 +949,7 @@ export function TestPanel({
 }) {
   return (
     <div className="space-y-4">
-      {!sandbox && (
+      {
         <button
           type="button"
           disabled={running}
@@ -966,7 +966,7 @@ export function TestPanel({
             </>
           )}
         </button>
-      )}
+      }
       {sandbox}
       <div>
         <div className="mb-1 flex items-center justify-between">

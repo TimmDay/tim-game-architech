@@ -224,13 +224,13 @@ export const mark = (s: ReviewState, key: string): ReviewState =>
   s.awarded[key] ? s : { ...s, awarded: { ...s.awarded, [key]: true } }
 
 /** One-time awards from content that has an end: not Retention or Survival. */
-const FINITE = ["flash:", "mc:", "schema:", "pass:", "ach:"]
+const FINITE = ["flash:", "mc:", "schema:", "pass:", "star:", "ach:"]
 const MAX_AWARDS =
   new Set(Object.values(DECKS).flatMap((d) => d.map((c) => c.id))).size *
     awardValue("flash:") +
   Object.values(QUIZZES).flat().length * awardValue("mc:") +
   Object.values(SCHEMA).flat().length * awardValue("schema:") +
-  LEVELS.length * awardValue("pass:") +
+  LEVELS.length * (awardValue("pass:") + 3 * awardValue("star:")) +
   ACHIEVEMENTS.length * ACHIEVEMENT_POINTS
 
 /**

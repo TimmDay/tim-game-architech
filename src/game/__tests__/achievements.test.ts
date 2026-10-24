@@ -79,7 +79,10 @@ describe("ranks", () => {
     // Every star, but none of the one-time points: not most of the game.
     expect(completion(withPoints(5000), allStars).value).toBe(0)
     const awarded: Record<string, true> = {}
-    for (const l of LEVELS) awarded[`pass:${l.id}`] = true
+    for (const l of LEVELS) {
+      awarded[`pass:${l.id}`] = true
+      for (const n of [1, 2, 3]) awarded[`star:${l.id}:${n}`] = true
+    }
     for (const [id, qs] of Object.entries(QUIZZES))
       qs.forEach((_, i) => (awarded[`mc:${id}:${i}`] = true))
     for (const [id, qs] of Object.entries(SCHEMA))

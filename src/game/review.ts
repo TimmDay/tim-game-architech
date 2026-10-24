@@ -8,6 +8,8 @@ import { ACHIEVEMENT_POINTS } from "./achievement-points"
  *   mc:<levelId>:<index>     a quiz question, by position in QUIZZES
  *   schema:<levelId>:<index> a schema or API question, by position in SCHEMA
  *   level:<levelId>          revisiting a passed scenario
+ *
+ * Award keys also include star:<levelId>:<n> for each star reached.
  */
 export const POINTS = {
   /** First time you mark a flash card, either way. */
@@ -17,7 +19,9 @@ export const POINTS = {
   /** First time you answer a schema or API question correctly. */
   schemaCorrect: 1,
   /** First time you earn a star on a scenario. */
-  scenarioPass: 50,
+  scenarioPass: 20,
+  /** Each of a scenario's three stars, the first time you reach it. */
+  star: 10,
   /** Retention: getting right something you got right last time. */
   reviewRight: 1,
   /** Retention: getting right something you got wrong last time. */
@@ -76,6 +80,7 @@ export function awardValue(key: string): number {
   if (key.startsWith("mc:")) return POINTS.mcCorrect
   if (key.startsWith("schema:")) return POINTS.schemaCorrect
   if (key.startsWith("pass:")) return POINTS.scenarioPass
+  if (key.startsWith("star:")) return POINTS.star
   if (key.startsWith("survival:")) return POINTS.survivalWave
   if (key.startsWith("ach:")) return ACHIEVEMENT_POINTS
   return 0 // markers: "event:", "provider:"
@@ -149,6 +154,21 @@ export function passScenario(s: ReviewState, levelId: string, now: number) {
   // Box 0 for a level means "first revisit in a week".
   const item = { box: 0, weak: false, last: now, due: now + interval(id, 0) }
   return { ...awarded, items: { ...awarded.items, [id]: item } }
+}
+
+/**
+ * Pay for each star a level has reached, once each: a level's best stars
+ * live in progress, so this catches up whenever they rise.
+ */
+export function awardStars(
+  s: ReviewState,
+  best: Record<string, number>,
+): ReviewState {
+  let next = s
+  for (const [id, stars] of Object.entries(best))
+    for (let n = 1; n <= stars; n++)
+      next = award(next, `star:${id}:${n}`, POINTS.star)
+  return next
 }
 
 /** What a correct answer to this item is worth in Retention right now. */

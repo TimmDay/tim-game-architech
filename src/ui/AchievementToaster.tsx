@@ -2,6 +2,7 @@ import { Trophy } from "lucide-react"
 import { useEffect, useState } from "react"
 import { grantAchievements, type Achievement } from "~/game/achievements"
 import { getReview, updateReview, useReview } from "~/game/points-store"
+import { awardStars } from "~/game/review"
 import { sfx } from "~/game/sound"
 import { loadQuiz, type Progress } from "~/game/storage"
 import { LEVELS } from "~/levels"
@@ -19,12 +20,17 @@ export function AchievementToaster({ progress }: { progress: Progress }) {
     const quizzes = Object.fromEntries(
       LEVELS.map((l) => [l.id, loadQuiz(l.id)]),
     )
-    const { state, granted } = grantAchievements(getReview(), {
+    // Stars pay points too; saved stars from before that catch up here.
+    const best = Object.fromEntries(
+      LEVELS.map((l) => [l.id, progress[l.id]?.stars ?? 0]),
+    )
+    const paid = awardStars(getReview(), best)
+    const { state, granted } = grantAchievements(paid, {
       progress,
       quizzes,
     })
+    if (state !== getReview()) updateReview(() => state)
     if (granted.length === 0) return
-    updateReview(() => state)
     sfx.fanfare()
     const now = Date.now()
     // Deferred a tick (the grant above re-renders through the store) and not

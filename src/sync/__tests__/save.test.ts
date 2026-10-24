@@ -35,7 +35,7 @@ describe("whole-save merging", () => {
     expect(m.progress["lost-writes"]?.diagnosedFirstTry).toBe(true)
     expect(m.quizzes["front-page"]).toEqual({ best: 9, passed: true })
     expect(Object.keys(m.decks["front-page"] ?? {})).toHaveLength(2)
-    expect(m.review.total).toBe(50 + 1)
+    expect(m.review.total).toBe(20 + 1)
   })
 
   it("is a no-op when merging a save with itself", () => {

@@ -1014,8 +1014,8 @@ const REPAIR: Level[] = [
       events: "an order-placed event for every order",
     },
     load: {
-      peakRps: 4_000,
-      readFraction: 0.6,
+      peakRps: 2_000,
+      readFraction: 0.975,
       cacheableFraction: 0.4,
       heavyWriteFraction: 0,
     },
@@ -1023,7 +1023,7 @@ const REPAIR: Level[] = [
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 2_900,
+      budgetUsd: 2_550,
       writesReach: ["sql-primary", "search-index", "data-warehouse"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: true, abuse: false },
@@ -1044,7 +1044,7 @@ const REPAIR: Level[] = [
     starter: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 7, 2],
+        ["app", "app-server", 4, 4, 4, 2],
         ["db", "sql-primary", 6, 6, 2, 2],
         ["q", "queue", 6, 2],
         ["search", "search-index", 9, 1],
@@ -1060,9 +1060,9 @@ const REPAIR: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 7, 2],
+        ["app", "app-server", 4, 4, 4, 2],
         ["db", "sql-primary", 6, 6, 2, 2],
-        ["stream", "event-stream", 6, 2, 3],
+        ["stream", "event-stream", 6, 2],
         ["search", "search-index", 9, 1],
         ["dw", "data-warehouse", 9, 3],
       ],

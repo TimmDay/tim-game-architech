@@ -258,13 +258,13 @@ describe("the interview classics' traps", () => {
 })
 
 describe("existing levels keep their numbers", () => {
-  it("half the orders still splits 800/800 between queue consumers", () => {
+  it("half the orders still splits 25/25 between queue consumers", () => {
     const level = LEVELS.find((l) => l.id === "half-the-orders")
     const starter = level?.starter
     if (!level || !starter) throw new Error("missing level")
     const r = simulate(starter, level.load)
-    expect(r.perComponent.search?.writeRps).toBeCloseTo(800)
-    expect(r.perComponent.dw?.writeRps).toBeCloseTo(800)
+    expect(r.perComponent.search?.writeRps).toBeCloseTo(25)
+    expect(r.perComponent.dw?.writeRps).toBeCloseTo(25)
   })
 
   it("upload rush still queues every upload", () => {

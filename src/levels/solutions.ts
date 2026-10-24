@@ -862,12 +862,12 @@ export const SOLUTIONS: Record<string, Solution> = {
       "The {data-warehouse} reads every event too, independently, and can replay history if it falls behind.",
     ],
     numbers: [
-      "1,600 orders a second. With the {queue}, each consumer got about 800, so each team saw half the orders and blamed the other.",
-      "With the {event-stream}, both receive all 1,600 a second, across three shards of about 1,000 each.",
-      "Cost: about $57 for the {load-balancer} + 7 × $70 + 2 × $400 + 3 × $25 + $200 + $1,000 = $2,622 of $2,900. The {queue} it replaces cost about $1,500 a month by itself, because it's billed per message.",
+      "50 orders a second, out of 2,000 requests. With the {queue}, each consumer got about 25, so each team saw half the orders and blamed the other.",
+      "With the {event-stream}, both receive all 50 a second. One shard takes them at 5% of its capacity.",
+      "Cost: about $41 for the {load-balancer} + 4 × $70 + 2 × $400 + $25 + $200 + $1,000 = $2,346 of $2,550. The {queue} it replaces cost about $47 a month, so price was never the reason to switch: delivery was.",
     ],
     tradeoffs: [
-      "Consumers must track their own position in a stream, and it needs retention planning. At this volume it's also cheaper: a {queue} is billed per message, a stream by the shard-hour.",
+      "Consumers must track their own position in a stream, and it needs retention planning. Cost is a wash here: a {queue} is billed per message and a stream by the shard-hour, so a stream only gets cheaper at high volume. Choose on delivery, not price.",
       "Ordering only holds within a partition. Key events by order ID so each order's events stay in sequence.",
     ],
     alternatives: [

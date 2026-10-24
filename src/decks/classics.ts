@@ -1723,6 +1723,15 @@ export const PUSH_ALERTS = deck("push-alerts", [
       "Check when that device token last worked. Often it's dead.",
     ],
   ],
+  [
+    "alternative",
+    "Could serverless functions send the pushes instead of workers?",
+    [
+      "Yes: one function per message, with nothing to size or keep running.",
+      "Every invocation still counts against the provider's quota, so you still need the queue to pace them.",
+      "At 1,200 sends a second, per-invocation pricing and cold starts add up. A small pool of workers is often cheaper.",
+    ],
+  ],
 ])
 
 export const WEB_CRAWLER = deck("web-crawler", [

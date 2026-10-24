@@ -6,7 +6,7 @@ import type { Provider } from "~/providers/names"
 import type { Finding } from "~/sim/findings"
 import type { Check as CheckT, Grade } from "~/sim/grade"
 import { ms, nines, pct, rps, usd } from "./format"
-import { Modal } from "./Modal"
+import { Modal, ModalHeader } from "./Modal"
 import { Confetti } from "./Confetti"
 import { useEffect } from "react"
 import { sfx } from "~/game/sound"
@@ -114,7 +114,7 @@ export function Results({
   return (
     <Modal onClose={onClose} wide>
       {grade.stars === 3 && <Confetti />}
-      <div className="text-center">
+      <ModalHeader className="text-center">
         <div className="mb-2 flex justify-center gap-2">
           {[1, 2, 3].map((n) => (
             <Star
@@ -133,7 +133,7 @@ export function Results({
         <h2 className="font-display text-2xl font-bold text-white">
           {headline}
         </h2>
-      </div>
+      </ModalHeader>
 
       <div className="mt-4 space-y-3">
         {[1, 2, 3].map((star) => (

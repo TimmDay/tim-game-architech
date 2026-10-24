@@ -5,7 +5,7 @@ import type { Provider } from "~/providers/names"
 import type { Report } from "~/sim/advice"
 import type { SimResult } from "~/sim/types"
 import { ms, nines, pct, rps, usd } from "./format"
-import { Modal } from "./Modal"
+import { Modal, ModalHeader } from "./Modal"
 import { H } from "./panels"
 import { Rich } from "./Rich"
 
@@ -47,7 +47,7 @@ export function SandboxReport({
   return (
     <Modal onClose={onClose} wide>
       <div className="space-y-4">
-        <div className="pr-8">
+        <ModalHeader>
           <div className="font-mono text-[10px] tracking-[0.18em] text-cyan-300/80 uppercase">
             Sandbox load test
           </div>
@@ -63,7 +63,7 @@ export function SandboxReport({
           >
             {HEADLINE[report.status]}
           </h2>
-        </div>
+        </ModalHeader>
 
         <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
           {stats.map(([k, v, bad]) => (

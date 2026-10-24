@@ -5,6 +5,7 @@ import type { Graph, LoadProfile, SimResult } from "~/sim/types"
 import { H } from "./panels"
 import { MiniBlock } from "./MiniBlock"
 import { Rich } from "./Rich"
+import { ModalHeader } from "./Modal"
 
 /** What one placed component is doing in this design, and what it costs you. */
 export function DiscussView({
@@ -33,7 +34,7 @@ export function DiscussView({
   const facts = liveFacts(graph, id, result)
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 pr-8">
+      <ModalHeader className="flex items-center gap-3">
         <MiniBlock kind={c.kind} size={56} />
         <div>
           <div className="font-mono text-[10px] tracking-[0.18em] text-fuchsia-300/80 uppercase">
@@ -43,7 +44,7 @@ export function DiscussView({
             {serviceName(c.kind, provider).name}
           </h3>
         </div>
-      </div>
+      </ModalHeader>
 
       <p className="text-[14px] leading-relaxed text-slate-200">
         <Rich text={d.role} provider={provider} />

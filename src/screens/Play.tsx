@@ -29,8 +29,9 @@ import { LEVELS, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
 import { findings, symptomsOnly, type Finding } from "~/sim/findings"
 import { grade as gradeBuild, type Grade } from "~/sim/grade"
+import { report, type Report } from "~/sim/advice"
 import { simulate } from "~/sim/simulate"
-import type { ComponentKind, Graph, LoadProfile } from "~/sim/types"
+import type { ComponentKind, Graph, LoadProfile, SimResult } from "~/sim/types"
 import { Board } from "~/ui/Board"
 import { CardView } from "~/ui/CardView"
 import { DiscussView } from "~/ui/DiscussView"
@@ -50,6 +51,7 @@ import {
   nameOf,
 } from "~/ui/panels"
 import { Results } from "~/ui/Results"
+import { SandboxReport } from "~/ui/SandboxReport"
 
 type Tab = "brief" | "build" | "inspect" | "test"
 type Phase = "idle" | "ramp" | "hold" | "chaos"
@@ -94,6 +96,10 @@ export function Play({
   const [shake, setShake] = useState(false)
   const running = phase !== "idle"
   const [graded, setGraded] = useState<Grade | null>(null)
+  const [sandboxRun, setSandboxRun] = useState<{
+    result: SimResult
+    report: Report
+  } | null>(null)
   const [info, setInfo] = useState<Info | null>(null)
   const [tab, setTab] = useState<Tab>(
     level.mode === "repair" ? "brief" : "build",
@@ -170,7 +176,16 @@ export function Play({
       setTraffic(share)
       setHum(share)
       if (t < 1) raf.current = requestAnimationFrame(step)
-      else {
+      else if (sandbox) {
+        // No chaos and no stars in the sandbox: hold at peak, then report.
+        setPhase("hold")
+        setTimeout(() => {
+          stopHum()
+          setPhase("idle")
+          const peak = simulate(graph, load)
+          setSandboxRun({ result: peak, report: report(graph, load, peak) })
+        }, 1600)
+      } else {
         setPhase("hold")
         setTimeout(() => {
           setPhase("chaos")
@@ -221,7 +236,17 @@ export function Play({
       }
     }
     raf.current = requestAnimationFrame(step)
-  }, [graph, level, progress, onProgress, wide, sandbox, setTool, provider])
+  }, [
+    graph,
+    level,
+    load,
+    progress,
+    onProgress,
+    wide,
+    sandbox,
+    setTool,
+    provider,
+  ])
   useEffect(
     () => () => {
       cancelAnimationFrame(raf.current)
@@ -540,7 +565,18 @@ export function Play({
     </header>
   )
 
-  const modal = graded ? (
+  const modal = sandboxRun ? (
+    <SandboxReport
+      result={sandboxRun.result}
+      report={sandboxRun.report}
+      provider={provider}
+      onClose={() => setSandboxRun(null)}
+      onConcept={(c) => {
+        setSandboxRun(null)
+        setInfo({ concept: c })
+      }}
+    />
+  ) : graded ? (
     <Results
       grade={graded}
       level={level}

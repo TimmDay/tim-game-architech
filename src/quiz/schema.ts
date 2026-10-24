@@ -27,6 +27,38 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "near-me": s([
+    [
+      "How should a place's location be indexed for nearby search?",
+      "By its geohash, so nearby places share a prefix",
+      [
+        "By latitude, with longitude in a second index",
+        "By the place's street address",
+        "By the place's name, then its city",
+      ],
+      "A prefix match finds a cell's places in one index range; then filter by real distance.",
+    ],
+    [
+      "What's the cache key for a cell's results?",
+      "The cell's geohash, plus the category filter",
+      [
+        "The user's exact coordinates",
+        "The user's ID and the time",
+        "A hash of the whole request",
+      ],
+      "Exact coordinates make every search unique. Cells plus common filters are shared by thousands of users.",
+    ],
+    [
+      "What should the search request look like?",
+      "GET /places?lat=…&lng=…&radius=1km&type=pizza",
+      [
+        "POST /places with every visible place's ID",
+        "GET /places/:city with every place in the city",
+        "GET /places?cell=… with the client choosing the cell",
+      ],
+      "The server maps the point to cells, so it can change cell sizes without breaking clients.",
+    ],
+  ]),
   "on-schedule": s([
     [
       "What does the scheduler index to find due jobs?",

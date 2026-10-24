@@ -3286,3 +3286,187 @@ export const ON_SCHEDULE = deck("on-schedule", [
     ],
   ],
 ])
+
+export const NEAR_ME = deck("near-me", [
+  [
+    "clarify",
+    "What would you ask about searches?",
+    [
+      "A fixed radius, or 'the nearest ten'? They need different queries.",
+      "Filtered by what: category, rating, open now, price?",
+      "Ranked by distance alone, or by a mix of distance and quality?",
+    ],
+    "How does 'open now' change what you can cache?",
+  ],
+  [
+    "clarify",
+    "What would you ask about the places?",
+    [
+      "How many, and how often do they change? Places change rarely; reviews arrive constantly.",
+      "Must an owner's update appear at once, or within minutes?",
+      "How dense is the data: a city centre has thousands of places in a few streets.",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about traffic?",
+    [
+      "Searches a second at peak, and when: dinner time on Friday.",
+      "How concentrated: most searches are in a few hundred city-centre cells.",
+      "Is everyone in one country, or spread worldwide?",
+    ],
+  ],
+  [
+    "product",
+    "What makes nearby search feel good?",
+    [
+      "Results in well under a second, even on a phone network.",
+      "The places shown are actually open and actually close.",
+      "Moving the map updates the results smoothly.",
+    ],
+  ],
+  [
+    "decision",
+    "Why search by map cell rather than by latitude and longitude ranges?",
+    [
+      "A range on two columns can't use one ordinary index well: here SQL ranges run the primary at 298%.",
+      "A geohash turns a location into a short string, and nearby places share a prefix.",
+      "A search becomes 'these few cells', which can be indexed and cached.",
+    ],
+  ],
+  [
+    "decision",
+    "Why also search the neighbouring cells?",
+    [
+      "A point near a cell's edge is close to places in the next cell.",
+      "Searching the cell and its eight neighbours covers the radius.",
+      "Then filter by the real distance before ranking.",
+    ],
+  ],
+  [
+    "decision",
+    "Why cache results per cell?",
+    [
+      "City centres are a few hundred cells that everyone asks about.",
+      "Here the cache answers 22,686 of 30,000 searches a second.",
+      "Without it, even ten {search-index} nodes would run at 149%.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Geohash cells or a quadtree?",
+    [
+      "Geohash cells are fixed sizes: simple to compute, store and cache.",
+      "A quadtree splits busy areas into smaller cells, so no cell holds too many places.",
+      "Many systems use fixed cells for caching and an index that adapts for querying.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How long can a cell's results be cached?",
+    [
+      "Places change rarely, so minutes is usually fine.",
+      "But 'open now' changes on the hour: cache opening hours, and check them when ranking.",
+      "Purge a cell when one of its places changes, if freshness matters.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a database with spatial indexes do this?",
+    [
+      "Yes, at lower volume: spatial indexes answer 'within this radius' well.",
+      "At 30,000 searches a second, a dedicated index and a cache scale further.",
+      "Start with the database; move when the numbers demand it.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you precompute results for every cell?",
+    [
+      "For popular cells and common filters, yes: that's the cache, filled ahead of time.",
+      "Every cell times every filter is far too many combinations.",
+      "Precompute the hot ones; compute the rest on demand.",
+    ],
+  ],
+  [
+    "scale",
+    "Users worldwide. What changes?",
+    [
+      "Partition the index by region, so a search in Tokyo never touches Europe's data.",
+      "Serve each region from nearby, so users don't wait on an ocean crossing.",
+      "Places rarely cross regions, which makes this split clean.",
+    ],
+  ],
+  [
+    "scale",
+    "One cell in a city centre holds 20,000 places.",
+    [
+      "Fixed cells are uneven: busy areas need smaller cells.",
+      "Use a finer geohash there, or a quadtree that splits until each cell is small.",
+      "Ranking still trims the results to the best few.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Someone searches right on the line where two cells meet.",
+    [
+      "The nearest place may be in the neighbouring cell, a few metres away.",
+      "Always include the neighbours, then sort by true distance.",
+      "Geohash prefixes break at some cell boundaries, so check distances, not prefixes.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A restaurant closes for good. How quickly does it disappear?",
+    [
+      "The owner's update reaches the index through the stream in seconds.",
+      "Cached cells may show it until they expire or are purged.",
+      "Purge the affected cell on changes like this.",
+    ],
+  ],
+  [
+    "resilience",
+    "A cache node restarts on Friday evening.",
+    [
+      "Its cells fall through to the {search-index} until they're cached again.",
+      "With two nodes, only half the cells go cold at once.",
+      "Spare index capacity is what absorbs a cold cache at peak.",
+    ],
+  ],
+  [
+    "resilience",
+    "The search index falls behind on updates.",
+    [
+      "Searches still work, from slightly older data.",
+      "Updates wait in the stream until the index catches up.",
+      "Rebuild the index from the database if it's ever lost.",
+    ],
+  ],
+  [
+    "security",
+    "What could go wrong with a public nearby-search API?",
+    [
+      "Scrapers walking every cell to copy your whole database: rate-limit and watch for systematic sweeps.",
+      "Fake reviews pushing a place up the rankings: tie reviews to verified accounts and look for patterns.",
+      "Users' own locations are personal data: don't log precise coordinates longer than needed.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Search latency at p99, by region.",
+      "Cache hit rate, overall and for the busiest cells.",
+      "How far the index trails the database.",
+    ],
+  ],
+  [
+    "observability",
+    "Users in one city say search is slow. Where do you look?",
+    [
+      "That city's cells: are they cold in the cache, or too crowded?",
+      "Index latency for queries in that area.",
+      "Whether a recent change made its cells too large.",
+    ],
+  ],
+])

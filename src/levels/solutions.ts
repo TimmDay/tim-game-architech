@@ -502,6 +502,34 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "near-me": {
+    overview:
+      "Find places by map cell, and cache each popular cell's results. The {app-server} turns a search into the map cells it covers and reads their results from the {cache}; misses go to a {search-index} built for geographic queries. Places live in the {sql-primary}, and every change flows through an {event-stream} into the index.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. A search for 'pizza within 1 km' becomes the geohash cell the point is in, plus its neighbours, so places near a cell's edge aren't missed.",
+      "Each cell's results come from the {cache}. City centres are a few hundred cells everyone asks about, so most searches never go further.",
+      "Misses go to the {search-index}, which answers geographic queries and ranks by distance, rating and whether a place is open.",
+      "Owners' updates and new reviews are written to the {sql-primary}, published to the {event-stream}, and indexed within seconds.",
+    ],
+    numbers: [
+      "30,000 searches a second, and 150 updates.",
+      "Fifty {app-server} instances run at 60%, and 90% on Friday evening.",
+      "The {cache} answers 22,686 searches a second; 7,164 reach the {search-index}, where seven nodes run at 51%, and 77% on Friday.",
+      "Without the cache, even the ten nodes you can run would be at 149%.",
+      "Searching with latitude and longitude ranges in the {sql-primary} instead runs it at 298%: a range on two columns can't use one ordinary index well.",
+      "Cost: $1 + about $262 for the {load-balancer} + 50 × $70 + 2 × $150 + 7 × $200 + 2 × $400 + $25 = $6,288 of $6,900.",
+    ],
+    tradeoffs: [
+      "Cached cell results can be a few minutes stale: a place that just closed may still show. Store opening hours and check them when ranking, rather than caching 'open now'.",
+      "Fixed-size cells are simple, but a cell in a city centre holds thousands of places and one in the countryside none. A quadtree splits busy areas into smaller cells.",
+      "The index trails the database by seconds, which is fine for places that change a few times a year.",
+    ],
+    alternatives: [
+      "A quadtree in memory: cells split until each holds a manageable number of places. Precise, and it has to be rebuilt as places change.",
+      "A database with spatial indexes: fine at lower volume, and simpler than a separate search index.",
+      "A {cdn} for the busiest cells: answers from the edge, at a per-request price higher than serving from the cache.",
+    ],
+  },
   "on-schedule": {
     overview:
       "Jobs live in the {sql-primary} with their next run time. When one comes due, the scheduler puts it on a {queue}, and {worker} instances run it: one webhook call each, with a timeout, backoff and an idempotency key. A dead-letter queue sets aside jobs that always fail, and alerts catch workers that hang.",

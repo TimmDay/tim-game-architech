@@ -469,6 +469,20 @@ describe("the interview classics' traps", () => {
     expect(failed(l, noAlerts)).toContain("chaos")
   })
 
+  it("near me: without a cell cache, even ten index nodes can't keep up", () => {
+    const l = level("near-me")
+    const g = patch(rewire(l.reference, ["cells"], ["app>geo"]), "geo", {
+      instances: 10,
+    })
+    expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("near me: searching by coordinate ranges in SQL overloads the primary", () => {
+    const l = level("near-me")
+    const g = rewire(l.reference, ["cells", "geo", "changes"])
+    expect(failed(l, g)).toContain("traffic")
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

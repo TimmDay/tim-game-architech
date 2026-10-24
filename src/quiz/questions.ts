@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "near-me": q([
+    [
+      "Why search by map cell rather than latitude and longitude ranges?",
+      "A two-column range can't use one ordinary index well",
+      [
+        "Latitude and longitude can't be stored as numbers",
+        "Cells are always more accurate than coordinates",
+        "Databases can't compare decimal numbers",
+      ],
+      "A geohash turns a location into a short string, so 'nearby' becomes a few cells that can be indexed and cached.",
+      4,
+    ],
+    [
+      "Why search the neighbouring cells as well?",
+      "A point near an edge is close to the next cell",
+      [
+        "Neighbouring cells are always smaller",
+        "It doubles the number of results",
+        "The cache only holds neighbours",
+      ],
+      "Search the cell and its eight neighbours, then sort by the real distance.",
+      5,
+    ],
+    [
+      "Why cache results per cell?",
+      "City centres are a few hundred cells everyone asks about",
+      [
+        "Cells never change, so results are permanent",
+        "The search index can't answer cell queries",
+        "Caching hides how many places there are",
+      ],
+      "Here the cache answers 22,686 of 30,000 searches a second. Without it, ten index nodes would be at 149%.",
+      6,
+    ],
+    [
+      "What's a quadtree's advantage over fixed geohash cells?",
+      "It splits busy areas into smaller cells",
+      [
+        "It needs no index at all",
+        "It's faster to compute for every point",
+        "It removes the need for neighbouring cells",
+      ],
+      "Fixed cells are uneven: a city centre cell can hold thousands of places, a rural one none.",
+      7,
+    ],
+    [
+      "Why not cache 'open now' in a cell's results?",
+      "It changes on the hour, and the cache wouldn't",
+      [
+        "Opening hours are too large to cache",
+        "Nobody filters by opening hours",
+        "The search index forgets opening hours",
+      ],
+      "Cache the opening hours themselves, and check them when ranking.",
+      8,
+    ],
+    [
+      "Users go worldwide. How should the index be split?",
+      "By region, so each search touches one region's data",
+      [
+        "By place name, alphabetically",
+        "By category of place",
+        "By the date each place was added",
+      ],
+      "Places rarely cross regions, which makes the split clean. Serve each region from nearby.",
+      11,
+    ],
+    [
+      "One city-centre cell holds 20,000 places. What helps?",
+      "Smaller cells there, or a quadtree",
+      [
+        "A longer cache expiry",
+        "Fewer neighbouring cells",
+        "Searching only by name",
+      ],
+      "Ranking still trims the results to the best few, but each query reads less.",
+      12,
+    ],
+    [
+      "A restaurant closes. Why might it still appear for a while?",
+      "Its cell's cached results haven't expired",
+      [
+        "The database refuses deletions",
+        "The stream drops the update",
+        "Search indexes never remove places",
+      ],
+      "The update reaches the index in seconds; purge the affected cell for changes that matter.",
+      14,
+    ],
+    [
+      "Someone requests every cell in a country, one after another. What is it?",
+      "A scraper copying your database",
+      [
+        "A user planning a long trip",
+        "The cache warming itself",
+        "A normal search pattern",
+      ],
+      "Rate-limit and watch for systematic sweeps across cells.",
+      17,
+    ],
+    [
+      "Which measures matter most for nearby search?",
+      "p99 latency by region, and cache hit rate",
+      [
+        "The number of places stored",
+        "The database's disk space",
+        "The size of each review",
+      ],
+      "Watch how far the index trails the database too.",
+      18,
+    ],
+  ]),
   "on-schedule": q([
     [
       "How does the scheduler find the jobs that are due?",

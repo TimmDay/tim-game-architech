@@ -499,3 +499,18 @@ it("lets aggregating workers write far less than they read", () => {
   expect(r.perComponent.w?.writeRps).toBeCloseTo(1_000)
   expect(r.perComponent.kv?.writeRps).toBeCloseTo(1)
 })
+
+it("sends a caller's reads to its search index, and only its writes to the primary", () => {
+  const g = graph(
+    [
+      ["app", "app-server", 0, 0, 4],
+      ["c", "cache", 0, 0],
+      ["s", "search-index", 0, 0],
+      ["db", "sql-primary", 0, 0],
+    ],
+    [`${C}>app`, "app>c", "c>s", "app>db"],
+  )
+  const r = simulate(g, load())
+  expect(r.perComponent.db?.readRps).toBe(0)
+  expect(r.perComponent.db?.writeRps).toBeCloseTo(200)
+})

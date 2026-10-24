@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import { InstallCard } from "~/ui/InstallCard"
 import {
   Swords,
   Brain,
@@ -290,6 +291,9 @@ export function Home({
         <div className="flex justify-center">
           <Diorama />
         </div>
+      </div>
+      <div className="mt-4 max-w-md">
+        <InstallCard />
       </div>
 
       {shelf(

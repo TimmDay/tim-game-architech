@@ -5,6 +5,7 @@ import { discuss } from "~/levels/roles"
 import { SOLUTIONS } from "~/levels/solutions"
 import { serviceName, type Provider } from "~/providers/names"
 import { grade } from "~/sim/grade"
+import { expectedPractices, PRACTICE_LABEL } from "~/sim/practices"
 import { Board } from "./Board"
 import { ms, nines, pct, usd } from "./format"
 import { H } from "./panels"
@@ -25,6 +26,20 @@ export function SolutionView({
     () => grade(level.reference, level.load, level.targets, level.chaos.faults),
     [level],
   )
+  const checklist = useMemo(() => {
+    const stakes = level.targets.stakes
+    if (!stakes) return []
+    const by = new Map<string, string[]>()
+    for (const x of expectedPractices(level.reference, stakes))
+      by.set(x.componentId, [
+        ...(by.get(x.componentId) ?? []),
+        PRACTICE_LABEL[x.practice],
+      ])
+    return [...by].flatMap(([id, labels]) => {
+      const c = level.reference.components.find((c) => c.id === id)
+      return c ? [`{${c.kind}}: ${labels.join(", ")}.`] : []
+    })
+  }, [level])
   if (!s) return null
   const list = (items: string[], ordered = false) => {
     const Tag = ordered ? "ol" : "ul"
@@ -122,6 +137,13 @@ export function SolutionView({
         <H>Alternatives, and why not</H>
         {list(s.alternatives)}
       </section>
+
+      {checklist.length > 0 && (
+        <section>
+          <H>Production settings</H>
+          {list(checklist)}
+        </section>
+      )}
 
       <section>
         <H>Component by component</H>

@@ -53,8 +53,64 @@ export type ConceptId =
   | "pacelc"
   | "conflict-resolution"
   | "scatter-gather"
+  | "backups-and-rpo"
+  | "encryption-at-rest"
+  | "authn-authz"
+  | "rate-limiting"
+  | "timeouts-and-retries"
+  | "dead-letter-queue"
+  | "idempotency"
+  | "alerting"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
+  "backups-and-rpo": {
+    title: "Backups, RPO and RTO",
+    body: "Standbys and replicas copy every change instantly, including a bad migration or a dropped table, so they don't protect data from mistakes. Only backups do. The RPO (recovery point objective) is how much recent data you can lose: a nightly backup means up to a day. Point-in-time recovery replays the database's log to any minute. The RTO is how long the restore takes.",
+    interview:
+      "Say the RPO the business can live with, then pick the backup that meets it: daily for data you could rebuild, point-in-time for money and bookings. Mention testing restores, because an untested backup is a hope.",
+  },
+  "encryption-at-rest": {
+    title: "Encryption at rest",
+    body: "Data on disk, in snapshots and in backups is encrypted with keys held by a key service, so a lost disk or a leaked snapshot is unreadable. On managed stores it's close to free. It doesn't protect against someone who can query the database normally: that's what access control is for.",
+    interview:
+      "Say what it protects against (stolen disks, copied snapshots) and what it doesn't (a compromised app). Then mention who can use the keys, and that backups are encrypted too.",
+  },
+  "authn-authz": {
+    title: "Authentication and authorization",
+    body: "Authentication proves who is calling; authorization decides what they may touch. Check both on the server for every request, at the first tier that runs your code or at an {api-gateway} in front of it. A check in the browser is a convenience, never a control.",
+    interview:
+      "Name where identity is checked (the gateway or the app), and say that each request is also checked against the specific record: 'is this ticket in this user's company?' That second check is where most real breaches happen.",
+  },
+  "rate-limiting": {
+    title: "Rate limiting",
+    body: "A limit on how fast one caller (an account, an IP address, an API key) can send requests, enforced where traffic first lands. It stops credential stuffing, scraping and runaway clients from taking capacity meant for everyone else, and caps the bill when each request costs money.",
+    interview:
+      "Say what you limit per (account and IP for logins, API key for partners), where it's enforced (the edge), and what the caller sees: a 429 with a retry time, not a timeout.",
+  },
+  "timeouts-and-retries": {
+    title: "Timeouts, retries and backoff",
+    body: "Every call to another component needs a timeout, or one slow dependency holds every thread until the caller stops serving anyone. Retrying a failed call helps with brief glitches, but immediate retries hit a struggling dependency hardest exactly when it's weakest. Retry with exponential backoff and random jitter, and cap how many retries there can be.",
+    interview:
+      "For each synchronous call, say its timeout and retry policy. 'Backoff with jitter and a retry budget' is the phrase; 'circuit breaker' is the follow-up, for a dependency that's clearly down.",
+  },
+  "dead-letter-queue": {
+    title: "Dead-letter queues",
+    body: "A message that fails every time (a corrupt file, a bug that one input triggers) will otherwise be retried forever, using up a consumer each time and holding up the work behind it. After a few attempts, move it to a dead-letter queue, alert someone, and replay it once the cause is fixed.",
+    interview:
+      "Say how many attempts before a message is parked, who gets told, and how it's replayed. A dead-letter queue nobody watches is just a slower way to lose data.",
+  },
+  idempotency: {
+    title: "Idempotency keys",
+    body: "Retries mean a request can arrive twice: the client timed out, but the first attempt had worked. For anything that moves money or books something, the client sends a unique key with the request, and the server records it with the result. A repeat with the same key returns the first result instead of acting again.",
+    interview:
+      "Whenever you add retries to a write, add an idempotency key in the same breath, and say where the keys are stored and for how long.",
+  },
+  alerting: {
+    title: "Metrics and alerts",
+    body: "Alert on what users feel, not on every graph: error rate and p99 at the request tier, the age of the oldest message in each queue, and replication lag and storage on the system of record. An alert should mean someone needs to act now; everything else is a dashboard.",
+    interview:
+      "Name two or three alerts and their thresholds, tied to the targets: 'p99 over 300ms for five minutes pages someone'. Then say how you'd find which component is to blame: traces across the request path.",
+  },
   "cap-theorem": {
     title: "CAP theorem",
     body: "When a network split leaves copies of your data unable to reach each other, each side must choose: refuse requests until the split heals (consistency), or keep answering and let the copies disagree for a while (availability). You can't have both during the split. The P is a network partition, not the data partitioning (sharding) you choose for scale.",
@@ -395,6 +451,12 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
     body: "A managed API that reads a photo or PDF and returns structured fields: merchant, date, total, tax. Each call takes seconds, and providers cap how many calls per second each account may make until you ask for more.",
     interview:
       "Treat it as a slow, rate-limited dependency: call it from workers behind a queue, never from the request path, and plan for low-confidence results.",
+  },
+  "third-party-api": {
+    title: "{third-party-api}",
+    body: "Someone else's service: a payment provider, a carrier's shipping rates, an email sender. You can't scale it, fix it or see inside it. It has a quota on calls per second, and some days it's slow.",
+    interview:
+      "Keep it off the request path where you can, put a timeout on every call, retry with backoff, and send an idempotency key with anything that charges or books.",
   },
   "data-warehouse": {
     title: "{data-warehouse}",

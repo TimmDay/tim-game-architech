@@ -17,6 +17,7 @@ import type {
   SimResult,
 } from "./types"
 import { CLIENT_ID } from "./types"
+import { authPoints, rateLimitPoints } from "./practices"
 
 /** Share of the cacheable reads a warm cache actually serves. */
 export const CACHE_HIT_EFFICIENCY = 0.95
@@ -60,11 +61,20 @@ export function carries(graph: Graph, edge: Edge): Carries {
 }
 
 /** Instances still standing after a round's faults. */
-export function aliveInstances(c: PlacedComponent, faults: Fault[]): number {
+export function aliveInstances(
+  c: PlacedComponent,
+  faults: Fault[],
+  /** Someone would notice it hanging: its own alerts, or its queue's. */
+  watched = c.practices?.alerts === true,
+): number {
   const spec = CATALOGUE[c.kind]
   let alive = c.instances
   for (const f of faults) {
     if (f.kind === "kill-instance" && f.target === c.kind) alive -= 1
+    // Alerts get the stuck instance replaced; without them, every instance
+    // stays stuck while health checks keep passing.
+    if (f.kind === "silent-stall" && f.target === c.kind)
+      alive = watched ? alive - 1 : 0
     if (f.kind === "zone-outage" && !spec.managed) {
       // Round-robin placement: zone 0 holds the ceiling share.
       const zones = Math.max(1, Math.min(c.zones, c.instances))
@@ -120,6 +130,26 @@ export function behindAsync(graph: Graph): Set<string> {
   for (const id of all) if (!sync.has(id) && id !== CLIENT_ID) out.add(id)
   return out
 }
+
+/** A call with a timeout gives up after this long. */
+export const TIMEOUT_MS = 500
+/** A request holds a thread for at least this long, whatever its own p50. */
+const THREAD_FLOOR_MS = 100
+/** Calls made per attempt when a dependency is slow, by retry policy. */
+export const RETRY_LOAD = { none: 1, immediate: 3, backoff: 1.2 } as const
+/** Share of retried writes into a slow dependency that had already succeeded. */
+export const DUPLICATE_SHARE = 0.1
+/** Consumer capacity left while a poison message is retried forever. */
+export const POISON_CAPACITY = 0.4
+/** Data lost by restoring from each kind of backup, worst case. */
+export const BACKUP_LOSS_MINUTES = {
+  none: Infinity,
+  daily: 24 * 60,
+  "point-in-time": 5,
+} as const
+
+const retryLoad = (c: PlacedComponent | undefined) =>
+  RETRY_LOAD[c?.practices?.retries ?? "none"]
 
 /** Stores that can be split by one of a level's partition keys. */
 const SHARDABLE = new Set<ComponentKind>(["sql-primary", "nosql"])
@@ -197,15 +227,31 @@ export function simulate(
   faults: Fault[] = [],
 ): SimResult {
   const byId = new Map(graph.components.map((c) => [c.id, c]))
+  // A hung consumer shows up as its queue getting older.
+  const watched = (c: PlacedComponent) =>
+    c.practices?.alerts === true ||
+    graph.edges.some(
+      (e) =>
+        e.to === c.id &&
+        graph.components.some(
+          (q) =>
+            q.id === e.from && CATALOGUE[q.kind].async && q.practices?.alerts,
+        ),
+    )
   const alive = new Map(
-    graph.components.map((c) => [c.id, aliveInstances(c, faults)]),
+    graph.components.map((c) => [c.id, aliveInstances(c, faults, watched(c))]),
   )
   const asyncSet = behindAsync(graph)
   const multiplier = faults.reduce(
     (m, f) => (f.kind === "traffic-spike" ? m * f.multiplier : m),
     1,
   )
-  const offered = load.peakRps * multiplier
+  // Credential stuffing is extra traffic, unless every way in rate-limits it.
+  const stuffing = faults.find((f) => f.kind === "credential-stuffing")
+  const limited = rateLimitPoints(graph).every((c) => c.practices?.rateLimit)
+  const attack = stuffing && !limited ? stuffing.multiplier : 1
+  const slow = faults.find((f) => f.kind === "slow-dependency")
+  const offered = load.peakRps * multiplier * attack
   const split = faults.some((f) => f.kind === "network-split")
   const edgeCarries = new Map(graph.edges.map((e) => [e.id, carries(graph, e)]))
 
@@ -257,9 +303,12 @@ export function simulate(
         target?.kind === "queue"
           ? load.heavyWriteFraction
           : 1
+      // Retries multiply the calls into a dependency while it's slow.
+      const retried =
+        slow && target?.kind === slow.target && source ? retryLoad(source) : 1
       const f: Flow = {
-        reads: flow.reads * readShare,
-        writes: flow.writes * writeShare * jobShare,
+        reads: flow.reads * readShare * retried,
+        writes: flow.writes * writeShare * jobShare * retried,
         cacheable: flow.cacheable * readShare,
       }
       if (f.reads + f.writes <= 0) continue
@@ -346,6 +395,8 @@ export function simulate(
       aliveInstances: up,
       behindAsync: isAsync,
     }
+    if (slow) slowDown(m, c, graph, slow, edgeFlow, flow)
+    if (faults.some((f) => f.kind === "poison-message")) poisoned(m, c, graph)
     const key = partitionKeyOf(c, load)
     if (key) shard(m, c, key, flow, up)
     const mode = consistencyOf(c, load)
@@ -392,11 +443,42 @@ export function simulate(
   let divergent = 0
   for (const m of Object.values(perComponent)) divergent += m.divergentRps ?? 0
 
+  // Retried writes into the slow dependency, from callers with no
+  // idempotency keys: some had already worked the first time.
+  let duplicates = 0
+  if (slow)
+    for (const e of graph.edges) {
+      const from = byId.get(e.from)
+      const to = byId.get(e.to)
+      if (to?.kind !== slow.target || !from?.practices?.retries) continue
+      if (from.practices.idempotency) continue
+      const writes = perComponent[e.to]?.writeRps ?? 0
+      duplicates += (edgeFlow.get(e.id) ?? 0) > 0 ? writes * DUPLICATE_SHARE : 0
+    }
+
+  const exposed = faults.some((f) => f.kind === "unauthenticated-probe")
+    ? authPoints(graph)
+        .filter((c) => !c.practices?.auth)
+        .map((c) => c.id)
+    : []
+
+  let dataLoss = 0
+  if (faults.some((f) => f.kind === "bad-migration"))
+    for (const c of graph.components)
+      if (DURABLE.has(c.kind) && nodeFlow.has(c.id))
+        dataLoss = Math.max(
+          dataLoss,
+          BACKUP_LOSS_MINUTES[c.practices?.backups ?? "none"],
+        )
+
   return {
     perComponent,
     perEdge,
     offeredRps: offered,
     divergentRps: divergent,
+    duplicateRps: duplicates,
+    dataLossMinutes: dataLoss,
+    exposed,
     p99Ms: connected
       ? criticalPathP99(graph, perComponent, perEdge, offered)
       : 0,
@@ -474,6 +556,80 @@ export function topologyAvailability(
     a *= Math.pow(one, n)
   }
   return a
+}
+
+const DURABLE = new Set<ComponentKind>(["sql-primary", "nosql", "object-store"])
+
+/**
+ * A slow dependency, seen from both ends. The dependency's answers take
+ * longer; each caller holds a thread for as long as it waits, which is all of
+ * it without a timeout. A sync call that times out fails the request; one
+ * behind a queue goes back on the queue.
+ */
+function slowDown(
+  m: ComponentMetrics,
+  c: PlacedComponent,
+  graph: Graph,
+  slow: Extract<Fault, { kind: "slow-dependency" }>,
+  edgeFlow: Map<string, number>,
+  flow: Flow,
+) {
+  const spec = CATALOGUE[c.kind]
+  const byId = new Map(graph.components.map((x) => [x.id, x]))
+  if (c.kind === slow.target) {
+    const callers = graph.edges
+      .filter((e) => e.to === c.id)
+      .flatMap((e) => byId.get(e.from) ?? [])
+    const capped =
+      callers.length > 0 && callers.every((x) => x.practices?.timeouts)
+    m.p99Ms += capped ? Math.min(slow.extraMs, TIMEOUT_MS) : slow.extraMs
+    // Calls cut off by a timeout fail, synchronously.
+    if (capped && slow.extraMs > TIMEOUT_MS && !m.behindAsync)
+      m.droppedRps = flow.reads + flow.writes
+    return
+  }
+  const inbound = flow.reads + flow.writes
+  if (inbound <= 0) return
+  let held = 0
+  for (const e of graph.edges) {
+    if (e.from !== c.id || byId.get(e.to)?.kind !== slow.target) continue
+    const share = (edgeFlow.get(e.id) ?? 0) / inbound
+    const wait = c.practices?.timeouts
+      ? Math.min(slow.extraMs, TIMEOUT_MS)
+      : slow.extraMs
+    held += share * wait
+  }
+  if (held <= 0) return
+  // Fewer threads free means less capacity, in proportion.
+  const k = 1 + held / Math.max(THREAD_FLOOR_MS, spec.baseLatency.p50Ms)
+  scaleCapacity(m, k)
+}
+
+/** Consumers of a queue with no dead-letter queue lose capacity to retries. */
+function poisoned(m: ComponentMetrics, c: PlacedComponent, graph: Graph) {
+  const fedBy = graph.edges
+    .filter((e) => e.to === c.id)
+    .flatMap((e) => graph.components.find((x) => x.id === e.from) ?? [])
+  if (fedBy.some((q) => q.kind === "queue" && !q.practices?.dlq))
+    scaleCapacity(m, 1 / POISON_CAPACITY)
+}
+
+/** Re-judge a component as if its capacity were divided by `k`. */
+function scaleCapacity(m: ComponentMetrics, k: number) {
+  const before = m.utilization
+  const u = before * k
+  const total = m.readRps + m.writeRps
+  m.utilization = u
+  m.droppedRps = u > 1 ? total * (1 - 1 / u) : 0
+  const inflation =
+    u >= 1
+      ? LATENCY_INFLATION_CAP
+      : Math.min(LATENCY_INFLATION_CAP, 1 / (1 - u))
+  const was =
+    before >= 1
+      ? LATENCY_INFLATION_CAP
+      : Math.min(LATENCY_INFLATION_CAP, 1 / (1 - before))
+  m.p99Ms = (m.p99Ms / was) * inflation
 }
 
 /**

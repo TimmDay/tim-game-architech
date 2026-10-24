@@ -27,6 +27,7 @@ import { CATALOGUE } from "~/sim/catalogue"
 import type { Finding } from "~/sim/findings"
 import type { Targets } from "~/sim/grade"
 import type { Settings } from "~/game/edit"
+import { OFFERS } from "~/sim/practices"
 import {
   carries,
   consistencyOf,
@@ -39,6 +40,7 @@ import type {
   Graph,
   LoadProfile,
   PlacedComponent,
+  Practices,
   SimResult,
 } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
@@ -84,6 +86,7 @@ export function TargetList({
       </span>,
     ])
   if (targets.noBacklog) rows.push(["Async backlog", "must not grow"])
+  if (targets.stakes) rows.push(["Production settings", "in place for ★3"])
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">
       {rows.map(([k, v], i) => (
@@ -417,9 +420,151 @@ function DataOptions({
   )
 }
 
+const TOGGLES: Partial<Record<keyof Practices, [string, string]>> = {
+  encrypted: ["Encrypted at rest", "Disks, snapshots and backups"],
+  auth: ["Requires sign-in", "Checks who's calling, on every request"],
+  rateLimit: ["Rate limit", "Caps how fast one caller can send"],
+  timeouts: ["Timeouts", "Gives up on a call that's too slow"],
+  dlq: ["Dead-letter queue", "Parks messages that keep failing"],
+  idempotency: ["Idempotency keys", "A repeated write applies once"],
+  alerts: ["Alerts", "Pages someone when it fails or falls behind"],
+}
+
+/** A two- or three-way choice, as a row of small buttons. */
+function Choice<T extends string>({
+  label,
+  note,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  note: string
+  value: T | undefined
+  options: [T | undefined, string][]
+  onChange: (v: T | undefined) => void
+}) {
+  return (
+    <div>
+      <div className="text-[13px] text-slate-200">{label}</div>
+      <div className="mb-1.5 text-[11px] text-slate-500">{note}</div>
+      <div className="flex gap-1" role="radiogroup" aria-label={label}>
+        {options.map(([v, text]) => (
+          <button
+            key={text}
+            type="button"
+            role="radio"
+            aria-checked={value === v}
+            onClick={() => onChange(v)}
+            className={clsx(
+              "flex-1 rounded-lg border px-1.5 py-1.5 text-[12px]",
+              value === v
+                ? "border-emerald-300 bg-emerald-300/15 text-white"
+                : "border-white/10 text-slate-400 hover:text-slate-200",
+            )}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The settings a load test can't see. Shown in levels (where grading checks
+ * them for the third star) and the sandbox, never in Survival.
+ */
+function ProductionOptions({
+  c,
+  onSet,
+}: {
+  c: PlacedComponent
+  onSet: (p: Practices) => void
+}) {
+  const offers = OFFERS[c.kind]
+  const [open, setOpen] = useState(true)
+  if (!offers?.length) return null
+  const p = c.practices ?? {}
+  return (
+    <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.04] p-3">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <span className="text-[13px] font-semibold text-emerald-100">
+          Production settings
+        </span>
+        <span className="font-mono text-[11px] text-slate-500">
+          {open ? "hide" : "show"}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          {offers.includes("backups") && (
+            <Choice
+              label="Backups"
+              note="Standbys copy mistakes too; backups undo them"
+              value={p.backups}
+              options={[
+                [undefined, "None"],
+                ["daily", "Daily"],
+                ["point-in-time", "To the minute"],
+              ]}
+              onChange={(v) => onSet({ ...p, backups: v })}
+            />
+          )}
+          {offers.includes("retries") && (
+            <Choice
+              label="Retries"
+              note="What happens when a call fails"
+              value={p.retries}
+              options={[
+                [undefined, "None"],
+                ["immediate", "Immediate"],
+                ["backoff", "Backoff + jitter"],
+              ]}
+              onChange={(v) => onSet({ ...p, retries: v })}
+            />
+          )}
+          {offers.map((k) => {
+            const t = TOGGLES[k]
+            if (!t) return null
+            const on = p[k] === true
+            return (
+              <label
+                key={k}
+                className="flex cursor-pointer items-start gap-2.5"
+              >
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => onSet({ ...p, [k]: !on })}
+                  className="mt-0.5 size-4 accent-emerald-400"
+                />
+                <span>
+                  <span className="block text-[13px] text-slate-200">
+                    {t[0]}
+                  </span>
+                  <span className="block text-[11px] text-slate-500">
+                    {t[1]}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function InspectPanel({
   graph,
   load,
+  production,
   provider,
   selectedId,
   selectedEdgeId,
@@ -436,6 +581,8 @@ export function InspectPanel({
   graph: Graph
   /** The level's load: what decides whether sharding and consistency show. */
   load?: LoadProfile
+  /** Show production settings (levels and the sandbox, not Survival). */
+  production?: boolean
   provider: Provider
   selectedId?: string
   selectedEdgeId?: string
@@ -634,6 +781,12 @@ export function InspectPanel({
       )}
 
       {load && <DataOptions c={c} load={load} onSet={(v) => onSet(c.id, v)} />}
+      {production && (
+        <ProductionOptions
+          c={c}
+          onSet={(practices) => onSet(c.id, { practices })}
+        />
+      )}
 
       {live && m && (
         <div className="grid grid-cols-3 gap-1.5">

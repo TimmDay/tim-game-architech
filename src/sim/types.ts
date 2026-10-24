@@ -21,6 +21,7 @@ export type ComponentKind =
   | "search-index"
   | "data-warehouse"
   | "doc-ai"
+  | "third-party-api"
 
 export type Category = "edge" | "compute" | "data" | "messaging"
 
@@ -88,6 +89,31 @@ export type PlacedComponent = {
   partitionKey?: string
   /** What the store does when a network split leaves its copies apart. */
   consistency?: Consistency
+  /**
+   * Production settings from the sidebar. Grading checks them for the third
+   * star; they only change the simulation under the incident faults.
+   */
+  practices?: Practices
+}
+
+/**
+ * The settings a real deployment needs that a load test can't see: backups,
+ * encryption, auth, rate limits, timeouts and retries, dead-letter queues,
+ * idempotency and alerts. Grading checks them against what the level's stakes
+ * call for (`~/sim/practices`).
+ */
+export type Practices = {
+  /** Unset: no backups. Daily restores to last night; point-in-time to the minute. */
+  backups?: "daily" | "point-in-time"
+  encrypted?: boolean
+  auth?: boolean
+  rateLimit?: boolean
+  timeouts?: boolean
+  /** Unset: no retries. Immediate retries pile onto a struggling dependency. */
+  retries?: "immediate" | "backoff"
+  dlq?: boolean
+  idempotency?: boolean
+  alerts?: boolean
 }
 
 /**
@@ -154,6 +180,25 @@ export type Fault =
    * stores whose consistency is tunable notice.
    */
   | { kind: "network-split" }
+  /**
+   * Every call into components of this kind takes `extraMs` longer. Callers
+   * without timeouts hold their threads for all of it; immediate retries
+   * multiply the calls.
+   */
+  | { kind: "slow-dependency"; target: ComponentKind; extraMs: number }
+  /** Some messages fail every time. Without a dead-letter queue they're retried forever. */
+  | { kind: "poison-message" }
+  /** Attackers try stolen passwords at `multiplier` times normal traffic. */
+  | { kind: "credential-stuffing"; multiplier: number }
+  /** Someone calls the API without signing in. */
+  | { kind: "unauthenticated-probe" }
+  /** A bad migration corrupts the system of record and it must be restored. */
+  | { kind: "bad-migration" }
+  /**
+   * Components of this kind hang without crashing: health checks pass, no
+   * work gets done. With alerts, someone replaces the stuck instance.
+   */
+  | { kind: "silent-stall"; target: ComponentKind }
 
 export type ComponentMetrics = {
   readRps: number
@@ -190,6 +235,12 @@ export type SimResult = {
    * side doesn't see until it heals: conflicts to reconcile later.
    */
   divergentRps: number
+  /** Writes applied twice: retries without idempotency keys, during a slow dependency. */
+  duplicateRps: number
+  /** After a bad migration: the most recent data lost by the restore. 0 if no migration. */
+  dataLossMinutes: number
+  /** During an unauthenticated probe: components that answered it. */
+  exposed: string[]
   /** Something is wired up from the client at all. */
   connected: boolean
 }

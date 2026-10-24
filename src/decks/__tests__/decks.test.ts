@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { LEVELS } from "~/levels"
-import { DECKS } from ".."
+import { DECK_TITLES, DECKS } from ".."
+import { TOPICS } from "../topics"
 import { CATEGORY_ORDER, type CardCategory } from "../types"
 
 describe.each(LEVELS.map((l) => [l.id] as const))("%s deck", (id) => {
@@ -46,5 +47,22 @@ describe.each(LEVELS.map((l) => [l.id] as const))("%s deck", (id) => {
 
   it("has unique card ids", () => {
     expect(new Set(deck.map((c) => c.id)).size).toBe(deck.length)
+  })
+})
+
+describe.each(TOPICS.map((t) => [t.id, t] as const))("%s topic", (id, t) => {
+  it("has at least four cards, each with two discussion points", () => {
+    expect(t.cards.length).toBeGreaterThanOrEqual(4)
+    for (const c of t.cards) {
+      expect(c.points.length, c.prompt).toBeGreaterThanOrEqual(2)
+      expect(CATEGORY_ORDER).toContain(c.category)
+    }
+  })
+
+  it("is reachable as a deck, with ids no level uses", () => {
+    expect(DECKS[id]).toBe(t.cards)
+    expect(DECK_TITLES[id]).toBe(t.title)
+    expect(LEVELS.some((l) => l.id === id)).toBe(false)
+    expect(new Set(t.cards.map((c) => c.id)).size).toBe(t.cards.length)
   })
 })

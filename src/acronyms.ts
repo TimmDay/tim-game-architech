@@ -7,6 +7,38 @@
 export type Acronym = { expansion: string; note?: string }
 
 export const ACRONYMS: Record<string, Acronym> = {
+  CQRS: {
+    expansion: "Command Query Responsibility Segregation",
+    note: "Separate models for writing data and for reading it.",
+  },
+  JWT: {
+    expansion: "JSON Web Token",
+    note: "A signed token format. It can't be revoked before it expires.",
+  },
+  REST: {
+    expansion: "Representational State Transfer",
+    note: "The common style of web API: resources, standard methods, status codes.",
+  },
+  USE: {
+    expansion: "Utilisation, Saturation, Errors",
+    note: "What to measure for every resource: CPU, memory, disks, pools.",
+  },
+  RED: {
+    expansion: "Rate, Errors, Duration",
+    note: "What to measure for every service.",
+  },
+  MVCC: {
+    expansion: "Multi-Version Concurrency Control",
+    note: "Keeping several versions of a row so readers and writers don't block each other.",
+  },
+  LSM: {
+    expansion: "Log-Structured Merge tree",
+    note: "A storage engine that buffers writes in memory and writes sorted files in order.",
+  },
+  SSD: {
+    expansion: "Solid-State Drive",
+    note: "Flash storage: far faster than a spinning disk, far slower than memory.",
+  },
   ACID: {
     expansion: "Atomicity, Consistency, Isolation, Durability",
     note: "What a database transaction promises. Its C means rules are kept, not the C in CAP.",
@@ -186,6 +218,10 @@ export const NOT_ACRONYMS = new Set([
   "JavaScript",
   "WhatsApp",
   "YouTube",
+  "WebSockets",
+  "GraphQL",
+  "OAuth",
+  "OpenID",
 ])
 
 const terms = Object.keys(ACRONYMS).sort((a, b) => b.length - a.length)

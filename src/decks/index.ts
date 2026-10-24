@@ -32,6 +32,14 @@ import {
   SLOW_CHECKOUT,
   THREE_AM_PAGE,
 } from "./repair"
+import {
+  BAD_MIGRATION,
+  LOGIN_FLOOD,
+  NOBODY_NOTICED,
+  POISON_PILL,
+  SLOW_PARTNER,
+} from "./ops"
+import { TOPICS } from "./topics"
 import type { DeckCard } from "./types"
 
 export const DECKS: Record<string, DeckCard[]> = {
@@ -55,10 +63,21 @@ export const DECKS: Record<string, DeckCard[]> = {
   "tenant-split": TENANT_SPLIT,
   "like-storm": LIKE_STORM,
   "claim-your-name": CLAIM_YOUR_NAME,
+  "slow-partner": SLOW_PARTNER,
+  "poison-pill": POISON_PILL,
+  "login-flood": LOGIN_FLOOD,
+  "bad-migration": BAD_MIGRATION,
+  "nobody-noticed": NOBODY_NOTICED,
   "lost-writes": LOST_WRITES,
   "black-friday": BLACK_FRIDAY,
   "slow-checkout": SLOW_CHECKOUT,
   "three-am-page": THREE_AM_PAGE,
   "analytics-ate-prod": ANALYTICS_ATE_PROD,
   "half-the-orders": HALF_THE_ORDERS,
+  ...Object.fromEntries(TOPICS.map((t) => [t.id, t.cards])),
 }
+
+/** Fundamentals topics' titles, by deck id: a deck's heading when it has no level. */
+export const DECK_TITLES: Record<string, string> = Object.fromEntries(
+  TOPICS.map((t) => [t.id, t.title]),
+)

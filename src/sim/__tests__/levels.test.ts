@@ -58,6 +58,11 @@ describe.each(LEVELS)("$id", (level) => {
       if (!starter) return
       const g = grade(starter, level.load, level.targets, level.chaos.faults)
       expect(g.stars).toBeLessThan(3)
+      // Broken by its root cause, not by a missing production setting.
+      expect(
+        g.checks.filter((c) => !c.pass && c.id !== "practices").length,
+      ).toBeGreaterThan(0)
+      expect(g.checks.find((c) => c.id === "practices")?.pass).toBe(true)
     })
 
     it("names a root cause that exists in the starter", () => {
@@ -76,6 +81,7 @@ describe.each(LEVELS)("$id", (level) => {
         level.targets,
         g.chaos,
         level.chaos.label,
+        level.chaos.faults,
       )
       expect(
         f.some((x) => x.severity === "error" || x.severity === "warn"),
@@ -408,5 +414,134 @@ describe("the CAP shelf's traps", () => {
       const g = patch(l.reference, "db", { partitionKey, shards: 8 })
       expect(failed(l, g)).toContain("traffic")
     }
+  })
+})
+
+describe("the production incidents' traps", () => {
+  const level = (id: string) => {
+    const l = LEVELS.find((x) => x.id === id)
+    if (!l) throw new Error(`missing ${id}`)
+    return l
+  }
+  type L = ReturnType<typeof level>
+  const run = (l: L, g: Graph) => grade(g, l.load, l.targets, l.chaos.faults)
+  const failed = (l: L, g: Graph) =>
+    run(l, g)
+      .checks.filter((c) => !c.pass)
+      .map((c) => c.id)
+  const concepts = (l: L, g: Graph) => {
+    const r = run(l, g)
+    return findings(
+      g,
+      l.load,
+      r.peak,
+      l.targets,
+      r.chaos,
+      l.chaos.label,
+      l.chaos.faults,
+    ).map((f) => f.concept)
+  }
+  const set = (
+    g: Graph,
+    id: string,
+    p: PlacedComponent["practices"],
+  ): Graph => ({
+    ...g,
+    components: g.components.map((c) =>
+      c.id === id ? { ...c, practices: { ...c.practices, ...p } } : c,
+    ),
+  })
+  const size = (g: Graph, id: string, instances: number): Graph => ({
+    ...g,
+    components: g.components.map((c) =>
+      c.id === id ? { ...c, instances } : c,
+    ),
+  })
+
+  it("slow partner: workers with no timeout wait out the slowdown and fall behind", () => {
+    const l = level("slow-partner")
+    const g = set(l.reference, "pay", { timeouts: false })
+    expect(failed(l, g)).toContain("chaos")
+    expect(concepts(l, g)).toContain("timeouts-and-retries")
+    // And twenty of them still can't, on this budget.
+    expect(failed(l, size(g, "pay", 20))).toEqual(
+      expect.arrayContaining(["budget", "chaos"]),
+    )
+  })
+
+  it("slow partner: immediate retries pile onto the provider", () => {
+    const l = level("slow-partner")
+    expect(
+      failed(l, set(l.reference, "pay", { retries: "immediate" })),
+    ).toContain("chaos")
+  })
+
+  it("slow partner: retries without idempotency keys charge people twice", () => {
+    const l = level("slow-partner")
+    const g = set(l.reference, "pay", { idempotency: false })
+    expect(run(l, g).chaos.duplicateRps).toBeGreaterThan(0)
+    expect(concepts(l, g)).toContain("idempotency")
+  })
+
+  it("slow partner: charging while the customer waits takes the app down with the provider", () => {
+    const l = level("slow-partner")
+    const sync: Graph = {
+      components: l.reference.components.filter(
+        (c) => c.id !== "charges" && c.id !== "pay",
+      ),
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => !["charges", "pay"].includes(e.from) && e.to !== "charges",
+        ),
+        { id: "app>provider", from: "app", to: "provider" },
+      ],
+    }
+    expect(failed(l, sync)).toContain("chaos")
+  })
+
+  it("poison pill: without a dead-letter queue the previews fall behind, and buying workers breaks the budget", () => {
+    const l = level("poison-pill")
+    const g = set(l.reference, "jobs", { dlq: false })
+    expect(failed(l, g)).toContain("chaos")
+    expect(concepts(l, g)).toContain("dead-letter-queue")
+    expect(failed(l, size(g, "convert", 9))).toContain("budget")
+  })
+
+  it("login flood: with no rate limit, the attack reaches the servers", () => {
+    const l = level("login-flood")
+    const g = set(l.reference, "lb", { rateLimit: false })
+    expect(run(l, g).chaos.errorRate).toBeGreaterThan(0.1)
+    expect(concepts(l, g)).toContain("rate-limiting")
+  })
+
+  it("login flood: without a sign-in check, the probe gets answers", () => {
+    const l = level("login-flood")
+    const g = set(l.reference, "app", { auth: false })
+    expect(run(l, g).chaos.exposed).toEqual(["app"])
+    expect(concepts(l, g)).toContain("authn-authz")
+  })
+
+  it("bad migration: nightly backups miss the 15-minute limit, on the database or the files", () => {
+    const l = level("bad-migration")
+    for (const id of ["db", "files"]) {
+      const g = set(l.reference, id, { backups: "daily" })
+      expect(failed(l, g)).toEqual(["chaos"])
+      expect(concepts(l, g)).toContain("backups-and-rpo")
+    }
+  })
+
+  it("nobody noticed: with nothing watching, hung workers stay hung", () => {
+    const l = level("nobody-noticed")
+    const g = set(set(l.reference, "render", { alerts: false }), "jobs", {
+      alerts: false,
+    })
+    expect(failed(l, g)).toContain("chaos")
+    expect(concepts(l, g)).toContain("alerting")
+  })
+
+  it("nobody noticed: an alert on the queue's age catches them too", () => {
+    const l = level("nobody-noticed")
+    const g = set(l.reference, "render", { alerts: false })
+    expect(run(l, g).chaos.backlogGrowthRps).toBe(0)
   })
 })

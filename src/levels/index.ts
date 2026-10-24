@@ -6,6 +6,7 @@ import type {
   LoadProfile,
   PlacedComponent,
 } from "~/sim/types"
+import { withPractices } from "~/sim/practices"
 import { CLIENT_ID } from "~/sim/types"
 import type { ConceptId } from "./concepts"
 import type { Scenario } from "./roles"
@@ -47,7 +48,7 @@ export type Level = {
    * Build levels with their own shelf: classic interview questions, and the
    * CAP trade-offs (network splits, consistency and sharding).
    */
-  track?: "classic" | "cap"
+  track?: "classic" | "cap" | "ops"
 }
 
 type Row = [
@@ -57,7 +58,10 @@ type Row = [
   y: number,
   instances?: number,
   zones?: number,
-  data?: Pick<PlacedComponent, "shards" | "partitionKey" | "consistency">,
+  data?: Pick<
+    PlacedComponent,
+    "shards" | "partitionKey" | "consistency" | "practices"
+  >,
 ]
 
 /** Terse graph literal: components as rows, edges as `from>to` strings. */
@@ -114,6 +118,12 @@ const BUILD: Level[] = [
       budgetUsd: 400,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -159,6 +169,12 @@ const BUILD: Level[] = [
       budgetUsd: 750,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "cache" }],
@@ -212,6 +228,12 @@ const BUILD: Level[] = [
       budgetUsd: 100,
       writesReach: ["object-store"],
       noBacklog: false,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -259,6 +281,12 @@ const BUILD: Level[] = [
       budgetUsd: 650,
       writesReach: ["object-store", "sql-primary"],
       noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "worker" }],
@@ -316,6 +344,7 @@ const BUILD: Level[] = [
       budgetUsd: 650,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: { faults: [{ kind: "zone-outage" }], label: "Zone A loses power" },
     palette: [
@@ -368,6 +397,7 @@ const BUILD: Level[] = [
       budgetUsd: 800,
       writesReach: ["sql-primary", "search-index", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -442,6 +472,7 @@ const LATER_BUILD: Level[] = [
       budgetUsd: 1_300,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -512,6 +543,12 @@ const LATER_BUILD: Level[] = [
       budgetUsd: 600,
       writesReach: ["nosql", "search-index"],
       noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -586,6 +623,12 @@ const REPAIR: Level[] = [
       budgetUsd: 600,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -646,6 +689,7 @@ const REPAIR: Level[] = [
       budgetUsd: 700,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: true },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -713,6 +757,7 @@ const REPAIR: Level[] = [
       budgetUsd: 750,
       writesReach: ["sql-primary", "object-store"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "app-server" }],
@@ -782,6 +827,7 @@ const REPAIR: Level[] = [
       budgetUsd: 600,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: { faults: [{ kind: "zone-outage" }], label: "Zone A loses power" },
     palette: [
@@ -844,6 +890,7 @@ const REPAIR: Level[] = [
       budgetUsd: 800,
       writesReach: ["sql-primary", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -913,6 +960,7 @@ const REPAIR: Level[] = [
       budgetUsd: 800,
       writesReach: ["sql-primary", "search-index", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -1000,6 +1048,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 850,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "cache" }],
@@ -1057,6 +1111,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 1_000,
       writesReach: ["nosql", "event-stream"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
     chaos: {
       faults: [{ kind: "zone-outage" }],
@@ -1120,6 +1175,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 1_050,
       writesReach: ["nosql"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
@@ -1190,6 +1246,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 1_350,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: true },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 3 }],
@@ -1262,6 +1319,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 700,
       writesReach: ["object-store"],
       noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -1334,6 +1397,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 950,
       writesReach: ["cache", "data-warehouse"],
       noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
     },
     chaos: {
       faults: [{ kind: "zone-outage" }],
@@ -1397,6 +1461,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 600,
       writesReach: ["data-warehouse"],
       noBacklog: true,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "traffic-spike", multiplier: 2 }],
@@ -1477,6 +1547,7 @@ const CAP: Level[] = [
       budgetUsd: 500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: true },
       onSplit: "consistent",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1522,6 +1593,12 @@ const CAP: Level[] = [
       budgetUsd: 600,
       writesReach: ["durable"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
       onSplit: "available",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1587,6 +1664,12 @@ const CAP: Level[] = [
       budgetUsd: 1_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
     },
     chaos: {
       faults: [{ kind: "kill-instance", target: "sql-primary" }],
@@ -1657,6 +1740,12 @@ const CAP: Level[] = [
       budgetUsd: 1_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
       onSplit: "available",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1731,6 +1820,7 @@ const CAP: Level[] = [
       budgetUsd: 1_500,
       writesReach: ["sql-primary"],
       noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
       onSplit: "consistent",
     },
     chaos: { faults: SPLIT, label: SPLIT_LABEL },
@@ -1756,13 +1846,372 @@ const CAP: Level[] = [
   },
 ]
 
+/**
+ * Production incidents: chaos rounds that only the production settings can
+ * survive. A slow partner, a poison message, a login flood, a bad migration
+ * and a silent hang.
+ */
+const OPS: Level[] = [
+  {
+    id: "slow-partner",
+    mode: "build",
+    track: "ops",
+    requires: ["upload-rush"],
+    title: "Slow Partner",
+    tagline: "The payment provider is having a bad day. Are you?",
+    scenario: {
+      product: "the food-delivery app",
+      reads: "people browsing menus and tracking orders",
+      writes: "orders being placed",
+      hot: "restaurant menus",
+      records: "orders and their payment status",
+      job: "charging each order through the payment provider",
+    },
+    brief:
+      "A food-delivery app takes 1,200 requests a second at dinner time, and one in ten places an order. Each order is charged through a payment provider: a {third-party-api} you don't run, with a quota of 300 calls a second per block. The chaos round is the provider slowing down: every call takes five seconds longer. Browsing must keep working, no order may be lost, and nobody may be charged twice.",
+    load: {
+      peakRps: 1_200,
+      readFraction: 0.9,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+    },
+    targets: {
+      p99Ms: 350,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 800,
+      writesReach: ["sql-primary", "third-party-api"],
+      noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
+    },
+    chaos: {
+      faults: [
+        { kind: "slow-dependency", target: "third-party-api", extraMs: 5_000 },
+      ],
+      label: "The payment provider takes five seconds a call",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "sql-primary",
+      "queue",
+      "worker",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 5, 2],
+        ["db", "sql-primary", 6, 6, 2, 2],
+        ["charges", "queue", 6, 2],
+        ["pay", "worker", 8, 2, 7, 2],
+        ["provider", "third-party-api", 10, 2],
+      ],
+      [
+        `${C}>lb`,
+        "lb>app",
+        "app>db",
+        "app>charges",
+        "charges>pay",
+        "pay>provider",
+      ],
+    ),
+    concepts: ["timeouts-and-retries", "idempotency", "async-processing"],
+    hint: "Charge orders from workers behind a {queue}, not while the customer waits. Then ask what a worker does while the provider takes five seconds: how long does it wait, and how often does it try again?",
+  },
+  {
+    id: "poison-pill",
+    mode: "build",
+    track: "ops",
+    requires: ["upload-rush"],
+    title: "Poison Pill",
+    tagline: "One corrupt file, retried forever.",
+    scenario: {
+      product: "the document app",
+      reads: "people opening documents and previews",
+      writes: "uploaded documents",
+      hot: "recently shared documents",
+      records: "documents and their previews",
+      files: "every uploaded document and its previews",
+      job: "turning each upload into page previews",
+    },
+    brief:
+      "A document app takes 800 requests a second, and one in five is an upload that needs page previews made by a {worker}. The chaos round is a batch of corrupt files that crash the converter every time they're tried. The queue keeps handing them back, so they're retried forever, and the uploads behind them wait. The previews must keep up.",
+    load: {
+      peakRps: 800,
+      readFraction: 0.8,
+      cacheableFraction: 0,
+      heavyWriteFraction: 1,
+    },
+    targets: {
+      p99Ms: 400,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 420,
+      writesReach: ["object-store"],
+      noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "poison-message" }],
+      label: "Corrupt files crash the converter every time",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "object-store",
+      "queue",
+      "worker",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 4, 2],
+        ["files", "object-store", 7, 6],
+        ["jobs", "queue", 6, 2],
+        ["convert", "worker", 8, 2, 5, 2],
+      ],
+      [
+        `${C}>lb`,
+        "lb>app",
+        "app>files",
+        "app>jobs",
+        "jobs>convert",
+        "convert>files",
+      ],
+    ),
+    concepts: ["dead-letter-queue", "async-processing", "backpressure"],
+    hint: "Adding workers is an expensive way to keep retrying a file that will never work. What should happen to a message after its third failure?",
+  },
+  {
+    id: "login-flood",
+    mode: "build",
+    track: "ops",
+    requires: ["front-page"],
+    title: "Login Flood",
+    tagline: "A million stolen passwords, tried at once.",
+    scenario: {
+      product: "the streaming service",
+      reads: "people browsing the catalogue and their profile",
+      writes: "sign-ins and watch history",
+      hot: "the catalogue and popular titles",
+      records: "accounts and watch history",
+    },
+    brief:
+      "A streaming service serves 2,000 requests a second at peak. Passwords leaked from another site are being tried against yours: in the chaos round, attackers send four times your normal traffic at the sign-in endpoint, and someone probes the API without signing in at all. Real users must keep working, and nobody unsigned may read anything.",
+    load: {
+      peakRps: 2_000,
+      readFraction: 0.9,
+      cacheableFraction: 0.6,
+      heavyWriteFraction: 0,
+    },
+    targets: {
+      p99Ms: 350,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 600,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      stakes: { signedIn: true, personalData: true, money: false, abuse: true },
+    },
+    chaos: {
+      faults: [
+        { kind: "credential-stuffing", multiplier: 4 },
+        { kind: "unauthenticated-probe" },
+      ],
+      label: "Credential stuffing at 4x traffic, and an unsigned probe",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "api-gateway",
+      "app-server",
+      "cache",
+      "sql-primary",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 8, 2],
+        ["cache", "cache", 6, 3, 2, 2],
+        ["db", "sql-primary", 8, 4, 2, 2],
+      ],
+      [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
+    ),
+    concepts: ["rate-limiting", "authn-authz", "finding-the-bottleneck"],
+    hint: "Four times the traffic is far more than any budget buys. Stop it where it first lands, and make sure the code behind checks who's calling.",
+  },
+  {
+    id: "bad-migration",
+    mode: "build",
+    track: "ops",
+    requires: ["zone-outage"],
+    title: "Bad Migration",
+    tagline: "The standby copied the mistake perfectly.",
+    scenario: {
+      product: "the lab notebook",
+      reads: "scientists reading results and notes",
+      writes: "new measurements and attached files",
+      hot: "this week's experiments",
+      records: "experiments, measurements and notes",
+      files: "attached images and instrument files",
+    },
+    brief:
+      "Research labs keep their results in an online notebook: 600 requests a second, three in ten adding measurements or files. A day of results can be a day of fieldwork nobody can repeat, so the labs' contract says a restore loses at most 15 minutes. The chaos round is a migration that deletes a column of results. It runs on the primary, and the standby copies it straight away.",
+    load: {
+      peakRps: 600,
+      readFraction: 0.7,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 400,
+      writesReach: ["sql-primary", "object-store"],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
+      rpoMinutes: 15,
+    },
+    chaos: {
+      faults: [{ kind: "bad-migration" }],
+      label: "A migration deletes a column of results",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "sql-primary",
+      "sql-replica",
+      "object-store",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 3, 2],
+        [
+          "db",
+          "sql-primary",
+          7,
+          3,
+          2,
+          2,
+          { practices: { backups: "point-in-time" } },
+        ],
+        [
+          "files",
+          "object-store",
+          7,
+          6,
+          1,
+          1,
+          { practices: { backups: "point-in-time" } },
+        ],
+      ],
+      [`${C}>lb`, "lb>app", "app>db", "app>files"],
+    ),
+    concepts: ["backups-and-rpo", "standby", "read-replicas"],
+    hint: "Standbys and replicas copy the mistake. What restores the notebook to ten minutes before the migration, and what about the files?",
+  },
+  {
+    id: "nobody-noticed",
+    mode: "build",
+    track: "ops",
+    requires: ["slow-partner", "poison-pill"],
+    title: "Nobody Noticed",
+    tagline:
+      "Every health check is green. No invoices have gone out since midnight.",
+    scenario: {
+      product: "the billing system",
+      reads: "customers viewing their account and invoices",
+      writes: "usage records and invoice requests",
+      hot: "this month's invoices",
+      records: "customers, usage and invoices",
+      files: "invoice PDFs",
+      job: "rendering each invoice as a PDF",
+    },
+    brief:
+      "A billing system takes 400 requests a second, and half of them create invoices that {worker} instances render as PDFs. The chaos round is the quiet kind of failure: the workers hang on a stuck connection. They don't crash, so health checks stay green and nothing restarts them. Invoices must keep going out.",
+    load: {
+      peakRps: 400,
+      readFraction: 0.5,
+      cacheableFraction: 0,
+      heavyWriteFraction: 1,
+    },
+    targets: {
+      p99Ms: 350,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 650,
+      writesReach: ["sql-primary", "object-store"],
+      noBacklog: true,
+      stakes: { signedIn: true, personalData: true, money: true, abuse: false },
+    },
+    chaos: {
+      faults: [{ kind: "silent-stall", target: "worker" }],
+      label: "Workers hang without crashing",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "sql-primary",
+      "object-store",
+      "queue",
+      "worker",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 2, 2],
+        ["db", "sql-primary", 6, 6, 2, 2],
+        ["jobs", "queue", 6, 2],
+        ["render", "worker", 8, 2, 6, 2],
+        ["pdfs", "object-store", 10, 3],
+      ],
+      [`${C}>lb`, "lb>app", "app>db", "app>jobs", "jobs>render", "render>pdfs"],
+    ),
+    concepts: ["alerting", "n-plus-one-redundancy", "backpressure"],
+    hint: "A hung worker looks healthy from outside. What would tell someone the invoices have stopped, and how many workers do you need while one is being replaced?",
+  },
+]
+
+/**
+ * References and repair starters get every production practice their stakes
+ * call for. A reference shows the full answer; a starter's lesson is its root
+ * cause, not a missing setting.
+ */
+const hardened = (l: Level): Level => {
+  const stakes = l.targets.stakes
+  if (!stakes) return l
+  return {
+    ...l,
+    reference: withPractices(l.reference, stakes),
+    starter: l.starter && withPractices(l.starter, stakes),
+  }
+}
+
 export const LEVELS: Level[] = [
   ...BUILD,
   ...LATER_BUILD,
   ...CLASSICS,
   ...CAP,
+  ...OPS,
   ...REPAIR,
-]
+].map(hardened)
 
 export const levelById = (id: string) => LEVELS.find((l) => l.id === id)
 

@@ -13,6 +13,7 @@ Security posture and its to-dos are in [docs/SECURITY.md](docs/SECURITY.md).
 - [ ] **Enable App Check enforcement.** Create a reCAPTCHA v3 key (free), register it in Firebase App Check, set `VITE_FIREBASE_APPCHECK_SITE_KEY`, watch the App Check metrics for a few days, then turn on enforcement for Firestore and Auth.
 - [ ] **Sync builds in progress?** Boards you're mid-way through stay on the device that drew them. Probably fine; revisit if it annoys.
 - [ ] **Leaderboards.** Scores are computed in the browser, so a player can edit their own save. That's harmless while saves are private; before any public leaderboard, recompute or validate scores server-side (a Cloud Function), which needs the paid Blaze plan.
+- [ ] **Donate link.** A small "support the game" link (the old architecture-simulator had one in its footer). Shown as text plus a link, never a script-driven payment flow.
 - [ ] **Account deletion.** Add a "delete my data" button that removes `users/{uid}/save/main` (the rules already allow the owner to delete).
 
 ## Hosting

@@ -1,3 +1,4 @@
+import { expectedPractices, missingPractices, type Stakes } from "./practices"
 import { simulate } from "./simulate"
 import type {
   ComponentKind,
@@ -32,6 +33,16 @@ export type Targets = {
    * user keeps being served, and the copies are reconciled afterwards.
    */
   onSplit?: "consistent" | "available"
+  /**
+   * What the system has at stake, which decides the production practices it
+   * needs for the third star. Absent (sandbox, tests), nothing is checked.
+   */
+  stakes?: Stakes
+  /**
+   * How much recent data a restore may lose, in minutes. Checked when the
+   * chaos round is a bad migration.
+   */
+  rpoMinutes?: number
 }
 
 /** A consistent design may refuse the minority side, never the majority. */
@@ -46,6 +57,7 @@ export type Check = {
     | "backlog"
     | "availability"
     | "chaos"
+    | "practices"
   pass: boolean
   /** Which star this check belongs to. */
   star: 1 | 2 | 3
@@ -56,6 +68,8 @@ export type Grade = {
   stars: 0 | 1 | 2 | 3
   peak: SimResult
   chaos: SimResult
+  /** Production settings the stakes call for, and how many are missing. */
+  practices: { expected: number; missing: number }
 }
 
 /** Writes arriving at the best-fed component of a given sink. */
@@ -121,13 +135,24 @@ export function grade(
           ? chaos.divergentRps <= 0.5 && chaos.errorRate < MAJORITY_SERVES
           : chaos.errorRate <=
             Math.max(targets.maxErrorRate, CHAOS_ERROR_BUDGET)) &&
-        (!targets.noBacklog || chaos.backlogGrowthRps <= 0.5),
+        (!targets.noBacklog || chaos.backlogGrowthRps <= 0.5) &&
+        chaos.duplicateRps <= 0.5 &&
+        chaos.exposed.length === 0 &&
+        chaos.dataLossMinutes <= (targets.rpoMinutes ?? Infinity),
       star: 3,
     },
   )
+  const practices = targets.stakes
+    ? {
+        expected: expectedPractices(graph, targets.stakes).length,
+        missing: missingPractices(graph, targets.stakes).length,
+      }
+    : { expected: 0, missing: 0 }
+  if (targets.stakes)
+    checks.push({ id: "practices", pass: practices.missing === 0, star: 3 })
 
   const passed = (star: number) =>
     checks.filter((c) => c.star <= star).every((c) => c.pass)
   const stars = passed(3) ? 3 : passed(2) ? 2 : passed(1) ? 1 : 0
-  return { checks, stars, peak, chaos }
+  return { checks, stars, peak, chaos, practices }
 }

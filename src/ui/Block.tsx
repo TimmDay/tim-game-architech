@@ -17,6 +17,7 @@ import {
   Warehouse,
   ScanText,
   Zap,
+  Handshake,
   type LucideIcon,
 } from "lucide-react"
 import { CATALOGUE } from "~/sim/catalogue"
@@ -41,6 +42,7 @@ export const ICONS: Record<ComponentKind, LucideIcon> = {
   "search-index": Search,
   "data-warehouse": Warehouse,
   "doc-ai": ScanText,
+  "third-party-api": Handshake,
 }
 
 const S = 0.62

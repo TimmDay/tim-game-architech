@@ -16,27 +16,44 @@ export function ProviderToggle({
   value: Provider
   onChange: (p: Provider) => void
 }) {
+  const i = PROVIDERS.findIndex((p) => p.id === value)
+  const current = PROVIDERS[i]
+  const next = PROVIDERS[(i + 1) % PROVIDERS.length]
   return (
-    <div
-      role="radiogroup"
-      aria-label="Cloud provider naming"
-      className="flex rounded-full border border-white/10 bg-slate-900/70 p-0.5 font-mono text-[11px] backdrop-blur"
-    >
-      {PROVIDERS.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          role="radio"
-          aria-checked={value === p.id}
-          onClick={() => onChange(p.id)}
-          className={clsx(
-            "rounded-full px-2.5 py-1 font-semibold tracking-wide transition-colors sm:px-3",
-            value === p.id ? ACCENT[p.id] : "text-slate-400 hover:text-white",
-          )}
-        >
-          {p.label}
-        </button>
-      ))}
-    </div>
+    <>
+      {/* Phones: just the current one, and a tap moves to the next. */}
+      <button
+        type="button"
+        onClick={() => next && onChange(next.id)}
+        aria-label={`Cloud provider naming: ${current?.label}. Switch to ${next?.label}`}
+        className={clsx(
+          "rounded-full px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wide sm:hidden",
+          ACCENT[value],
+        )}
+      >
+        {current?.label}
+      </button>
+      <div
+        role="radiogroup"
+        aria-label="Cloud provider naming"
+        className="hidden rounded-full border border-white/10 bg-slate-900/70 p-0.5 font-mono text-[11px] backdrop-blur sm:flex"
+      >
+        {PROVIDERS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="radio"
+            aria-checked={value === p.id}
+            onClick={() => onChange(p.id)}
+            className={clsx(
+              "rounded-full px-2.5 py-1 font-semibold tracking-wide transition-colors sm:px-3",
+              value === p.id ? ACCENT[p.id] : "text-slate-400 hover:text-white",
+            )}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </>
   )
 }

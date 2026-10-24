@@ -201,7 +201,15 @@ export type LoadProfile = {
    * (resizing, rendering) use a core each; waiting jobs (calling a slow API)
    * can run many at once. Unset: a generic short job.
    */
-  job?: { seconds: number; cpuBound: boolean }
+  job?: {
+    seconds: number
+    cpuBound: boolean
+    /**
+     * Writes a worker passes on per job, when that isn't one: counting a
+     * minute of clicks per ad turns thousands of events into one write.
+     */
+    emits?: number
+  }
   /**
    * Average traffic over a month as a share of this peak, for usage billing.
    * Unset: AVERAGE_OF_PEAK. A seasonal product (a tax deadline) is far lower.

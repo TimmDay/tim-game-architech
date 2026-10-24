@@ -502,6 +502,149 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "top-players": {
+    overview:
+      "Keep the ranking in memory, and the truth on disk. Every score goes into sorted sets in the {cache}, which answer 'top 100' and 'my rank' in microseconds; every score also goes onto an {event-stream}, and {worker} instances store each player's best score in a {nosql} store keyed by player, so the ranking can be rebuilt if the cache is lost.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. A finished game's score is checked (was this game real?) and added to the season's sorted set in the {cache}.",
+      "Rank checks read the sorted set: the top 100 is a range at the top, and a player's rank is their position, both fast at millions of entries.",
+      "The score is also published to the {event-stream}. {worker} instances compare it with the player's stored best and write only improvements.",
+      "Bests live in the {nosql} store, keyed by player. If the cache loses a node, the ranking is rebuilt from them.",
+    ],
+    numbers: [
+      "30,000 requests a second: 15,000 scores and 15,000 rank checks.",
+      "Sixty {app-server} instances run at 50%, and 75% in the season's last hour.",
+      "Two {cache} nodes take every score and every rank check at about 8% busy: sorted sets are built for exactly this.",
+      "Thirty {event-stream} shards run at 50%. Twelve workers check scores at 63% (94% in the last hour), and one in five is a new best: 3,000 writes a second to four {nosql} blocks at 75%. In the last hour the store falls a little behind, then catches up.",
+      "Keying the ranking itself in {nosql} makes the whole board one key: 3,000 writes a second against the 1,000 a key takes. Ranking in a {sql-primary} means 15,000 writes a second, five times what it takes.",
+      "Cost: $1 + about $262 for the {load-balancer} + 60 × $70 + 2 × $150 + 30 × $25 + 12 × $120 + 4 × $950 = $10,753 of $11,600.",
+    ],
+    tradeoffs: [
+      "The ranking lives in memory, so losing the cache means rebuilding it from the stored bests. Two nodes, one copying the other, make that rare.",
+      "One sorted set holds the whole board on one node. Past tens of millions of players, split it by score range or region, and combine the tops.",
+      "Ranks for players far down the board change constantly and matter little. Show 'top 12%' instead of '1,204,331th', and compute it less often.",
+    ],
+    alternatives: [
+      "Storing every submission rather than each best: full history for anti-cheat, but five times the writes.",
+      "Recomputing the board from the database every minute: simple, but ranks are a minute stale and the query is heavy.",
+      "Separate boards per region or per friends list: smaller sorted sets, and often more interesting to players than a global rank.",
+    ],
+  },
+  "near-me": {
+    overview:
+      "Find places by map cell, and cache each popular cell's results. The {app-server} turns a search into the map cells it covers and reads their results from the {cache}; misses go to a {search-index} built for geographic queries. Places live in the {sql-primary}, and every change flows through an {event-stream} into the index.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. A search for 'pizza within 1 km' becomes the geohash cell the point is in, plus its neighbours, so places near a cell's edge aren't missed.",
+      "Each cell's results come from the {cache}. City centres are a few hundred cells everyone asks about, so most searches never go further.",
+      "Misses go to the {search-index}, which answers geographic queries and ranks by distance, rating and whether a place is open.",
+      "Owners' updates and new reviews are written to the {sql-primary}, published to the {event-stream}, and indexed within seconds.",
+    ],
+    numbers: [
+      "30,000 searches a second, and 150 updates.",
+      "Fifty {app-server} instances run at 60%, and 90% on Friday evening.",
+      "The {cache} answers 22,686 searches a second; 7,164 reach the {search-index}, where seven nodes run at 51%, and 77% on Friday.",
+      "Without the cache, even the ten nodes you can run would be at 149%.",
+      "Searching with latitude and longitude ranges in the {sql-primary} instead runs it at 298%: a range on two columns can't use one ordinary index well.",
+      "Cost: $1 + about $262 for the {load-balancer} + 50 × $70 + 2 × $150 + 7 × $200 + 2 × $400 + $25 = $6,288 of $6,900.",
+    ],
+    tradeoffs: [
+      "Cached cell results can be a few minutes stale: a place that just closed may still show. Store opening hours and check them when ranking, rather than caching 'open now'.",
+      "Fixed-size cells are simple, but a cell in a city centre holds thousands of places and one in the countryside none. A quadtree splits busy areas into smaller cells.",
+      "The index trails the database by seconds, which is fine for places that change a few times a year.",
+    ],
+    alternatives: [
+      "A quadtree in memory: cells split until each holds a manageable number of places. Precise, and it has to be rebuilt as places change.",
+      "A database with spatial indexes: fine at lower volume, and simpler than a separate search index.",
+      "A {cdn} for the busiest cells: answers from the edge, at a per-request price higher than serving from the cache.",
+    ],
+  },
+  "on-schedule": {
+    overview:
+      "Jobs live in the {sql-primary} with their next run time. When one comes due, the scheduler puts it on a {queue}, and {worker} instances run it: one webhook call each, with a timeout, backoff and an idempotency key. A dead-letter queue sets aside jobs that always fail, and alerts catch workers that hang.",
+    walkthrough: [
+      "Customers create and check jobs through the {load-balancer} and {app-server}. Each job is a row in the {sql-primary} with its schedule and next run time, indexed by that time.",
+      "Every few seconds the scheduler claims the jobs now due, with a lease so two schedulers can't both take one, puts each on the {queue}, and sets its next run time.",
+      "{worker} instances run each job: one webhook call with a half-second timeout, retried with backoff, carrying an idempotency key so the customer can ignore repeats.",
+      "A job that keeps failing moves to the dead-letter queue and the customer is told. Alerts on the queue's oldest message catch workers that hang.",
+    ],
+    numbers: [
+      "2,000 requests a second: 1,000 customers checking on their jobs and 1,000 jobs coming due.",
+      "Four {app-server} instances run at 50%; the {sql-primary} at 33%.",
+      "A run is one webhook call of about 300ms, nearly all waiting, so each worker keeps 100 in flight. Twelve run at 25% normally.",
+      "In the chaos round, timeouts hold each slow call for half a second instead of five, backoff adds a fifth more calls, the dead-letter queue sets aside the job that always fails, and alerts replace hung workers: the twelve run at 82%.",
+      "Take away any one of those settings and the queue falls behind: by 511 jobs a second without the dead-letter queue, and by every job with no alert on either the workers or the queue. Without idempotency keys, retries deliver about 120 webhooks a second twice.",
+      "Calling webhooks inside the scheduler's requests instead puts their slowness on every customer request: p99 passes 12 seconds.",
+      "Cost: $1 + about $41 for the {load-balancer} + 4 × $70 + 2 × $400 + about $946 for the {queue} + 12 × $120 = $3,508 of $3,800.",
+    ],
+    tradeoffs: [
+      "Delivery is at least once: a worker can call a webhook and crash before recording it. The idempotency key is what lets the customer treat a repeat as harmless.",
+      "A job runs at its time plus the queue's wait. When everyone schedules for midnight, that wait grows: add jitter to 'daily' jobs, or let customers pick a window rather than a second.",
+      "Polling a time-indexed table is simple and durable. It's less precise than an in-memory timer wheel, which is faster but has to be rebuilt from the table after a restart.",
+    ],
+    alternatives: [
+      "A timer wheel in memory: jobs sorted into buckets by second, very cheap to fire, but every scheduler restart reloads the next stretch of jobs from the database.",
+      "The queue's own delayed delivery: enqueue each job with a delay. Simple for one-off jobs, but long delays and recurring schedules still need the table.",
+      "One cron process on one machine: fine for a handful of jobs, and a single point of failure for a service.",
+    ],
+  },
+  "shared-doc": {
+    overview:
+      "Each document is a log of small edits, kept in order per document and merged so every copy ends up the same. The {app-server} that holds a document's open connections orders its edits and appends them to a {nosql} log keyed by document; the {cache} holds recent snapshots for fast opens. During a split, both sides keep typing, and the edits merge when it heals.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. Everyone editing a document is routed to the same server, which keeps their live connections and orders their edits.",
+      "Each batch of keystrokes becomes an edit with the version it was made against. The server transforms it against edits that arrived first (or the edits are built to merge in any order), then broadcasts it to the other editors.",
+      "Edits are appended to the {nosql} log, partitioned by document ID, and a snapshot is written now and then so opening a document doesn't replay its whole history.",
+      "Opening a document reads its latest snapshot (usually from the {cache}) and the edits since.",
+    ],
+    numbers: [
+      "10,000 requests a second: 6,000 batches of edits and 4,000 opens and catch-ups.",
+      "Twenty {app-server} instances run at 50%.",
+      "The {cache} answers 1,900 opens a second from recent snapshots; 2,100 reach the store.",
+      "Keyed by document, eight {nosql} blocks take the edits at 75%. The busiest document writes 480 edits a second, under the 1,000 one key takes.",
+      "Keyed by who typed, opening a document scans for every editor's changes: 237% of read capacity. Keyed by time, every new edit lands on one key.",
+      "During the split, the cut-off zone keeps taking about 2,000 edits a second, merged when it heals. Refusing instead fails 27% of requests.",
+      "Cost: $1 + about $104 for the {load-balancer} + 20 × $70 + 2 × $150 + 8 × $950 = $9,405 of $10,200.",
+    ],
+    tradeoffs: [
+      "Operational transforms need one place to order each document's edits, which is simpler to reason about but ties a document to one server. CRDTs merge in any order, so offline editing and splits just work, at the cost of extra metadata in every edit.",
+      "Routing every editor of a document to one server makes ordering easy, but that server is a hot spot for the busiest documents, and it must hand over cleanly when it fails.",
+      "Snapshots trade storage for speed: more often means faster opens and more writes.",
+    ],
+    alternatives: [
+      "Locking a paragraph while someone types in it: simple, and no merging, but people wait on each other, and a lost connection leaves a lock behind.",
+      "Last writer wins on the whole document: easy, and it silently throws away everyone else's typing.",
+      "A {sql-primary} for the edit log: fine for a small product, but 6,000 edits a second is twice what one takes.",
+    ],
+  },
+  "click-counter": {
+    overview:
+      "Record fast, count later, keep everything. The {app-server} publishes each click to an {event-stream} and redirects at once. {worker} instances count clicks per ad per minute and write one total a minute to the {nosql} store; the {data-warehouse} keeps every raw click, so finance can recount and settle disputes.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. The click link carries a signed ID; the app checks it, publishes a click event, and redirects.",
+      "The {event-stream} is partitioned by ad, so each ad's clicks go to one {worker}.",
+      "Workers keep this minute's counts in memory. When the minute closes, each writes one count per ad to the {nosql} store, keyed by ad and minute, and commits its position in the stream.",
+      "A second consumer loads every raw click into the {data-warehouse}, where billing is recounted nightly.",
+    ],
+    numbers: [
+      "15,000 clicks a second at peak, and 30,000 in the half-time ad break.",
+      "Forty {app-server} instances run at 38%, and 75% in the ad break.",
+      "Forty {event-stream} shards of about 1,000 events a second each run at 38%, and 75% in the ad break.",
+      "Twenty workers count at 38% (75% in the ad break) and write about 15 counts a second: a thousand times fewer writes than clicks.",
+      "Writing each click to the {nosql} store instead gives the top ad's key 750 writes a second, and 1,500 in the ad break, over the 1,000 a key takes. It also needs twenty blocks: about $22,000 a month.",
+      "Counting in a {sql-primary} means 15,000 writes a second, five times what it takes. Writing to the {data-warehouse} inside the request puts its seconds of latency on every redirect.",
+      "Cost: $1 + about $143 for the {load-balancer} + 40 × $70 + 40 × $25 + 20 × $120 + $950 + $1,000 = $8,294 of $9,000.",
+    ],
+    tradeoffs: [
+      "Dashboards are a minute behind, because a count is written when its minute closes. For billing, a minute is fine; for a live view, workers can also publish partial counts.",
+      "Two paths, the fast stream counts and the nightly recount, are more to run. They're worth it where the numbers are money: the slow path catches what the fast one gets wrong.",
+      "Late clicks need a rule: keep each minute open a little longer, and send anything later still to the nightly correction.",
+    ],
+    alternatives: [
+      "A single path: count only in the stream, and replay raw events to fix mistakes. Simpler, if you trust the counting code with the bill.",
+      "Counting only in the warehouse, in batches every few minutes: cheapest, but dashboards trail by the batch interval.",
+      "A count-min sketch for approximate per-ad counts over millions of ads: fixed memory, small error, fine for dashboards, not for bills.",
+    ],
+  },
   "sync-folder": {
     overview:
       "Split the bytes from the bookkeeping. File contents travel as 4 MB chunks straight between devices and the {object-store}, through short-lived signed URLs; the {app-server} only answers what changed, signs those links, and records each new version in the {sql-primary}. Relaying the chunks instead would need more servers than you can buy.",

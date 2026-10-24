@@ -253,10 +253,16 @@ export function findings(
     }
   }
 
-  const expectedWrites = peak.offeredRps * (1 - load.readFraction)
+  // As the grade does: write traffic types have their own stores, and a
+  // store fed by aggregating workers stands for more writes than it gets.
+  const typedShare = (load.traffic ?? [])
+    .filter((t) => t.of === "writes")
+    .reduce((s, t) => s + t.share, 0)
+  const expectedWrites =
+    peak.offeredRps * (1 - load.readFraction) * (1 - typedShare)
   if (targets && expectedWrites > 0) {
     for (const sink of targets.writesReach) {
-      const got = writesAt(graph, peak, sink)
+      const got = writesAt(graph, peak, sink, load.job?.emits)
       if (got >= expectedWrites * 0.99) continue
       const label = sink === "durable" ? "a durable store" : `{${sink}}`
       const kinds = sink === "durable" ? DURABLE_KINDS : [sink]

@@ -59,15 +59,10 @@ export function carries(graph: Graph, edge: Edge): Carries {
   // A search index is fed by events and queried by apps. A synchronous write
   // to it from the request path is never the intent of drawing that line.
   if (to?.kind === "search-index") return "reads"
-  // Read/write splitting: once a caller has replicas, its primary takes writes.
-  if (
-    to?.kind === "sql-primary" &&
-    graph.edges.some(
-      (e) =>
-        e.from === edge.from &&
-        graph.components.find((c) => c.id === e.to)?.kind === "sql-replica",
-    )
-  )
+  // Read/write splitting: once a caller reads somewhere else (replicas, or a
+  // search index, directly or through a cache in front of it), its primary
+  // takes the writes.
+  if (to?.kind === "sql-primary" && readsElsewhere(graph, edge.from))
     return "writes"
   return "all"
 }
@@ -88,6 +83,20 @@ export function directTraffic(graph: Graph, load: LoadProfile) {
     if (edges.length) out.push({ type, edges })
   }
   return out
+}
+
+/** Read-only paths a caller has: replicas, or a search index (perhaps behind a cache). */
+function readsElsewhere(graph: Graph, callerId: string): boolean {
+  const kind = (id: string) => graph.components.find((c) => c.id === id)?.kind
+  const readPath = (id: string) =>
+    kind(id) === "sql-replica" || kind(id) === "search-index"
+  return graph.edges.some(
+    (e) =>
+      e.from === callerId &&
+      (readPath(e.to) ||
+        (kind(e.to) === "cache" &&
+          graph.edges.some((f) => f.from === e.to && readPath(f.to)))),
+  )
 }
 
 /** Instances still standing after a round's faults. */
@@ -447,6 +456,14 @@ export function simulate(
         }
       }
       workerPassed.set(c.id, passed + Math.min(total, room))
+      // Aggregating workers write far less than they read.
+      const emits = load.job?.emits ?? 1
+      if (emits !== 1)
+        out = {
+          reads: out.reads * emits,
+          writes: out.writes * emits,
+          cacheable: out.cacheable * emits,
+        }
     }
     queue.push(...distribute(c.id, out))
   }

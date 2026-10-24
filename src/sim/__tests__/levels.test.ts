@@ -4,7 +4,7 @@ import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
 import { simulate } from "../simulate"
 import { SOLUTIONS } from "~/levels/solutions"
-import type { Graph, PlacedComponent } from "../types"
+import type { Graph, PlacedComponent, Practices } from "../types"
 import { CLIENT_ID as C } from "../types"
 
 describe.each(LEVELS)("$id", (level) => {
@@ -415,6 +415,86 @@ describe("the interview classics' traps", () => {
       ),
     }
     expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("click counter: writing each click to the hot ad's key fails the ad break", () => {
+    const l = level("click-counter")
+    const g = patch(
+      rewire(l.reference, ["clicks", "agg", "raw"], ["app>counts"]),
+      "counts",
+      { instances: 20 },
+    )
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["chaos", "budget"]))
+  })
+
+  it("click counter: writing to the warehouse inside the click puts its latency on every redirect", () => {
+    const l = level("click-counter")
+    const g = rewire(l.reference, ["clicks", "agg"], ["app>raw"])
+    expect(failed(l, g)).toContain("latency")
+  })
+
+  it("shared doc: keyed by who typed or by time, the edit log overloads", () => {
+    const l = level("shared-doc")
+    for (const partitionKey of ["user", "time"])
+      expect(
+        failed(l, patch(l.reference, "edits", { partitionKey })),
+      ).toContain("traffic")
+  })
+
+  it("shared doc: refusing edits during a split fails editors", () => {
+    const l = level("shared-doc")
+    const g = patch(l.reference, "edits", { consistency: "strong" })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("on schedule: each missing setting fails the chaos round on its own", () => {
+    const l = level("on-schedule")
+    const without = (id: string, p: Partial<Practices>) => {
+      const c = l.reference.components.find((x) => x.id === id)
+      return patch(l.reference, id, { practices: { ...c?.practices, ...p } })
+    }
+    for (const g of [
+      without("due", { dlq: false }),
+      without("run", { timeouts: false }),
+      without("run", { idempotency: false }),
+    ])
+      expect(failed(l, g)).toContain("chaos")
+    // Hung workers are caught by an alert on either the workers or the queue.
+    const noAlerts = patch(without("run", { alerts: false }), "due", {
+      practices: {
+        ...l.reference.components.find((x) => x.id === "due")?.practices,
+        alerts: false,
+      },
+    })
+    expect(failed(l, noAlerts)).toContain("chaos")
+  })
+
+  it("near me: without a cell cache, even ten index nodes can't keep up", () => {
+    const l = level("near-me")
+    const g = patch(rewire(l.reference, ["cells"], ["app>geo"]), "geo", {
+      instances: 10,
+    })
+    expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("near me: searching by coordinate ranges in SQL overloads the primary", () => {
+    const l = level("near-me")
+    const g = rewire(l.reference, ["cells", "geo", "changes"])
+    expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("top players: keying the ranking itself in NoSQL makes the board one hot key", () => {
+    const l = level("top-players")
+    const g = patch(l.reference, "players", { partitionKey: "board" })
+    expect(failed(l, g)).toContain("backlog")
+  })
+
+  it("top players: without the sorted sets, or without durable bests, writes go missing", () => {
+    const l = level("top-players")
+    expect(failed(l, rewire(l.reference, ["ranks"]))).toContain("writes")
+    expect(
+      failed(l, rewire(l.reference, ["scores", "best", "players"])),
+    ).toContain("writes")
   })
 
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {

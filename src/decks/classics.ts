@@ -2734,3 +2734,923 @@ export const SYNC_FOLDER = deck("sync-folder", [
     ],
   ],
 ])
+
+export const CLICK_COUNTER = deck("click-counter", [
+  [
+    "clarify",
+    "What would you ask about counting?",
+    [
+      "Exactly once for billing, or approximate for the dashboard? Often both, from different paths.",
+      "How fresh must the dashboard be: seconds, or a minute?",
+      "How long are raw clicks kept, and who reconciles them?",
+    ],
+    "Why might the two answers come from different systems?",
+  ],
+  [
+    "clarify",
+    "What would you ask about fraud?",
+    [
+      "Do bots and repeat clicks count? Advertisers won't pay for them.",
+      "Is filtering done before counting, or afterwards with a refund?",
+      "Who can see why a click was rejected?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about traffic?",
+    [
+      "Clicks a second at peak, and how spiky: a half-time ad doubles it.",
+      "How skewed: one ad can take 5% of everything.",
+      "How many ads, and how many advertisers watching dashboards?",
+    ],
+  ],
+  [
+    "product",
+    "Why must the click itself be fast?",
+    [
+      "The click is a redirect to the advertiser's page: every millisecond is someone waiting.",
+      "Slow redirects lose visitors, which costs the advertiser and you.",
+      "So recording a click must never wait for counting it.",
+    ],
+  ],
+  [
+    "decision",
+    "Why publish clicks to a stream instead of counting them in the request?",
+    [
+      "The redirect returns as soon as the event is published.",
+      "Every consumer (counting, billing, fraud checks) reads every click at its own pace.",
+      "Raw events can be replayed if a count turns out wrong.",
+    ],
+  ],
+  [
+    "decision",
+    "How do workers count clicks per ad per minute?",
+    [
+      "Each keeps running counts in memory for the current minute, for the ads it owns.",
+      "When a minute closes, it writes one count per ad: here about 15 writes a second instead of 15,000.",
+      "That's a tumbling window: fixed minutes that don't overlap.",
+    ],
+  ],
+  [
+    "decision",
+    "Why does aggregation solve the hot ad?",
+    [
+      "Written per click, the top ad's key gets 750 writes a second, and 1,500 in the ad break: over the 1,000 a key takes.",
+      "Aggregated, it gets one write a minute.",
+      "Partition the stream by ad, so one worker owns each ad's count.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Exactly once: how close can you get?",
+    [
+      "The stream delivers at least once, so a worker can see a click twice after a restart.",
+      "Write each minute's count by key, so rewriting it is harmless, and give every click an ID.",
+      "Commit the stream position together with the counts, so a restart resumes exactly where it stopped.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "A fast path and a batch path, or only one?",
+    [
+      "Stream counts give dashboards numbers that are seconds old.",
+      "The warehouse recounts raw clicks nightly for billing, catching anything the fast path got wrong.",
+      "Two paths (the 'lambda' pattern) are more to run; one stream path with replay ('kappa') is simpler, if you trust it.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you increment a counter in the database for each click?",
+    [
+      "15,000 increments a second is five times what one {sql-primary} writes.",
+      "In {nosql}, the hot ad's key alone passes its limit in the ad break.",
+      "Counting per click only works at small scale.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the warehouse do all the counting?",
+    [
+      "Yes, in batches: load raw clicks and query them every few minutes.",
+      "Dashboards would then be minutes behind.",
+      "Writing to it inside the click request would put its seconds of latency on every redirect.",
+    ],
+  ],
+  [
+    "scale",
+    "Clicks grow tenfold. What changes?",
+    [
+      "More stream shards and workers: both scale out by partition.",
+      "The counts store barely notices: aggregation keeps its writes tiny.",
+      "Raw storage grows fastest: compress it, and move old clicks to cheaper storage.",
+    ],
+  ],
+  [
+    "scale",
+    "How do you find the top 100 ads this hour?",
+    [
+      "Each worker keeps a top list for the ads it owns.",
+      "Merge those lists: since each ad belongs to one worker, the overall top 100 is somewhere in their lists.",
+      "For approximate counts over a huge number of ads, a count-min sketch uses fixed memory.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A click arrives three minutes late. Which minute does it count in?",
+    [
+      "The minute it happened (event time), not the minute it arrived.",
+      "Keep each window open a little longer (a watermark), then close it.",
+      "Clicks later than that go to a correction the nightly recount picks up.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A bot clicks the same ad 1,000 times.",
+    [
+      "Filter repeats from one user, device or address within a short window.",
+      "Count raw clicks and billable clicks separately.",
+      "Refunds for fraud found later come from the nightly recount.",
+    ],
+  ],
+  [
+    "resilience",
+    "A counting worker crashes in the middle of a minute.",
+    [
+      "Its counts in memory are lost, but the stream still holds the clicks.",
+      "The replacement resumes from the last committed position and counts them again.",
+      "Nothing is billed twice, because counts are written by key, not added.",
+    ],
+  ],
+  [
+    "resilience",
+    "The warehouse is down for maintenance.",
+    [
+      "Raw clicks wait in the stream, which must keep them long enough.",
+      "Counting and redirects carry on unaffected.",
+      "When it's back, it catches up from where it stopped.",
+    ],
+  ],
+  [
+    "security",
+    "What could an attacker do to a click service?",
+    [
+      "Click fraud: inflate a competitor's bill, or their own payouts.",
+      "Forge click events directly, so only accept clicks carrying an ID signed by your ad server.",
+      "Rate-limit by address and device, and keep raw evidence for disputes.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Stream lag for each consumer: how far counting and billing are behind.",
+      "The gap between the fast counts and the nightly recount.",
+      "Clicks a second per ad, to spot fraud and hot ads.",
+    ],
+  ],
+  [
+    "observability",
+    "An advertiser disputes their bill. How do you answer?",
+    [
+      "Recount their clicks from the raw events for that period.",
+      "Show the filtered clicks separately, with the reason for each.",
+      "Because raw events are kept, the answer is evidence, not a guess.",
+    ],
+  ],
+])
+
+export const SHARED_DOC = deck("shared-doc", [
+  [
+    "clarify",
+    "What would you ask about editing?",
+    [
+      "How many people edit one document at once? Google Docs allows up to 100 in a file.",
+      "Text only, or tables, images and comments too? Each needs its own merge rules.",
+      "Must people be able to edit offline, then sync later?",
+    ],
+    "How does offline editing change the merge strategy?",
+  ],
+  [
+    "clarify",
+    "What would you ask about latency?",
+    [
+      "How quickly must someone's typing appear for others? Well under a second feels live.",
+      "Must your own typing appear instantly, before the server confirms it? Yes, always.",
+      "Are editors spread across the world, or in one region?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about history?",
+    [
+      "Must every version be kept, so people can see and restore old ones?",
+      "Who made each change, and when?",
+      "How long is history kept, and does deleting a document delete it?",
+    ],
+  ],
+  [
+    "product",
+    "What does a good editing experience feel like?",
+    [
+      "Your own typing never waits on the network.",
+      "Others' cursors and changes appear smoothly, without jumping.",
+      "Nothing anyone typed is ever lost, even after a disconnection.",
+    ],
+  ],
+  [
+    "decision",
+    "Why store a document as a log of edits rather than as one blob?",
+    [
+      "Saving the whole document on every keystroke means huge, conflicting writes.",
+      "Small edits can be ordered, broadcast and merged, and they give you history for free.",
+      "Snapshots now and then keep opening a document fast.",
+    ],
+  ],
+  [
+    "decision",
+    "Why key the edit log by document?",
+    [
+      "Opening or catching up on a document reads one partition, in order.",
+      "With up to 100 editors per file, the busiest document is a small share: here 480 edits a second.",
+      "By who typed, opening a document becomes a scan; by time, every edit lands on one key.",
+    ],
+  ],
+  [
+    "decision",
+    "Why keep accepting edits during a split?",
+    [
+      "Refusing means people's typing is thrown away or blocked, which they notice at once.",
+      "Edits are built to merge, so the two sides can be combined when the network heals.",
+      "Here, refusing would fail 27% of requests.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Operational transforms or CRDTs?",
+    [
+      "Operational transforms rewrite each edit against the ones that came first. They need one place to order a document's edits.",
+      "CRDTs give every character an identity, so edits merge in any order. Offline editing and splits just work.",
+      "CRDTs carry more metadata per edit; transforms carry more server logic. Both are used in real editors.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Route every editor of a document to the same server?",
+    [
+      "Yes for transforms: one server orders the document's edits and broadcasts them.",
+      "That server is a hot spot for the busiest documents, and must hand over cleanly if it dies.",
+      "Route by document ID with consistent hashing, so adding servers moves few documents.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you lock the paragraph someone is typing in?",
+    [
+      "It's simple, and there's nothing to merge.",
+      "But people wait on each other, and a dropped connection leaves a lock behind.",
+      "Fine for forms, poor for documents.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the last save win?",
+    [
+      "It's the easiest thing to build.",
+      "It silently throws away everyone else's typing since your last save.",
+      "That's the one outcome a shared editor must never have.",
+    ],
+  ],
+  [
+    "scale",
+    "How do live updates reach every editor?",
+    [
+      "Each editor keeps a live connection (WebSockets) to the server holding the document.",
+      "That server broadcasts each edit to the document's other connections.",
+      "Millions of open connections need servers built to hold many idle ones cheaply.",
+    ],
+  ],
+  [
+    "scale",
+    "A document has ten years of edits. How does it still open fast?",
+    [
+      "Write a snapshot every so often: the document as it stood at some version.",
+      "Opening reads the latest snapshot and only the edits after it.",
+      "Old edits can move to cheaper storage, kept for history.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two people delete the same word at the same moment.",
+    [
+      "Both edits refer to the same characters, so the second finds them already gone.",
+      "Transforms or CRDTs turn the second delete into nothing, not into deleting the next word.",
+      "This is exactly the case naive merging gets wrong.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Someone edits for an hour on a train, offline.",
+    [
+      "Their edits queue locally, against the version they had.",
+      "On reconnect they merge with everything that happened meanwhile.",
+      "CRDTs handle this naturally; transforms need the whole hour transformed against the server's history.",
+    ],
+  ],
+  [
+    "resilience",
+    "The server holding a busy document dies.",
+    [
+      "Editors reconnect and are routed to a new server for that document.",
+      "It loads the latest snapshot and edits from the log, then carries on.",
+      "Clients resend any edits the log hadn't confirmed, so nothing typed is lost.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone is cut off during a meeting.",
+    [
+      "Here, the cut-off zone keeps taking about 2,000 edits a second, and nobody's typing is refused.",
+      "When it heals, both sides' edits merge.",
+      "Everyone sees the same document again within moments.",
+    ],
+  ],
+  [
+    "security",
+    "Who can see and change a document?",
+    [
+      "Check permissions when a connection opens, and again on every edit: access can be revoked mid-session.",
+      "A viewer's connection must never be able to send edits.",
+      "Shared links need their own expiry and permissions.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Time from an edit to it appearing for others: the number users feel.",
+      "Open connections per server, and the busiest documents.",
+      "Merge failures and client resyncs, which mean something went wrong.",
+    ],
+  ],
+  [
+    "observability",
+    "A user says their paragraph vanished. How do you check?",
+    [
+      "Replay the document's edit log to the time it happened.",
+      "See who deleted it, or whether a merge went wrong.",
+      "History lets you restore it, which is the first thing to offer them.",
+    ],
+  ],
+])
+
+export const ON_SCHEDULE = deck("on-schedule", [
+  [
+    "clarify",
+    "What would you ask about the jobs?",
+    [
+      "One-off ('at 9am tomorrow') or recurring ('every hour')? Recurring needs a next run time computed each time.",
+      "How precise: to the second, or within a minute?",
+      "What does a job do: call a webhook, run code, send an email?",
+    ],
+    "How does 'to the second' change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about failures?",
+    [
+      "If a job fails, retry? How many times, and with what gaps?",
+      "If the scheduler was down at 9am, should the 9am job run late, or be skipped?",
+      "Must a job never run twice, or is twice acceptable if harmless?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about time?",
+    [
+      "Whose time zone is '9am'? The customer's, and it moves with daylight saving.",
+      "What happens to a 2:30am job on the night clocks skip from 2am to 3am?",
+      "How many jobs are due at the same moment, like midnight or the top of the hour?",
+    ],
+  ],
+  [
+    "product",
+    "What do customers care about most?",
+    [
+      "Their job ran, on time, once.",
+      "When it didn't, they can see why, and when it will be retried.",
+      "They're told when a job keeps failing, instead of finding out weeks later.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you find the jobs that are due?",
+    [
+      "Store each job's next run time, and index it.",
+      "Every few seconds, claim the jobs whose time has come: a range read on the index, not a scan.",
+      "Claim with a lease, so two schedulers can't both take the same job.",
+    ],
+  ],
+  [
+    "decision",
+    "Why queue jobs rather than run them in the scheduler?",
+    [
+      "Running a job means calling someone else's webhook, which can be slow or down.",
+      "The queue lets workers run jobs at their own pace, and survives worker restarts.",
+      "The scheduler only decides what's due; it never waits on a customer's server.",
+    ],
+  ],
+  [
+    "decision",
+    "What does each worker need for the chaos round?",
+    [
+      "Timeouts, so a slow webhook holds a slot for half a second, not five.",
+      "Backoff on retries, and a dead-letter queue, so a job that always fails stops coming back.",
+      "Alerts on the queue's oldest message, so hung workers are noticed and replaced.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Exactly once, or at least once?",
+    [
+      "A worker can call the webhook and crash before recording it, so the job runs again.",
+      "Exactly once isn't possible across someone else's server. At least once, with an idempotency key, is the honest promise.",
+      "The customer uses the key to ignore a repeat.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Poll a database table, or keep timers in memory?",
+    [
+      "Polling a time-indexed table is simple, durable and easy to scale out with leases.",
+      "A timer wheel in memory fires precisely and cheaply, but must be rebuilt from the table after every restart.",
+      "Many schedulers do both: the table is the truth, memory holds the next few minutes.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you use the queue's delayed delivery instead?",
+    [
+      "For one-off jobs a few minutes away, yes: enqueue with a delay.",
+      "Queues cap how long a delay can be, and recurring jobs still need their next time computed.",
+      "So the table stays the source of truth.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could one cron process run everything?",
+    [
+      "For a handful of internal jobs, it's the simplest answer.",
+      "For a service, it's a single point of failure, and it can't scale past one machine.",
+      "Leases on the job table let many schedulers share the work safely.",
+    ],
+  ],
+  [
+    "scale",
+    "Half the customers schedule their daily job for midnight.",
+    [
+      "A huge burst arrives at 00:00, and the queue absorbs it, so jobs run late rather than fail.",
+      "Spread it: add jitter to 'daily', or let customers choose a window.",
+      "Show customers the expected delay, so 'midnight' doesn't surprise them.",
+    ],
+  ],
+  [
+    "scale",
+    "A hundred million jobs. What changes?",
+    [
+      "Partition the job table by next run time and customer, so claiming due jobs spreads across shards.",
+      "Each scheduler owns a set of partitions, by lease.",
+      "Run history grows fastest: keep recent runs hot, archive the rest.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The scheduler was down from 8:55 to 9:05. What about the 9:00 jobs?",
+    [
+      "It's the misfire question, and customers should choose: run late, or skip.",
+      "By default most systems run them as soon as they can.",
+      "A recurring job shouldn't then run twice to 'catch up' unless asked to.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A job is set for 2:30am, and tonight the clocks jump from 2am to 3am.",
+    [
+      "2:30am doesn't exist tonight, so decide: run at 3am, or skip.",
+      "In autumn the hour repeats, and a 1:30am job could run twice.",
+      "Store schedules in the customer's time zone, and compute each run time in universal time.",
+    ],
+  ],
+  [
+    "resilience",
+    "A job fails every time it runs.",
+    [
+      "Retry a few times with backoff, then move it to the dead-letter queue.",
+      "Tell the customer, and pause the job's schedule.",
+      "Without that, it comes back forever and takes workers away from everyone else's jobs.",
+    ],
+  ],
+  [
+    "resilience",
+    "Workers hang without crashing.",
+    [
+      "Health checks pass, so nothing restarts them.",
+      "An alert on the age of the queue's oldest message notices the backlog building.",
+      "Leases on running jobs let another worker take over when one goes quiet.",
+    ],
+  ],
+  [
+    "security",
+    "What could go wrong with calling customers' webhooks?",
+    [
+      "A customer could point a webhook at your own internal addresses: block private networks.",
+      "Sign each call, so the customer can check it came from you.",
+      "Cap how many calls one customer's jobs make, so one can't swamp the workers.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "How late jobs run compared with their scheduled time: the measure customers feel.",
+      "The dead-letter queue's size, and failures by customer.",
+      "The age of the queue's oldest message.",
+    ],
+  ],
+  [
+    "observability",
+    "A customer says their 9am job didn't run. How do you check?",
+    [
+      "Look up the job's run history: claimed, queued, run, failed, retried?",
+      "Check whether it was paused, or set aside in the dead-letter queue.",
+      "Check their webhook's responses: often it ran, and their server refused it.",
+    ],
+  ],
+])
+
+export const NEAR_ME = deck("near-me", [
+  [
+    "clarify",
+    "What would you ask about searches?",
+    [
+      "A fixed radius, or 'the nearest ten'? They need different queries.",
+      "Filtered by what: category, rating, open now, price?",
+      "Ranked by distance alone, or by a mix of distance and quality?",
+    ],
+    "How does 'open now' change what you can cache?",
+  ],
+  [
+    "clarify",
+    "What would you ask about the places?",
+    [
+      "How many, and how often do they change? Places change rarely; reviews arrive constantly.",
+      "Must an owner's update appear at once, or within minutes?",
+      "How dense is the data: a city centre has thousands of places in a few streets.",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about traffic?",
+    [
+      "Searches a second at peak, and when: dinner time on Friday.",
+      "How concentrated: most searches are in a few hundred city-centre cells.",
+      "Is everyone in one country, or spread worldwide?",
+    ],
+  ],
+  [
+    "product",
+    "What makes nearby search feel good?",
+    [
+      "Results in well under a second, even on a phone network.",
+      "The places shown are actually open and actually close.",
+      "Moving the map updates the results smoothly.",
+    ],
+  ],
+  [
+    "decision",
+    "Why search by map cell rather than by latitude and longitude ranges?",
+    [
+      "A range on two columns can't use one ordinary index well: here SQL ranges run the primary at 298%.",
+      "A geohash turns a location into a short string, and nearby places share a prefix.",
+      "A search becomes 'these few cells', which can be indexed and cached.",
+    ],
+  ],
+  [
+    "decision",
+    "Why also search the neighbouring cells?",
+    [
+      "A point near a cell's edge is close to places in the next cell.",
+      "Searching the cell and its eight neighbours covers the radius.",
+      "Then filter by the real distance before ranking.",
+    ],
+  ],
+  [
+    "decision",
+    "Why cache results per cell?",
+    [
+      "City centres are a few hundred cells that everyone asks about.",
+      "Here the cache answers 22,686 of 30,000 searches a second.",
+      "Without it, even ten {search-index} nodes would run at 149%.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Geohash cells or a quadtree?",
+    [
+      "Geohash cells are fixed sizes: simple to compute, store and cache.",
+      "A quadtree splits busy areas into smaller cells, so no cell holds too many places.",
+      "Many systems use fixed cells for caching and an index that adapts for querying.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How long can a cell's results be cached?",
+    [
+      "Places change rarely, so minutes is usually fine.",
+      "But 'open now' changes on the hour: cache opening hours, and check them when ranking.",
+      "Purge a cell when one of its places changes, if freshness matters.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a database with spatial indexes do this?",
+    [
+      "Yes, at lower volume: spatial indexes answer 'within this radius' well.",
+      "At 30,000 searches a second, a dedicated index and a cache scale further.",
+      "Start with the database; move when the numbers demand it.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you precompute results for every cell?",
+    [
+      "For popular cells and common filters, yes: that's the cache, filled ahead of time.",
+      "Every cell times every filter is far too many combinations.",
+      "Precompute the hot ones; compute the rest on demand.",
+    ],
+  ],
+  [
+    "scale",
+    "Users worldwide. What changes?",
+    [
+      "Partition the index by region, so a search in Tokyo never touches Europe's data.",
+      "Serve each region from nearby, so users don't wait on an ocean crossing.",
+      "Places rarely cross regions, which makes this split clean.",
+    ],
+  ],
+  [
+    "scale",
+    "One cell in a city centre holds 20,000 places.",
+    [
+      "Fixed cells are uneven: busy areas need smaller cells.",
+      "Use a finer geohash there, or a quadtree that splits until each cell is small.",
+      "Ranking still trims the results to the best few.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Someone searches right on the line where two cells meet.",
+    [
+      "The nearest place may be in the neighbouring cell, a few metres away.",
+      "Always include the neighbours, then sort by true distance.",
+      "Geohash prefixes break at some cell boundaries, so check distances, not prefixes.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A restaurant closes for good. How quickly does it disappear?",
+    [
+      "The owner's update reaches the index through the stream in seconds.",
+      "Cached cells may show it until they expire or are purged.",
+      "Purge the affected cell on changes like this.",
+    ],
+  ],
+  [
+    "resilience",
+    "A cache node restarts on Friday evening.",
+    [
+      "Its cells fall through to the {search-index} until they're cached again.",
+      "With two nodes, only half the cells go cold at once.",
+      "Spare index capacity is what absorbs a cold cache at peak.",
+    ],
+  ],
+  [
+    "resilience",
+    "The search index falls behind on updates.",
+    [
+      "Searches still work, from slightly older data.",
+      "Updates wait in the stream until the index catches up.",
+      "Rebuild the index from the database if it's ever lost.",
+    ],
+  ],
+  [
+    "security",
+    "What could go wrong with a public nearby-search API?",
+    [
+      "Scrapers walking every cell to copy your whole database: rate-limit and watch for systematic sweeps.",
+      "Fake reviews pushing a place up the rankings: tie reviews to verified accounts and look for patterns.",
+      "Users' own locations are personal data: don't log precise coordinates longer than needed.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Search latency at p99, by region.",
+      "Cache hit rate, overall and for the busiest cells.",
+      "How far the index trails the database.",
+    ],
+  ],
+  [
+    "observability",
+    "Users in one city say search is slow. Where do you look?",
+    [
+      "That city's cells: are they cold in the cache, or too crowded?",
+      "Index latency for queries in that area.",
+      "Whether a recent change made its cells too large.",
+    ],
+  ],
+])
+
+export const TOP_PLAYERS = deck("top-players", [
+  [
+    "clarify",
+    "What would you ask about the leaderboard?",
+    [
+      "Global, per region, per friends list, or all of them?",
+      "A player's best score, latest, or total over the season?",
+      "When does the season reset, and what happens to old boards?",
+    ],
+    "How do friends lists change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about reads?",
+    [
+      "Top 100 only, or 'my rank' and the players around me too?",
+      "How fresh must ranks be: instant, or within a minute?",
+      "How many players are ranked: thousands, or tens of millions?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about cheating?",
+    [
+      "Can the client be trusted to report its own score? Never fully.",
+      "Is every game verified, or only scores near the top?",
+      "What happens to a cheater's past scores once they're caught?",
+    ],
+  ],
+  [
+    "product",
+    "What keeps players coming back to the leaderboard?",
+    [
+      "Seeing their rank move after every game.",
+      "Boards they can actually climb: friends and regions, not only the world.",
+      "Trust that the top isn't full of cheaters.",
+    ],
+  ],
+  [
+    "decision",
+    "Why keep the ranking in sorted sets in memory?",
+    [
+      "A sorted set keeps every entry in order as scores change, and answers 'top 100' or 'my rank' in microseconds.",
+      "A database would sort millions of rows for every rank check.",
+      "Here two cache nodes take every score and rank check at about 8% busy.",
+    ],
+  ],
+  [
+    "decision",
+    "If the ranking is in memory, where's the truth?",
+    [
+      "Each player's best score, stored durably in {nosql}, keyed by player.",
+      "If the cache loses its data, the ranking is rebuilt from those bests.",
+      "Scores reach the store through a stream, so a slow store never slows a game.",
+    ],
+  ],
+  [
+    "decision",
+    "Why write only new bests to the store?",
+    [
+      "Only about one submission in five beats a player's best.",
+      "That cuts the store's writes from 15,000 a second to 3,000.",
+      "Keep every submission somewhere cheap if anti-cheat needs history.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "One global sorted set, or many smaller ones?",
+    [
+      "One set is simplest, and exact.",
+      "But it lives on one node, so at tens of millions of players it becomes a hot spot.",
+      "Split by score range or region, and merge the tops of each when asked.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Exact ranks for everyone, or approximate below the top?",
+    [
+      "Exact ranks at the top matter, and are cheap.",
+      "Far down the board, '1,204,331th' changes every second and means little.",
+      "Show a percentile there, like 'top 12%', computed less often.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the database just sort scores when asked?",
+    [
+      "'Order by score, take 100' on millions of rows, for every request, is far too much work.",
+      "Here a {sql-primary} would also need to take 15,000 writes a second: five times its limit.",
+      "Recomputing every minute works, with ranks a minute stale.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you store the ranking under one key in {nosql}?",
+    [
+      "Then the whole board is one key, on one partition.",
+      "It would take 3,000 writes a second, three times what a key allows.",
+      "Spread writes by player, and keep the ordering in memory.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the players. What changes?",
+    [
+      "Split the global set across nodes by score range, and merge the tops.",
+      "Stream shards and workers scale out by partition.",
+      "Per-region and friends boards stay small however big the game gets.",
+    ],
+  ],
+  [
+    "scale",
+    "How do you show a friends leaderboard?",
+    [
+      "Look up the player's friends' best scores and sort that small list.",
+      "With a few hundred friends, it's quick on demand.",
+      "Cache it briefly; it changes only when a friend plays.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two players have exactly the same score.",
+    [
+      "Decide the tie-break: earlier score first is the usual rule.",
+      "Fold it into the sorted value, for example the score plus a fraction for time.",
+      "Otherwise ranks flicker between them.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The season ends at midnight. A game finishes at 00:00:03.",
+    [
+      "Decide by when the game ended, not when the score arrived.",
+      "Freeze the board at the deadline, then accept late scores for a short grace period.",
+      "Publish final ranks only after the grace period.",
+    ],
+  ],
+  [
+    "resilience",
+    "A cache node holding the ranking dies.",
+    [
+      "Its replica takes over, so ranks keep working.",
+      "If both are lost, rebuild the sorted set from every player's stored best.",
+      "Rebuilding millions of entries takes minutes: show the last snapshot until it's done.",
+    ],
+  ],
+  [
+    "resilience",
+    "The season's last hour brings 1.5 times the traffic.",
+    [
+      "App servers and stream shards have the headroom: they rise to 75%.",
+      "The store falls a little behind on bests and catches up after, since it's behind the stream.",
+      "Ranks stay instant, because they come from memory.",
+    ],
+  ],
+  [
+    "security",
+    "How do you keep cheaters off the board?",
+    [
+      "Never trust the client's score: verify games on the server, or check replays for scores near the top.",
+      "Flag impossible scores and sudden jumps for review.",
+      "Rate-limit submissions per player, so nobody can submit thousands of games a minute.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Rank-check latency, and the cache's memory as the board grows.",
+      "How far the stored bests trail the ranking.",
+      "Scores flagged as suspicious, per hour.",
+    ],
+  ],
+  [
+    "observability",
+    "A player says their rank didn't change after a high score. How do you check?",
+    [
+      "Look up their score in the sorted set, and their stored best.",
+      "Check whether the score was flagged and held for review.",
+      "Check the stream's lag, in case it was just late.",
+    ],
+  ],
+])

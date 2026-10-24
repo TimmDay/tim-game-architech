@@ -27,6 +27,166 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "top-players": s([
+    [
+      "What's the durable store's key?",
+      "Player ID, holding their best score and when",
+      [
+        "The leaderboard's name, holding every score",
+        "The score, holding the player's ID",
+        "The game's ID, holding its result",
+      ],
+      "Keyed by player, writes spread evenly. The ordering lives in memory.",
+    ],
+    [
+      "What does the sorted set's value need, besides the score?",
+      "A tie-break folded in, such as when it was set",
+      [
+        "The player's full profile",
+        "Every game the player has played",
+        "Nothing: equal scores share a rank",
+      ],
+      "With the time folded in, equal scores always come out in the same order.",
+    ],
+    [
+      "Which request gives a player their rank and neighbours?",
+      "GET /boards/:season/me?around=5",
+      [
+        "GET /boards/:season, then search the list",
+        "POST /boards/:season with every score",
+        "GET /players/:id/scores, sorted on the phone",
+      ],
+      "The server reads a small range around the player's position in the sorted set.",
+    ],
+  ]),
+  "near-me": s([
+    [
+      "How should a place's location be indexed for nearby search?",
+      "By its geohash, so nearby places share a prefix",
+      [
+        "By latitude, with longitude in a second index",
+        "By the place's street address",
+        "By the place's name, then its city",
+      ],
+      "A prefix match finds a cell's places in one index range; then filter by real distance.",
+    ],
+    [
+      "What's the cache key for a cell's results?",
+      "The cell's geohash, plus the category filter",
+      [
+        "The user's exact coordinates",
+        "The user's ID and the time",
+        "A hash of the whole request",
+      ],
+      "Exact coordinates make every search unique. Cells plus common filters are shared by thousands of users.",
+    ],
+    [
+      "What should the search request look like?",
+      "GET /places?lat=…&lng=…&radius=1km&type=pizza",
+      [
+        "POST /places with every visible place's ID",
+        "GET /places/:city with every place in the city",
+        "GET /places?cell=… with the client choosing the cell",
+      ],
+      "The server maps the point to cells, so it can change cell sizes without breaking clients.",
+    ],
+  ]),
+  "on-schedule": s([
+    [
+      "What does the scheduler index to find due jobs?",
+      "Each job's next run time",
+      [
+        "Each job's creation time",
+        "The customer's ID alone",
+        "The webhook's address",
+      ],
+      "'Due now' becomes a range read on the index, not a scan of every job.",
+    ],
+    [
+      "How does a scheduler claim a job so no other scheduler takes it?",
+      "Set an owner and a lease expiry, only if unclaimed",
+      [
+        "Read it, then mark it if it looked free",
+        "Delete it from the table while it runs",
+        "Lock the whole table for each claim",
+      ],
+      "A conditional update makes the claim atomic; the expiry lets another scheduler take over if this one dies.",
+    ],
+    [
+      "How are a job's runs recorded?",
+      "One row per run, keyed by job and scheduled time",
+      [
+        "Only the latest run, overwritten each time",
+        "A counter of how many times it ran",
+        "Nothing: the webhook's response is enough",
+      ],
+      "The key doubles as the idempotency key, and history answers 'did my 9am job run?'.",
+    ],
+  ]),
+  "shared-doc": s([
+    [
+      "What's the key of an edit in the log?",
+      "Document ID, then its sequence number",
+      [
+        "The editor's user ID, then the time",
+        "The time alone, across all documents",
+        "A random ID, with the document inside",
+      ],
+      "Opening reads one document's edits in order; the sequence number makes 'edits since N' a range read.",
+    ],
+    [
+      "What does each edit need to carry?",
+      "The version it was made against, and who made it",
+      [
+        "The whole document after the change",
+        "Only the new text, with nothing else",
+        "Every other editor's cursor position",
+      ],
+      "The base version lets the server transform or merge it; the author gives history and permissions.",
+    ],
+    [
+      "Where should cursor positions and 'who's here' live?",
+      "In memory, with a short expiry, never in the log",
+      [
+        "In the edit log, alongside every edit",
+        "In the snapshot, saved every few minutes",
+        "In a database row updated on each keystroke",
+      ],
+      "Presence changes constantly and is worthless seconds later: keep it ephemeral.",
+    ],
+  ]),
+  "click-counter": s([
+    [
+      "What's the key of the counts table?",
+      "Ad ID, then the minute",
+      [
+        "The minute alone, holding every ad's count",
+        "The click's own ID",
+        "The advertiser's ID alone",
+      ],
+      "Dashboards read one ad's minutes, and keying by ad spreads the writes across ads.",
+    ],
+    [
+      "What does a raw click event need?",
+      "A click ID, the ad, when it happened, and who clicked",
+      [
+        "Only the ad's ID, to keep events small",
+        "The advertiser's running total so far",
+        "The page the visitor came from, and nothing else",
+      ],
+      "The ID removes duplicates, the time puts it in a window, and the clicker lets fraud filters work.",
+    ],
+    [
+      "What should the click link look like?",
+      "GET /c/:id with a signed ID, redirecting at once",
+      [
+        "POST /clicks with the ad in the body, then a page",
+        "GET /c?ad=…&price=… so it's easy to read",
+        "A script that records the click, then navigates",
+      ],
+      "A short signed ID can't be forged or edited, and a redirect works anywhere a link does.",
+    ],
+  ]),
   "short-links": s([
     [
       "What's the key of the links table?",

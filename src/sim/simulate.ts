@@ -21,7 +21,7 @@ import type {
   SimResult,
 } from "./types"
 import { CLIENT_ID } from "./types"
-import { authPoints, rateLimitPoints } from "./practices"
+import { authPoints, floodLeak } from "./practices"
 
 /** Share of the cacheable reads a warm cache actually serves. */
 export const CACHE_HIT_EFFICIENCY = 0.95
@@ -259,8 +259,9 @@ export function simulate(
   )
   // Credential stuffing is extra traffic, unless every way in rate-limits it.
   const stuffing = faults.find((f) => f.kind === "credential-stuffing")
-  const limited = rateLimitPoints(graph).every((c) => c.practices?.rateLimit)
-  const attack = stuffing && !limited ? stuffing.multiplier : 1
+  const attack = stuffing
+    ? 1 + (stuffing.multiplier - 1) * floodLeak(graph, stuffing.perKey)
+    : 1
   const slow = faults.find((f) => f.kind === "slow-dependency")
   const offered = load.peakRps * multiplier * attack
   const split = faults.some((f) => f.kind === "network-split")

@@ -309,6 +309,59 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toContain("chaos")
   })
 
+  it("fair share: with no limit in the app, the runaway script reaches every server", () => {
+    const l = level("fair-share")
+    const app = l.reference.components.find((c) => c.id === "app")
+    const g = patch(l.reference, "app", {
+      practices: { ...app?.practices, rateLimit: false },
+    })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("fair share: servers that count alone let the script through", () => {
+    const l = level("fair-share")
+    // A cache for map data that the app doesn't keep its counters in.
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter((c) => c.id !== "cache"),
+        { id: "tiles", kind: "cache", x: 7, y: 3, instances: 2, zones: 2 },
+      ],
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => e.from !== "cache" && e.to !== "cache",
+        ),
+        { id: "lb>tiles", from: "lb", to: "tiles" },
+        { id: "tiles>app", from: "tiles", to: "app" },
+        { id: "app>db", from: "app", to: "db" },
+      ],
+    }
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("fair share: a managed gateway limits by key, but breaks the budget", () => {
+    const l = level("fair-share")
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter((c) => c.id !== "lb"),
+        {
+          id: "gw",
+          kind: "api-gateway",
+          x: 3,
+          y: 4,
+          instances: 3,
+          zones: 1,
+          practices: { rateLimit: true, auth: true, alerts: true },
+        },
+      ],
+      edges: [
+        ...l.reference.edges.filter((e) => e.from !== "lb" && e.to !== "lb"),
+        { id: "dns>gw", from: "dns", to: "gw" },
+        { id: "gw>app", from: "gw", to: "app" },
+      ],
+    }
+    expect(failed(l, g)).toContain("budget")
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

@@ -26,6 +26,7 @@ import {
   PUSH_ALERTS,
   WEB_CRAWLER,
   PAY_BUTTON,
+  FAIR_SHARE,
   VIDEO_NIGHT,
 } from "./classics"
 import {
@@ -66,6 +67,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "push-alerts": PUSH_ALERTS,
   "web-crawler": WEB_CRAWLER,
   "pay-button": PAY_BUTTON,
+  "fair-share": FAIR_SHARE,
   "balance-sheet": BALANCE_SHEET,
   "full-basket": FULL_BASKET,
   "tenant-split": TENANT_SPLIT,

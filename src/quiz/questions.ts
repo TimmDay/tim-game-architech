@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "fair-share": q([
+    [
+      "Where should this API's per-key limit be enforced?",
+      "In the app servers, where the API key is known",
+      [
+        "At the load balancer, by address",
+        "In the database, with a counter per row",
+        "In each customer's own app",
+      ],
+      "A limit by address can't stop one key spread across hundreds of machines. Refuse before any real work.",
+      4,
+    ],
+    [
+      "Why keep the counters in a shared {cache}?",
+      "Each server sees only a share of a caller's requests",
+      [
+        "A cache counts faster than server memory",
+        "The load balancer reads the cache to route",
+        "Counters have to survive a full restart",
+      ],
+      "Counting alone, 36 servers would let a caller through 36 times over.",
+      5,
+    ],
+    [
+      "How does a token bucket allow short bursts?",
+      "Saved-up tokens can be spent all at once",
+      [
+        "It ignores the first second of traffic",
+        "It doubles every limit at night",
+        "Each request refills the bucket",
+      ],
+      "It refills at the rate, up to a size, so short bursts pass and the average holds.",
+      6,
+    ],
+    [
+      "What's the weakness of a fixed-window limit?",
+      "A caller can send double across a window boundary",
+      [
+        "It can't be shared between servers",
+        "It needs a database write for every request",
+        "It refuses every burst, however small",
+      ],
+      "100 at the end of one second and 100 at the start of the next. Sliding windows and token buckets smooth it out.",
+      7,
+    ],
+    [
+      "The counter store goes down. What should a paid API do?",
+      "Let requests through, and alert",
+      [
+        "Refuse every request until it's back",
+        "Drop every limit to one a second",
+        "Restart all the app servers",
+      ],
+      "The limiter failing shouldn't take the product down with it. Sign-ins might fail closed instead.",
+      8,
+    ],
+    [
+      "Why not use a managed {api-gateway} for the limits here?",
+      "It's billed per call: about $15,800 a month",
+      [
+        "It can't limit by API key",
+        "It can't take 20,000 requests a second",
+        "It only works with a single app server",
+      ],
+      "Per-key limits with nothing to run are worth it at low volume. At this traffic it's four times the budget.",
+      9,
+    ],
+    [
+      "Two servers take the last token at the same moment. How do you stop both getting through?",
+      "Use an atomic increment in the store",
+      [
+        "Add more cache nodes",
+        "Lower every limit by one",
+        "Send each key to a single app server",
+      ],
+      "Read-then-write races. An atomic check-and-take is right whichever server gets there first.",
+      14,
+    ],
+    [
+      "What should a refused caller get back?",
+      "A 429, with how long to wait",
+      [
+        "A timeout after thirty seconds",
+        "A 500 error",
+        "The answer, only slower",
+      ],
+      "An error that looks like an outage makes clients retry harder. Send remaining-quota headers on every response too.",
+      1,
+    ],
+    [
+      "How might a customer get round a per-key limit?",
+      "By creating many keys",
+      [
+        "By calling from another region",
+        "By sending larger requests",
+        "By using a different browser",
+      ],
+      "Limit sign-ups and tie keys to verified accounts. Watch for one key used from everywhere at once.",
+      18,
+    ],
+    [
+      "Which signal shows a runaway client first?",
+      "Refused requests per key jumping",
+      [
+        "The database's free disk space",
+        "The number of customers",
+        "The average response size",
+      ],
+      "Watch the counter store's latency too, since it's on every request.",
+      20,
+    ],
+  ]),
   "pay-button": q([
     [
       "Why record a payment as pending before charging the card?",

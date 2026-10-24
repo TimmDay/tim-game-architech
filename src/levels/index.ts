@@ -1825,6 +1825,69 @@ const CLASSICS: Level[] = [
     concepts: ["idempotency", "timeouts-and-retries", "standby"],
     hint: "Record the payment, then charge it in the background with a timeout, backoff and an idempotency key. Then ask what the ledger and the workers lose when a zone goes dark.",
   },
+  {
+    id: "fair-share",
+    mode: "build",
+    track: "classic",
+    requires: ["front-page"],
+    title: "Fair Share",
+    tagline:
+      "One customer's runaway script must not take the API down for everyone.",
+    scenario: {
+      product: "the maps API",
+      reads: "developers' apps asking for map tiles and addresses",
+      writes: "saved places and usage records",
+      hot: "popular map tiles, and each API key's request count",
+      records: "customers, their API keys and their saved places",
+    },
+    brief:
+      "A maps API that developers pay for by the call. GitHub's API allows a signed-in user 5,000 requests an hour, and an anonymous caller only 60, counted by address. Here, every customer's API key is limited to 100 requests a second. Peak is 20,000 requests a second, mostly map tiles and address lookups. In the chaos round one customer's script runs away on hundreds of machines and sends four times your normal traffic. A limit by address can't stop it; only something that reads the API key can. Everyone else must keep working.",
+    load: {
+      peakRps: 20_000,
+      readFraction: 0.95,
+      cacheableFraction: 0.8,
+      heavyWriteFraction: 0,
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 4_100,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "credential-stuffing", multiplier: 4, perKey: true }],
+      label: "One customer's runaway script (4x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "api-gateway",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "sql-replica",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 36, 2, { practices: { rateLimit: true } }],
+        ["cache", "cache", 7, 3, 2, 2],
+        ["db", "sql-primary", 9, 5, 2, 2],
+      ],
+      [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>db"],
+    ),
+    concepts: ["rate-limiting", "cache-aside", "horizontal-scaling"],
+    hint: "Limit each API key in the {app-server}, where the key is known, and keep the counters in a shared {cache}: each server only sees a thirtieth of the traffic.",
+  },
 ]
 
 const SPLIT: Fault[] = [{ kind: "network-split" }]

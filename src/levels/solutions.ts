@@ -502,6 +502,35 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "fair-share": {
+    overview:
+      "The limit has to live where the API key is known, and its counters have to be shared. Each {app-server} checks the caller's key against a counter in the {cache} before doing any work, and refuses with '429 Too Many Requests' once the key is over its limit. The same cache holds popular map data, so the {sql-primary} sees only the misses.",
+    walkthrough: [
+      "{dns} → {load-balancer}, which limits by address: enough for a simple flood from one machine, not for this one.",
+      "The {app-server} reads the API key and takes a token from that key's bucket in the {cache}: one atomic step, so two servers can't both spend the last token.",
+      "Over the limit, the app answers 429 straight away, with how long to wait. Under it, the request carries on.",
+      "Tile and address reads come from the {cache}; misses and writes go to the {sql-primary}.",
+    ],
+    numbers: [
+      "20,000 requests a second: 19,000 reads and 1,000 writes.",
+      "The {cache} answers 14,440 reads a second and keeps every key's count; the {sql-primary} sees 4,560 reads and 1,000 writes, at 46%.",
+      "Thirty-six {app-server} instances run at 56%.",
+      "The runaway script adds 60,000 requests a second. Each is refused at the first server it reaches, so the servers stay at 56%.",
+      "With no limit in the app, the flood reaches every server: they run at 222% and over half of all requests fail, everyone's included.",
+      "Counting in each server's memory instead lets the script through almost unchecked: each server sees only a 36th of its requests.",
+      "Cost: $1 + about $183 for the {load-balancer} + 36 × $70 + 2 × $150 + 2 × $400 = $3,804 of $4,100.",
+    ],
+    tradeoffs: [
+      "Every request now makes a call to the {cache}, so it's on the critical path. If it fails, a paid API should let requests through and alert; sign-ins might refuse instead.",
+      "A token bucket allows short bursts and holds the average. A fixed window is cheaper but lets a caller send double across the boundary.",
+      "Counts are shared within one region. Across regions, split the limit or sync counts every few seconds, and accept a little overshoot.",
+    ],
+    alternatives: [
+      "A managed {api-gateway}: per-key limits and usage tiers with nothing to run, but it's billed per call, about $15,800 a month at this traffic.",
+      "Counting in memory and syncing to the shared store every second: far fewer calls to the {cache}, at the price of briefly overshooting the limit.",
+      "Limiting only by address at the {load-balancer}: cheap and worth keeping, but this script comes from hundreds of machines under one key.",
+    ],
+  },
   "pay-button": {
     overview:
       "A payment is recorded before it's charged, and charged in the background. The {app-server} writes it to the ledger as pending and queues the charge; {worker} instances call the provider with a timeout, backoff and the payment's idempotency key, then record the result. Every change goes on an {event-stream}, and the {data-warehouse} reconciles the ledger against the provider's records each day.",

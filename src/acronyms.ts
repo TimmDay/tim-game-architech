@@ -226,6 +226,7 @@ export const NOT_ACRONYMS = new Set([
   "JavaScript",
   "WhatsApp",
   "YouTube",
+  "GitHub",
   "WebSockets",
   "GraphQL",
   "OAuth",

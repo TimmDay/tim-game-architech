@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { graph } from "~/levels"
-import { CLIENT_ID as C, type LoadProfile } from "../types"
+import { CLIENT_ID as C, type Fault, type LoadProfile } from "../types"
 import { QUORUM_P99_MS, simulate, topologyAvailability } from "../simulate"
 
 const load = (o: Partial<LoadProfile> = {}): LoadProfile => ({
@@ -364,5 +364,46 @@ describe("consistency during a network split", () => {
   it("one copy has nowhere to fail over to, whichever mode it's in", () => {
     for (const mode of ["strong", "eventual"] as const)
       expect(simulate(db(mode, 1), tunable, split).errorRate).toBeCloseTo(1)
+  })
+})
+
+describe("floods and shared rate-limit counters", () => {
+  const flood: Fault[] = [{ kind: "credential-stuffing", multiplier: 4 }]
+  const perKey: Fault[] = [
+    { kind: "credential-stuffing", multiplier: 4, perKey: true },
+  ]
+  const stack = (
+    lb: boolean,
+    app: boolean,
+    counters: boolean,
+  ): ReturnType<typeof graph> =>
+    graph(
+      [
+        ["lb", "load-balancer", 0, 0, 1, 1, { practices: { rateLimit: lb } }],
+        ["app", "app-server", 0, 0, 10, 2, { practices: { rateLimit: app } }],
+        ...(counters ? [["counters", "cache", 0, 0] as const] : []),
+      ] as Parameters<typeof graph>[0],
+      [`${C}>lb`, "lb>app", ...(counters ? ["app>counters"] : [])],
+    )
+  const offered = (g: ReturnType<typeof graph>, f: Fault[]) =>
+    simulate(g, load(), f).offeredRps
+
+  it("stops an ordinary flood at a rate-limited edge", () => {
+    expect(offered(stack(true, false, false), flood)).toBeCloseTo(1_000)
+  })
+
+  it("lets a per-key flood past a limit that only sees addresses", () => {
+    expect(offered(stack(true, false, false), perKey)).toBeCloseTo(4_000)
+  })
+
+  it("leaks a per-key flood through servers that each count alone", () => {
+    // Ten instances: a caller spread across them gets about ten times its limit.
+    expect(offered(stack(true, true, false), perKey)).toBeCloseTo(
+      1_000 + 3_000 * 0.9,
+    )
+  })
+
+  it("holds the limit once the servers share counters in a cache", () => {
+    expect(offered(stack(true, true, true), perKey)).toBeCloseTo(1_000)
   })
 })

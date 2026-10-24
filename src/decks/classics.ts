@@ -2128,3 +2128,205 @@ export const PAY_BUTTON = deck("pay-button", [
     ],
   ],
 ])
+
+export const FAIR_SHARE = deck("fair-share", [
+  [
+    "clarify",
+    "What would you ask about the limits?",
+    [
+      "Limited by what: API key, user, address, or endpoint? An address search costs far more than a map tile.",
+      "What limit, over what window: 100 a second, or 5,000 an hour?",
+      "Do paying tiers get more?",
+    ],
+    "How would you limit an expensive endpoint differently?",
+  ],
+  [
+    "clarify",
+    "What should a caller see when they hit the limit?",
+    [
+      "A clear '429 Too Many Requests', saying how long to wait before trying again.",
+      "Headers on every response saying how much is left, so clients slow down before they're refused.",
+      "Never a timeout or a 500: an error that looks like an outage makes clients retry harder.",
+    ],
+  ],
+  [
+    "clarify",
+    "How exact must the limit be?",
+    [
+      "Is letting a caller through at 105 instead of 100 a problem? Usually not.",
+      "Is it protecting the system, where approximate is fine, or billing, which must be exact and is better counted afterwards?",
+      "That decides whether every request must touch a shared counter.",
+    ],
+  ],
+  [
+    "product",
+    "Why does a paid API limit its customers at all?",
+    [
+      "To protect everyone else from one customer's bug or spike.",
+      "To make capacity planning possible: limits bound the worst case.",
+      "Limits are part of the product: higher tiers are something you can sell.",
+    ],
+  ],
+  [
+    "decision",
+    "Where should the limit be enforced?",
+    [
+      "Where the API key is known: here, in the {app-server}, before any real work.",
+      "A limit by address at the {load-balancer} still helps against simple floods, but this script uses hundreds of machines.",
+      "Refuse as early as you can: a refused request should cost almost nothing.",
+    ],
+  ],
+  [
+    "decision",
+    "Why must the counters be shared?",
+    [
+      "Each server sees only its share of a caller's requests: here, a 36th.",
+      "Counting in each server's memory lets a caller spread across them all through 36 times over.",
+      "A shared in-memory store, such as a {cache}, gives every server the same count.",
+    ],
+  ],
+  [
+    "decision",
+    "How does a token bucket work?",
+    [
+      "Each key has a bucket that refills at its rate (100 tokens a second) up to a size (say 200).",
+      "A request takes a token. With none left, it's refused.",
+      "Short bursts up to the bucket's size get through, while the average is held to the rate.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Fixed window, sliding window or token bucket?",
+    [
+      "Fixed window: count per clock second or minute. Cheapest, but a caller can send double across a boundary.",
+      "Sliding window: weight the previous window's count by how much of it overlaps. Smoother, for a little more work.",
+      "Token bucket: smooth as well, and kind to bursts. The usual choice for APIs.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "The counter store goes down. Let requests through, or refuse them?",
+    [
+      "Let them through (fail open) for a paid API: the limiter failing shouldn't take the product down with it.",
+      "Refuse (fail closed) where abuse is the bigger risk, such as sign-ins.",
+      "Either way, alert: running with no limit should be brief.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a managed {api-gateway} do this for you?",
+    [
+      "Yes: per-key limits and usage tiers, with nothing to run.",
+      "But it's billed per call: about $15,800 a month at this traffic, four times this budget.",
+      "Good at low volume, or when you'd rather pay than build.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could each server count locally and sync now and then?",
+    [
+      "Yes: count in memory, and push totals to the shared store every second.",
+      "Far fewer calls to the store, at the price of overshooting the limit briefly.",
+      "Fine when the limit protects capacity; not when it's billing.",
+    ],
+  ],
+  [
+    "scale",
+    "Every request now updates a counter. Can the cache take it?",
+    [
+      "Here that's 20,000 updates a second, a tenth of what two nodes can do.",
+      "One key's counter lives on one node, so a single huge customer is a hot key. Split its counter across several keys if needed.",
+      "Counters expire with their window, so the memory they need stays small.",
+    ],
+  ],
+  [
+    "scale",
+    "The API runs in three regions. Is the limit global?",
+    [
+      "Sharing counters across regions puts a long round trip on every request.",
+      "The usual answer: split the limit between regions, or sync counts every few seconds and accept a little overshoot.",
+      "Choose by how exact the limit needs to be.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A customer's traffic is genuinely spiky: quiet for a minute, then 500 requests at once.",
+    [
+      "A token bucket with room for bursts lets that through while holding the average.",
+      "A fixed per-second limit would refuse most of the burst.",
+      "Ask whether it's their rate or their burst size that needs raising.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two servers check the same counter at the same moment.",
+    [
+      "Read-then-write lets both through on the last token.",
+      "Use the store's atomic increment, or a small script that checks and takes in one step.",
+      "Then the count is right whichever server gets there first.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A refused client retries straight away, in a loop.",
+    [
+      "Tell it when to come back, and expect it not to listen.",
+      "Refusing must stay cheap: no database work for a refused call.",
+      "Repeat offenders can be blocked for longer, or at the edge.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {cache} holding the counters loses a node.",
+    [
+      "Counts on that node are gone, so some callers get a fresh allowance: harmless for a limit.",
+      "Requests still flow if the limiter fails open.",
+      "Two nodes in two zones keep it from being a single point of failure.",
+    ],
+  ],
+  [
+    "resilience",
+    "The runaway script hits. What happens, step by step?",
+    [
+      "60,000 extra requests a second arrive, spread over every server.",
+      "Each server checks the shared counter, sees the key is over its limit, and answers 429 at once.",
+      "The servers stay at 56%, and every other customer carries on unaffected.",
+    ],
+  ],
+  [
+    "security",
+    "Can a per-key limit be dodged?",
+    [
+      "By making many keys: limit sign-ups too, and tie keys to verified accounts.",
+      "By stealing someone's key: let customers rotate keys, and watch for one key used from everywhere at once.",
+      "Anonymous calls should get a much lower limit, by address.",
+    ],
+  ],
+  [
+    "security",
+    "What should never count against a customer's limit?",
+    [
+      "Your own health checks and internal traffic.",
+      "Requests you reject as malformed or unauthenticated, if they're cheap to reject.",
+      "Be explicit about it: customers will compare your counts with theirs.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Refused requests per key: a sudden jump is a runaway client or an attack.",
+      "The counter store's latency, since it's on every request.",
+      "The busiest keys, to spot hot keys and customers who need a higher tier.",
+    ],
+  ],
+  [
+    "observability",
+    "A customer says they're refused below their limit. How do you check?",
+    [
+      "Look at their counter's history, and which servers answered them.",
+      "Check the window: a per-second limit can refuse a burst that the per-minute average hides.",
+      "Point them at the remaining-quota headers you send, so they can see it too.",
+    ],
+  ],
+])

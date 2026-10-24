@@ -4,6 +4,7 @@ import {
   BookOpen,
   Check,
   CircleAlert,
+  Database,
   Lightbulb,
   Info,
   Link2,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
+import { SCHEMA } from "~/quiz/schema"
 import { CONCEPTS, type ConceptId } from "~/levels/concepts"
 import type { Level } from "~/levels"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
@@ -132,7 +134,7 @@ export function BriefPanel({
   provider: Provider
   onConcept: (id: ConceptId) => void
   diagnose?: React.ReactNode
-  onDeck?: () => void
+  onDeck?: (schema?: boolean) => void
 }) {
   const [hint, setHint] = useState(false)
   return (
@@ -205,7 +207,7 @@ export function BriefPanel({
       {onDeck && (DECKS[level.id]?.length ?? 0) > 0 && (
         <button
           type="button"
-          onClick={onDeck}
+          onClick={() => onDeck()}
           className="flex w-full items-center justify-between rounded-xl border border-fuchsia-300/25 bg-fuchsia-300/[0.05] px-3 py-2.5 text-left hover:border-fuchsia-300/50"
         >
           <span>
@@ -217,6 +219,23 @@ export function BriefPanel({
             </span>
           </span>
           <ArrowRight size={16} className="text-fuchsia-200/70" />
+        </button>
+      )}
+      {onDeck && (SCHEMA[level.id]?.length ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={() => onDeck(true)}
+          className="flex w-full items-center justify-between rounded-xl border border-green-300/25 bg-green-300/[0.05] px-3 py-2.5 text-left hover:border-green-300/50"
+        >
+          <span>
+            <span className="flex items-center gap-1.5 text-[14px] font-semibold text-green-100">
+              <Database size={15} /> Schema & API
+            </span>
+            <span className="text-[12px] text-slate-400">
+              {SCHEMA[level.id]?.length} questions on keys and endpoints
+            </span>
+          </span>
+          <ArrowRight size={16} className="text-green-200/70" />
         </button>
       )}
     </div>

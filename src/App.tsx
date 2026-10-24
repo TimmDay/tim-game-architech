@@ -58,18 +58,18 @@ type Route =
   | { screen: "home" }
   | { screen: "codex" }
   | { screen: "play"; levelId: string }
-  | { screen: "deck"; levelId: string }
+  | { screen: "deck"; levelId: string; schema?: boolean }
   | { screen: "retention" }
   | { screen: "survival" }
 
 /** Routes live in the hash so the back button and a home-screen PWA both behave. */
 function parse(hash: string): Route {
-  const [screen, id] = hash.replace(/^#\/?/, "").split("/")
+  const [screen, id, sub] = hash.replace(/^#\/?/, "").split("/")
   if (screen === "codex") return { screen: "codex" }
   if (screen === "retention") return { screen: "retention" }
   if (screen === "survival") return { screen: "survival" }
   if (screen === "deck" && id && (levelById(id) || DECK_TITLES[id]))
-    return { screen: "deck", levelId: id }
+    return { screen: "deck", levelId: id, schema: sub === "schema" }
   if (screen === "play" && id && (id === "sandbox" || levelById(id)))
     return { screen: "play", levelId: id }
   return { screen: "home" }
@@ -166,7 +166,7 @@ function AppScreens({
           }}
           onExit={() => go("/")}
           onNext={(id) => go(`/play/${id}`)}
-          onDeck={() => go(`/deck/${level.id}`)}
+          onDeck={(schema) => go(`/deck/${level.id}${schema ? "/schema" : ""}`)}
           toggle={toggle}
         />
       </>
@@ -197,8 +197,9 @@ function AppScreens({
     if (!level && !topic) return null
     return (
       <Deck
-        key={route.levelId}
+        key={`${route.levelId}${route.schema ? "/schema" : ""}`}
         source={{ id: route.levelId, title: level?.title ?? topic ?? "" }}
+        startOnSchema={route.schema}
         provider={provider}
         onBack={() => history.back()}
         onPlay={level ? () => go(`/play/${level.id}`) : undefined}

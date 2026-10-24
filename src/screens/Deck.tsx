@@ -20,7 +20,9 @@ import { updateReview } from "~/game/points-store"
 import { seeCard } from "~/game/review"
 import { loadDeckMarks, saveDeckMarks, type CardMark } from "~/game/storage"
 import type { Provider } from "~/providers/names"
+import { SCHEMA } from "~/quiz/schema"
 import { Rich } from "~/ui/Rich"
+import { SchemaQuiz } from "~/ui/SchemaQuiz"
 
 const CATEGORY_TONE: Record<CardCategory, string> = {
   clarify: "bg-cyan-300/15 text-cyan-200",
@@ -35,7 +37,7 @@ const CATEGORY_TONE: Record<CardCategory, string> = {
   observability: "bg-lime-300/15 text-lime-200",
 }
 
-type Filter = CardCategory | "all" | "revisit"
+type Filter = CardCategory | "all" | "revisit" | "schema"
 
 /** Deterministic shuffle, so a reshuffle is a new order but a re-render isn't. */
 function shuffled<T>(items: T[], seed: number): T[] {
@@ -63,6 +65,7 @@ export function Deck({
   onBack,
   onPlay,
   toggle,
+  startOnSchema,
 }: {
   /** Which deck: a level's id and title, or a topic's. */
   source: { id: string; title: string }
@@ -71,11 +74,15 @@ export function Deck({
   /** Absent for Fundamentals topics, which have no level to play. */
   onPlay?: () => void
   toggle: React.ReactNode
+  /** Open on the schema and API questions. */
+  startOnSchema?: boolean
 }) {
   const level = source
   const all = useMemo(() => DECKS[level.id] ?? [], [level.id])
   const [marks, setMarks] = useState(() => loadDeckMarks(level.id))
-  const [filter, setFilter] = useState<Filter>("all")
+  const [filter, setFilter] = useState<Filter>(
+    startOnSchema && SCHEMA[source.id]?.length ? "schema" : "all",
+  )
   const [seed, setSeed] = useState(0)
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -88,6 +95,7 @@ export function Deck({
     )
     const base = seed ? shuffled(ordered, seed) : ordered
     if (filter === "all") return base
+    if (filter === "schema") return []
     if (filter === "revisit")
       return base.filter((c) => marks[c.id] === "revisit")
     return base.filter((c) => c.category === filter)
@@ -141,6 +149,7 @@ export function Deck({
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
+  const schemaCount = SCHEMA[level.id]?.length ?? 0
   const counts = useMemo(() => {
     const m = new Map<CardCategory, number>()
     for (const c of all) m.set(c.category, (m.get(c.category) ?? 0) + 1)
@@ -225,7 +234,7 @@ export function Deck({
 
         {/* Filters */}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {(["all", ...CATEGORY_ORDER, "revisit"] as Filter[]).map((f) => {
+          {(["all", ...CATEGORY_ORDER, "revisit"] as const).map((f) => {
             const n =
               f === "all"
                 ? all.length
@@ -254,6 +263,20 @@ export function Deck({
               </button>
             )
           })}
+          {schemaCount > 0 && (
+            <button
+              type="button"
+              onClick={() => pick("schema")}
+              className={clsx(
+                "rounded-full border px-2.5 py-1 text-[12px]",
+                filter === "schema"
+                  ? "border-green-300 bg-green-300 text-slate-950"
+                  : "border-green-300/40 text-green-200 hover:border-green-300",
+              )}
+            >
+              Schema & API <span className="opacity-60">{schemaCount}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -272,7 +295,9 @@ export function Deck({
           </button>
         </div>
 
-        {!card ? (
+        {filter === "schema" ? (
+          <SchemaQuiz levelId={level.id} provider={provider} />
+        ) : !card ? (
           <p className="mt-10 text-center text-[14px] text-slate-400">
             {filter === "revisit"
               ? "Nothing to revisit. Nice."

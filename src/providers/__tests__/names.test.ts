@@ -6,6 +6,7 @@ import { SOLUTIONS } from "~/levels/solutions"
 import { DECKS } from "~/decks"
 import { TOPICS } from "~/decks/topics"
 import { QUIZZES } from "~/quiz/questions"
+import { SCHEMA } from "~/quiz/schema"
 import { KINDS } from "~/sim/catalogue"
 import { findings } from "~/sim/findings"
 import { grade } from "~/sim/grade"
@@ -30,7 +31,7 @@ const allRawText = (): string[] => {
   for (const l of LEVELS) {
     out.push(l.title, l.tagline, l.brief, l.hint, l.chaos.label)
     if (l.rootCause) out.push(l.rootCause.explanation)
-    for (const qn of QUIZZES[l.id] ?? [])
+    for (const qn of [...(QUIZZES[l.id] ?? []), ...(SCHEMA[l.id] ?? [])])
       out.push(qn.prompt, qn.correct, ...qn.wrong, qn.why)
     for (const card of DECKS[l.id] ?? [])
       out.push(card.prompt, ...card.points, card.followUp ?? "")

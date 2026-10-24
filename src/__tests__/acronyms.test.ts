@@ -5,6 +5,7 @@ import { LEVELS } from "~/levels"
 import { COMPONENT_CARDS, CONCEPTS } from "~/levels/concepts"
 import { SOLUTIONS } from "~/levels/solutions"
 import { QUIZZES } from "~/quiz/questions"
+import { SCHEMA } from "~/quiz/schema"
 
 const gameText = () => {
   const t: string[] = []
@@ -32,6 +33,8 @@ const gameText = () => {
   for (const d of Object.values(DECKS))
     for (const c of d) t.push(c.prompt, ...c.points, c.followUp ?? "")
   for (const q of Object.values(QUIZZES))
+    for (const x of q) t.push(x.prompt, x.correct, ...x.wrong, x.why)
+  for (const q of Object.values(SCHEMA))
     for (const x of q) t.push(x.prompt, x.correct, ...x.wrong, x.why)
   // Component names are tokens rendered per provider; they aren't prose.
   return t.map((s) => s.replace(/\{[a-z-]+\}/g, ""))

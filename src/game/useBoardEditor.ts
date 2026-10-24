@@ -9,7 +9,8 @@ import { sfx } from "./sound"
 export type Tool =
   | { t: "select" }
   | { t: "place"; kind: ComponentKind }
-  | { t: "connect"; from: string }
+  /** `building`: started from a handle on the build tab, so it finishes there too. */
+  | { t: "connect"; from: string; building?: boolean }
   | { t: "diagnose" }
 
 export type Selection = { node?: string; edge?: string }
@@ -111,17 +112,18 @@ export function useBoardEditor({
     setTool(
       tool.t === "connect" && tool.from === id
         ? { t: "select" }
-        : { t: "connect", from: id },
+        : { t: "connect", from: id, building: true },
     )
   }
 
   /**
-   * Finish the connection being drawn at this component. `inspect`: select
-   * the target and bring up the inspector, as a tap on it does; the build
-   * tab's handles stay put instead.
+   * Finish the connection being drawn at this component. A connection begun
+   * from the inspector selects the target and goes back to it; one begun from
+   * a build-tab handle stays on the build tab, however it's finished.
    */
-  const finishConnect = (id: string, inspect: boolean) => {
+  const finishConnect = (id: string) => {
     if (tool.t !== "connect") return
+    const inspect = !tool.building
     if (canConnect(graph, tool.from, id)) {
       dispatch({ type: "connect", from: tool.from, to: id })
       if (inspect) setSel({ node: id })
@@ -136,12 +138,12 @@ export function useBoardEditor({
 
   /** The build tab's receive handle: connect, and stay ready to build. */
   const receive = (id: string) => {
-    if (!running) finishConnect(id, false)
+    if (!running) finishConnect(id)
   }
 
   const onTapNode = (id: string) => {
     if (running) return
-    if (tool.t === "connect") return finishConnect(id, true)
+    if (tool.t === "connect") return finishConnect(id)
     if (tool.t === "diagnose") {
       setTool({ t: "select" })
       if (id !== CLIENT_ID) onDiagnose?.(id)

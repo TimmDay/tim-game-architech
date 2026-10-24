@@ -2,22 +2,37 @@ import clsx from "clsx"
 import {
   Brain,
   Crown,
+  Database,
   Globe,
   GraduationCap,
   Layers,
+  Moon,
   PiggyBank,
+  Plane,
   Search,
   Shield,
+  Siren,
+  Sparkles,
   Star,
   Stars,
   Swords,
   Target,
+  Telescope,
   Trophy,
   Wrench,
   type LucideIcon,
 } from "lucide-react"
-import { ACHIEVEMENTS, rank, type Achievement } from "~/game/achievements"
+import {
+  ACHIEVEMENTS,
+  ACHIEVEMENT_POINTS,
+  MAX_STARS,
+  completion,
+  rank,
+  starCount,
+  type Achievement,
+} from "~/game/achievements"
 import { useReview } from "~/game/points-store"
+import type { Progress } from "~/game/storage"
 
 const ICONS: Record<Achievement["icon"], LucideIcon> = {
   Star,
@@ -33,12 +48,19 @@ const ICONS: Record<Achievement["icon"], LucideIcon> = {
   Shield,
   Brain,
   Globe,
+  Sparkles,
+  Telescope,
+  Siren,
+  Database,
+  Moon,
+  Plane,
 }
 
 /** Rank, progress to the next one, and every achievement, earned or not. */
-export function TrophyRoom() {
+export function TrophyRoom({ progress }: { progress: Progress }) {
   const s = useReview()
-  const r = rank(s.total)
+  const r = rank(s, progress)
+  const done = completion(s, progress)
   const earned = ACHIEVEMENTS.filter((a) => s.awarded[`ach:${a.id}`]).length
   return (
     <section className="mt-12">
@@ -56,9 +78,8 @@ export function TrophyRoom() {
             </p>
           </div>
           <p className="font-mono text-[12px] text-slate-400">
-            {s.total.toLocaleString("en-US")} points
-            {r.next &&
-              ` · ${(r.next.at - s.total).toLocaleString("en-US")} to ${r.next.title}`}
+            {s.total.toLocaleString("en-US")} points · {starCount(progress)} of{" "}
+            {MAX_STARS} stars · {Math.round(done.value * 100)}% of the game
           </p>
         </div>
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5">
@@ -67,9 +88,16 @@ export function TrophyRoom() {
             style={{ width: `${Math.round(r.progress * 100)}%` }}
           />
         </div>
+        {r.next && (
+          <p className="mt-2 text-[12px] text-slate-400">
+            Next: <b className="text-amber-100">{r.next.title}</b>. Needs{" "}
+            {r.needs.join(" and ")}.
+          </p>
+        )}
       </div>
       <p className="mt-4 mb-2 font-mono text-[11px] text-slate-500">
-        {earned} of {ACHIEVEMENTS.length} achievements · 20 points each
+        {earned} of {ACHIEVEMENTS.length} achievements · {ACHIEVEMENT_POINTS}{" "}
+        points each
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {ACHIEVEMENTS.map((a) => {

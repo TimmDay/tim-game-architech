@@ -4,6 +4,7 @@ import { LEVELS } from "~/levels"
 import { discuss, liveFacts } from "~/levels/roles"
 import { SOLUTIONS } from "~/levels/solutions"
 import { DECKS } from "~/decks"
+import { TOPICS } from "~/decks/topics"
 import { QUIZZES } from "~/quiz/questions"
 import { KINDS } from "~/sim/catalogue"
 import { findings } from "~/sim/findings"
@@ -62,6 +63,15 @@ const allRawText = (): string[] => {
       }
     }
   }
+  for (const t of TOPICS)
+    for (const card of t.cards)
+      out.push(
+        t.title,
+        t.blurb,
+        card.prompt,
+        ...card.points,
+        card.followUp ?? "",
+      )
   for (const c of [
     ...Object.values(CONCEPTS),
     ...Object.values(COMPONENT_CARDS),

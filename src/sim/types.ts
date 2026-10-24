@@ -89,7 +89,10 @@ export type PlacedComponent = {
   partitionKey?: string
   /** What the store does when a network split leaves its copies apart. */
   consistency?: Consistency
-  /** Production settings from the sidebar. None change the simulation. */
+  /**
+   * Production settings from the sidebar. Grading checks them for the third
+   * star; they only change the simulation under the incident faults.
+   */
   practices?: Practices
 }
 

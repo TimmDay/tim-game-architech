@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "web-crawler": q([
+    [
+      "Why put a {queue} between the frontier and the fetchers?",
+      "Fetching is slow and limited; finding links isn't",
+      [
+        "Fetchers can only take work from a queue",
+        "Queues download pages faster than workers do",
+        "It removes the need to check for duplicates",
+      ],
+      "Each side runs at its own pace, and no discovered URL is lost if a fetcher restarts.",
+      4,
+    ],
+    [
+      "How do you tell that a URL has been seen before?",
+      "Normalise it, then look up its hash",
+      [
+        "Fetch it and compare the page",
+        "Search the object store for the URL",
+        "Ask the site whether you've visited",
+      ],
+      "A Bloom filter in memory can rule out most new URLs before the lookup.",
+      5,
+    ],
+    [
+      "Some sites take ten seconds a page. What keeps the crawl moving?",
+      "A timeout on each fetch, with retries later",
+      [
+        "Ten times as many fetchers",
+        "Fetching those sites more often, in parallel",
+        "Skipping the seen-set check for those sites",
+      ],
+      "Without the half-second cap, the fetchers here fall 1,269 pages a second behind.",
+      6,
+    ],
+    [
+      "Why do real crawlers write pages into large archive files?",
+      "Object stores bill writes per request",
+      [
+        "Object stores refuse files under a megabyte",
+        "Archive files can be searched without an index",
+        "Each object can only hold one kind of file",
+      ],
+      "One object per page costs about $5,900 a month here. Batching cuts the request count a thousandfold.",
+      8,
+    ],
+    [
+      "How do 30 fetchers stay polite to each site?",
+      "Each site's URLs go through one place, one at a time",
+      [
+        "Every fetcher keeps its own copy of each site",
+        "Each site is fetched only once a day",
+        "Fetchers take turns in order of their number",
+      ],
+      "Many sites at once give the throughput, and each site sees a trickle.",
+      12,
+    ],
+    [
+      "A calendar has an endless 'next month' link. What stops the crawler?",
+      "Depth and per-site page limits",
+      [
+        "A bigger frontier queue",
+        "More fetchers for that site",
+        "A shorter fetch timeout",
+      ],
+      "That's a crawler trap. Watch for sites whose URL count grows while their content doesn't.",
+      14,
+    ],
+    [
+      "The same article appears under many URLs. How do you store it once?",
+      "Hash the content and compare",
+      [
+        "Keep only the shortest URL",
+        "Fetch it twice and keep the newer copy",
+        "Ignore every URL with a query string",
+      ],
+      "Normalise URLs and follow canonical links too. Near-duplicates need fuzzier fingerprints.",
+      15,
+    ],
+    [
+      "A retried fetch and the original both finish. How is that made harmless?",
+      "Pages are stored by URL, so the second overwrites",
+      [
+        "Fetches are never retried",
+        "The site is locked while it's fetched",
+        "Both copies are deleted and fetched again",
+      ],
+      "Without it, about 180 pages a second are fetched twice during the slowdown.",
+      16,
+    ],
+    [
+      "A page redirects the crawler to an address inside your network. What should happen?",
+      "Refuse it: block private addresses",
+      [
+        "Follow it like any other link",
+        "Fetch it, but don't store the page",
+        "Retry it from a different fetcher",
+      ],
+      "Otherwise outsiders can use the crawler to reach your internal services.",
+      19,
+    ],
+    [
+      "How do you avoid downloading pages that haven't changed?",
+      "Ask with a conditional request",
+      [
+        "Download them and compare",
+        "Never revisit a page",
+        "Check the site's home page first",
+      ],
+      "An unchanged page answers 'not modified', with no body. Revisit pages about as often as they change.",
+      11,
+    ],
+  ]),
   "push-alerts": q([
     [
       "Why put a {queue} between the app and the push provider?",

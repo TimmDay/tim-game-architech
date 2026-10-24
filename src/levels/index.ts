@@ -1656,6 +1656,87 @@ const CLASSICS: Level[] = [
     concepts: ["provider-quotas", "backpressure", "delivery-guarantees"],
     hint: "The provider refuses anything over its quota. Put a {queue} between the app and the provider, and let {worker} instances send at the rate it accepts.",
   },
+  {
+    id: "web-crawler",
+    mode: "build",
+    track: "classic",
+    requires: ["upload-rush"],
+    title: "Web Crawler",
+    tagline: "Fetch the web politely, and don't wait on the slow parts.",
+    scenario: {
+      product: "the crawler",
+      reads: "links that turn out to be already seen",
+      writes: "new links to fetch",
+      hot: "the set of URLs already seen",
+      records: "every URL seen, and every page fetched",
+      files: "the fetched pages",
+      job: "fetching a page from its site",
+    },
+    brief:
+      "A search engine's crawler. Common Crawl gathers about 2.4 billion pages in roughly two weeks: some 2,000 a second. Here, every fetched page yields links, and 7,500 a second arrive at the frontier service. Four in five are URLs you've already seen; the rest, 1,500 a second, must be fetched and stored. Fetching is mostly waiting on someone else's site, and the web, a {third-party-api} here, may only be asked so fast: politeness allows 100 pages a second per block of sites, 2,000 in all. In the chaos round some big sites slow to ten seconds a page.",
+    load: {
+      peakRps: 7_500,
+      readFraction: 0.8,
+      cacheableFraction: 0,
+      heavyWriteFraction: 1,
+      // Fetching one page: about a second, nearly all of it waiting.
+      job: { seconds: 1, cpuBound: false },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 15_000,
+      writesReach: ["nosql", "third-party-api", "object-store"],
+      noBacklog: true,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [
+        { kind: "slow-dependency", target: "third-party-api", extraMs: 10_000 },
+      ],
+      label: "Some big sites take ten seconds a page",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+      "queue",
+      "worker",
+      "object-store",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 14, 2],
+        ["seen", "nosql", 6, 6, 2],
+        ["frontier", "queue", 6, 2],
+        ["fetch", "worker", 8, 2, 30, 2, { practices: { idempotency: true } }],
+        ["web", "third-party-api", 10, 1, 20],
+        ["pages", "object-store", 10, 4],
+      ],
+      [
+        `${C}>lb`,
+        "lb>app",
+        "app>seen",
+        "app>frontier",
+        "frontier>fetch",
+        "fetch>web",
+        "fetch>pages",
+      ],
+    ),
+    concepts: ["provider-quotas", "timeouts-and-retries", "object-storage"],
+    hint: "Check each link against the URLs already seen, queue the new ones, and let {worker} instances fetch them with a timeout, so a slow site can't hold a fetcher for ten seconds.",
+  },
 ]
 
 const SPLIT: Fault[] = [{ kind: "network-split" }]

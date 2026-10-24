@@ -1724,3 +1724,205 @@ export const PUSH_ALERTS = deck("push-alerts", [
     ],
   ],
 ])
+
+export const WEB_CRAWLER = deck("web-crawler", [
+  [
+    "clarify",
+    "What would you ask about the crawl?",
+    [
+      "What's it for: a search index, an archive, price monitoring? That decides what to fetch and how fresh it must be.",
+      "How many pages, and how often must each be revisited? News pages change hourly; most pages hardly ever.",
+      "Which content: pages only, or images and documents too?",
+    ],
+    "How does 'how fresh' change the frontier?",
+  ],
+  [
+    "clarify",
+    "What would you ask about politeness?",
+    [
+      "How fast may you fetch from one site? A common rule is one request at a time per site, with a pause between.",
+      "Do you obey each site's robots rules? Yes: they say what you may crawl, and sometimes how slowly.",
+      "Who do site owners contact if the crawler causes trouble? Name it, with a contact address, in every request.",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about duplicates?",
+    [
+      "How many links point at pages you already have? On the real web, most of them.",
+      "Do the same pages turn up under many URLs: tracking parameters, session IDs, with and without 'www'?",
+      "Do copied or mirrored pages count as duplicates?",
+    ],
+  ],
+  [
+    "product",
+    "What makes a crawl good, from the product's point of view?",
+    [
+      "Covering the pages people actually search for, not the raw page count.",
+      "Freshness where it matters: the news front page, not a forum post from 2009.",
+      "Not getting the company blocked by site owners.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a queue between finding links and fetching them?",
+    [
+      "Finding links is fast; fetching is slow and limited by politeness. The queue lets each run at its own pace.",
+      "Fetchers take work when they're free, so a slow site holds up one fetch, not the frontier.",
+      "The queue outlives fetcher restarts, so no discovered URL is lost.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you know a URL has been seen before?",
+    [
+      "Normalise it first (lowercase the host, drop fragments and tracking parameters), then look up its hash.",
+      "The seen set grows by 1,500 keys a second here, about 130 million a day: a partitioned key-value store keyed by that hash fits it.",
+      "A Bloom filter in memory can answer 'definitely not seen' before the lookup, which saves most of the reads.",
+    ],
+  ],
+  [
+    "decision",
+    "Why do fetchers need a timeout?",
+    [
+      "A fetch is mostly waiting. A site taking ten seconds holds a fetcher's slot ten times longer than normal.",
+      "With a half-second cap, slow pages are abandoned and retried later, and the rest of the crawl carries on.",
+      "Without it, the fetchers here fall 1,269 pages a second behind.",
+    ],
+  ],
+  [
+    "decision",
+    "Where do fetched pages go?",
+    [
+      "The {object-store}: cheap, durable and effectively unlimited.",
+      "Not a database: pages are large blobs nobody queries by column.",
+      "Keep a small record per URL (when it was fetched, its status, a hash of its content) next to the seen set.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "One object per page, or many pages per file?",
+    [
+      "One object per page is simple, but writes are billed per request: about $5,900 a month here, the biggest line on the bill.",
+      "Appending pages into large archive files cuts the request count a thousandfold or more.",
+      "The cost: reading one page means finding where it sits in a file, so you keep an index of offsets.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Crawl breadth-first, or by priority?",
+    [
+      "Breadth-first is simple, but spends fetches on low-value pages.",
+      "Prioritise by importance (how many pages link to it) and by how often it changes.",
+      "Keep several queues by priority, and have fetchers draw from them in proportion.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the frontier service just fetch pages itself?",
+    [
+      "Then every link waits on a site: here p99 passes 13 seconds and most requests fail.",
+      "Slow sites would tie up the service, and politeness would be impossible to enforce.",
+      "Keep finding links and fetching pages apart.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you skip re-downloading pages that haven't changed?",
+    [
+      "Ask with a conditional request ('only if changed since this date'): an unchanged page answers 'not modified', with no body.",
+      "Track how often each page changes, and revisit it about that often.",
+      "Sitemaps list pages with their last change, so you needn't fetch a page to find out.",
+    ],
+  ],
+  [
+    "scale",
+    "How do 30 fetchers stay polite to every site?",
+    [
+      "Group the frontier by site, so all of one site's URLs pass through one place.",
+      "That place hands out one URL at a time per site, with a pause between.",
+      "Many sites at once give the throughput; each site sees a gentle trickle.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the pages. What changes first?",
+    [
+      "Politeness: you can't fetch one site faster, so you need far more sites in flight, not faster fetchers.",
+      "The seen set: tens of billions of keys, so more partitions, and Bloom filters to save lookups.",
+      "Storage cost: archive files instead of one object per page.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A site generates pages forever, like a calendar with an endless 'next month' link.",
+    [
+      "A crawler trap: the crawler follows it for ever and the frontier fills with junk.",
+      "Limit depth and pages per site, and ignore URL patterns that never end.",
+      "Watch for sites whose URL count keeps growing while their content doesn't.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The same article appears under many URLs. How do you store it once?",
+    [
+      "Normalise URLs, and follow the page's own 'canonical' link when it gives one.",
+      "Hash the content: matching hashes mean a duplicate, whatever the URL.",
+      "Near-duplicates (the same article with different adverts) need fuzzier fingerprints.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A fetch is retried after a timeout, and both attempts finish.",
+    [
+      "The page is stored twice, and the site was asked twice.",
+      "Key storage by URL, so the second copy overwrites the first and the retry is harmless.",
+      "Without that, about 180 pages a second are fetched twice here during the slowdown.",
+    ],
+  ],
+  [
+    "resilience",
+    "A fetcher crashes mid-crawl.",
+    [
+      "Its URLs return to the queue when their time runs out, and another fetcher takes them.",
+      "Fetches are idempotent by URL, so a repeat does no harm.",
+      "Nothing that was discovered is lost.",
+    ],
+  ],
+  [
+    "resilience",
+    "Some big sites slow to ten seconds a page.",
+    [
+      "Timeouts cut each attempt at half a second, and the page goes back for later, with backoff.",
+      "Back off that site in particular: a slow site may be struggling, and politeness means asking less.",
+      "Here the fetchers rise from 50% to 80% busy and keep up.",
+    ],
+  ],
+  [
+    "security",
+    "What risks does a crawler bring?",
+    [
+      "It downloads untrusted content: never run it, parse it in a sandbox, and cap sizes.",
+      "Links and redirects can point inside your own network. Block private addresses, or the crawler becomes a way in.",
+      "Ignore robots rules or politeness and site owners will block your whole address range.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Pages fetched per second, and the frontier's backlog and oldest URL.",
+      "Errors and timeouts per site, to spot sites that are struggling or blocking you.",
+      "How many fetches were duplicates, and how many came back 'not modified'.",
+    ],
+  ],
+  [
+    "observability",
+    "A site owner complains about the crawler. How do you check?",
+    [
+      "Requests to their site per minute, against your politeness rules.",
+      "Which URLs you fetched, and whether their robots rules allowed it.",
+      "A contact address in every request means complaints come to you first, not to your hosting provider.",
+    ],
+  ],
+])

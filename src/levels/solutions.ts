@@ -502,6 +502,35 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "web-crawler": {
+    overview:
+      "Finding links is fast and fetching pages is slow, so they're split. The frontier service checks each link against the URLs already seen and queues the new ones; {worker} instances fetch them with a timeout, store the pages in the {object-store}, and never ask any site for more than politeness allows.",
+    walkthrough: [
+      "Links found on fetched pages arrive at the {load-balancer} and the {app-server} frontier service.",
+      "The frontier normalises each URL (lowercase host, no fragment or tracking parameters) and looks up its hash in the {nosql} seen set. Four in five are already there.",
+      "New URLs are recorded in the seen set and put on the frontier {queue}.",
+      "Fetcher {worker} instances take URLs off the queue and fetch them, with a half-second timeout and backoff on retries. Pages are stored in the {object-store}, keyed by URL, so a repeated fetch overwrites rather than duplicates.",
+    ],
+    numbers: [
+      "7,500 links a second: 6,000 already seen and 1,500 new.",
+      "Fourteen {app-server} instances run at 54%.",
+      "The seen set grows by 1,500 keys a second, about 130 million a day, far too many for one database to keep forever. Two {nosql} blocks take the writes at 75% and the lookups at 60%.",
+      "A fetch takes about a second, nearly all waiting, so each fetcher keeps 100 in flight. Thirty fetch 1,500 pages a second at 50%, using 75% of the sites' politeness budget.",
+      "When big sites slow to ten seconds, the timeout cuts each try at half a second and backoff retries it later: the fetchers rise to 80% and keep up. With no timeout, each fetch waits the full ten seconds and the crawl falls 1,269 pages a second behind.",
+      "Fetching inside the frontier service instead puts every site's response time on every link: p99 passes 13 seconds and most requests fail.",
+      "Cost: about $84 for the {load-balancer} + 14 × $70 + 2 × $950 + about $1,419 for the {queue} + 30 × $120 + about $5,938 for the {object-store} = $13,921 of $15,000. Storing each page as its own object is the biggest line: writes are billed per request.",
+    ],
+    tradeoffs: [
+      "One object per page is simple but costs about $5,900 a month in write requests. Real crawlers append pages into large archive files, which cuts the request count a thousandfold at the cost of keeping an index of where each page sits.",
+      "Politeness caps the crawl: the sites set the pace, not your fetchers. More throughput means more sites in flight at once, not faster fetching from each.",
+      "A timeout abandons slow pages, so slow sites are crawled less often. That's usually right: a slow site may be struggling, and asking less is the polite answer.",
+    ],
+    alternatives: [
+      "A {sql-primary} for the seen set works at first, but it grows by 130 million rows a day, and every lookup is by one key. A partitioned key-value store is built for exactly that.",
+      "A Bloom filter in memory in front of the seen set answers 'definitely new' without a lookup, and saves most of the reads for a small chance of skipping a URL that was new.",
+      "Revisiting with conditional requests: an unchanged page answers 'not modified' with no body, so recrawling for freshness costs far less than the first fetch.",
+    ],
+  },
   "push-alerts": {
     overview:
       "Sending a push is slow, rate-limited work done by someone else. The {app-server} records each notification and puts it on a {queue}; {worker} instances hand them to the provider at the rate its quota allows. When a goal doubles traffic, the line grows for a minute and then drains, and the app never waits on the provider.",

@@ -256,6 +256,38 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toEqual(["latency"])
   })
 
+  it("web crawler: fetchers with no timeout wait out slow sites and fall behind", () => {
+    const l = level("web-crawler")
+    const g = patch(l.reference, "fetch", {
+      practices: {
+        ...l.reference.components.find((c) => c.id === "fetch")?.practices,
+        timeouts: false,
+      },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("web crawler: fetching inside the frontier service fails users", () => {
+    const l = level("web-crawler")
+    const g = rewire(
+      l.reference,
+      ["frontier", "fetch"],
+      ["app>web", "app>pages"],
+    )
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("web crawler: a retried fetch that isn't keyed by URL is fetched twice", () => {
+    const l = level("web-crawler")
+    const g = patch(l.reference, "fetch", {
+      practices: {
+        ...l.reference.components.find((c) => c.id === "fetch")?.practices,
+        idempotency: false,
+      },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

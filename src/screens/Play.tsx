@@ -130,6 +130,9 @@ export function Play({
     onInspect: () => {
       if (!wide) openTab("inspect")
     },
+    onPlaced: () => {
+      if (!wide) openTab("build")
+    },
     onToast: setToast,
     onDiagnose: handleDiagnose,
   })

@@ -14,13 +14,6 @@ export type Tool =
 
 export type Selection = { node?: string; edge?: string }
 
-/** The reducer's id scheme, mirrored so a freshly placed block can be selected. */
-function nextNum(g: Graph, kind: ComponentKind) {
-  let n = 1
-  while (g.components.some((c) => c.id === `${kind}-${n}`)) n++
-  return n
-}
-
 export const nameOf = (graph: Graph, id: string, provider: Provider) => {
   if (id === CLIENT_ID) return "Users"
   const c = graph.components.find((c) => c.id === id)
@@ -37,6 +30,7 @@ export function useBoardEditor({
   provider,
   running,
   onInspect,
+  onPlaced,
   onToast,
   onDiagnose,
 }: {
@@ -46,6 +40,8 @@ export function useBoardEditor({
   running: boolean
   /** Called when a selection should bring up the inspector (phones). */
   onInspect?: () => void
+  /** Called after a component is placed: back to the palette, for the next one. */
+  onPlaced?: () => void
   onToast?: (msg: string) => void
   /** Repair mode: a tap while diagnosing. */
   onDiagnose?: (id: string) => void
@@ -136,10 +132,12 @@ export function useBoardEditor({
     if (running) return
     if (tool.t === "place") {
       if (!inBounds(x, y) || occupied(graph, x, y)) return
+      // Placing isn't inspecting: stay ready to add the next component, and
+      // inspect only on an explicit tap.
       dispatch({ type: "place", kind: tool.kind, x, y })
-      setSel({ node: `${tool.kind}-${nextNum(graph, tool.kind)}` })
+      setSel({})
       setTool({ t: "select" })
-      onInspect?.()
+      onPlaced?.()
       return
     }
     if (tool.t !== "select") setTool({ t: "select" })

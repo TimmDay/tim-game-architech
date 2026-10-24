@@ -84,6 +84,9 @@ export function Survival({
     onInspect: () => {
       if (!wide) setTab("inspect")
     },
+    onPlaced: () => {
+      if (!wide) setTab("build")
+    },
   })
   const { graph } = editor
 

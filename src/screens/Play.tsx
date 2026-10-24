@@ -82,7 +82,8 @@ export function Play({
   onProgress: (p: Progress) => void
   onExit: () => void
   onNext: (id: string) => void
-  onDeck: () => void
+  /** Open the discussion deck, or straight to its schema questions. */
+  onDeck: (schema?: boolean) => void
   toggle: React.ReactNode
 }) {
   const wide = useWide()

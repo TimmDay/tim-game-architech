@@ -6,6 +6,7 @@ import { ACHIEVEMENT_POINTS } from "./achievement-points"
  * Item ids:
  *   card:<deckCardId>        a discussion deck card
  *   mc:<levelId>:<index>     a quiz question, by position in QUIZZES
+ *   schema:<levelId>:<index> a schema or API question, by position in SCHEMA
  *   level:<levelId>          revisiting a passed scenario
  */
 export const POINTS = {
@@ -13,6 +14,8 @@ export const POINTS = {
   flashCard: 1,
   /** First time you answer a quiz question correctly. */
   mcCorrect: 2,
+  /** First time you answer a schema or API question correctly. */
+  schemaCorrect: 1,
   /** First time you earn a star on a scenario. */
   scenarioPass: 50,
   /** Retention: getting right something you got right last time. */
@@ -71,6 +74,7 @@ const interval = (id: string, box: number) => {
 export function awardValue(key: string): number {
   if (key.startsWith("flash:")) return POINTS.flashCard
   if (key.startsWith("mc:")) return POINTS.mcCorrect
+  if (key.startsWith("schema:")) return POINTS.schemaCorrect
   if (key.startsWith("pass:")) return POINTS.scenarioPass
   if (key.startsWith("survival:")) return POINTS.survivalWave
   if (key.startsWith("ach:")) return ACHIEVEMENT_POINTS
@@ -123,6 +127,18 @@ export function answerQuestion(
   const id = `mc:${levelId}:${index}`
   const awarded = correct ? award(s, id, POINTS.mcCorrect) : s
   return schedule(awarded, id, correct, now)
+}
+
+/** A schema or API question answered: a point the first time it's right. */
+export function answerSchema(
+  s: ReviewState,
+  levelId: string,
+  index: number,
+  correct: boolean,
+) {
+  return correct
+    ? award(s, `schema:${levelId}:${index}`, POINTS.schemaCorrect)
+    : s
 }
 
 /** A scenario graded with at least one star. */

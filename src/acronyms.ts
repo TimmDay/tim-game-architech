@@ -15,6 +15,10 @@ export const ACRONYMS: Record<string, Acronym> = {
     expansion: "Command Query Responsibility Segregation",
     note: "Separate models for writing data and for reading it.",
   },
+  JSON: {
+    expansion: "JavaScript Object Notation",
+    note: "A plain-text format for structured data, used by most web APIs.",
+  },
   JWT: {
     expansion: "JSON Web Token",
     note: "A signed token format. Hard to revoke before it expires, unless every check consults a denylist.",
@@ -231,6 +235,12 @@ export const NOT_ACRONYMS = new Set([
   "WhatsApp",
   "YouTube",
   "GitHub",
+  // HTTP methods, written as they appear in an API.
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
   "WebSockets",
   "GraphQL",
   "OAuth",

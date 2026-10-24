@@ -34,6 +34,17 @@ export type BoardProps = {
   onMove: (id: string, x: number, y: number) => void
   /** The level's traffic types, for the legend. */
   traffic?: TrafficType[]
+  /**
+   * Phones, on the build tab: a + on each component starts a connection
+   * from it, and an = on each valid target finishes it.
+   */
+  handles?: {
+    /** The component a connection is being drawn from, if any. */
+    from?: string
+    canReceive: (id: string) => boolean
+    onStart: (id: string) => void
+    onReceive: (id: string) => void
+  }
 }
 
 const ALL_COLOR = "#38bdf8"
@@ -109,7 +120,7 @@ export function Board(p: BoardProps) {
   const gesture = useRef<{
     start: Pt
     view: View
-    target?: { node?: string; edge?: string }
+    target?: { handle?: string; node?: string; edge?: string }
     moved: boolean
     pinch?: { dist: number; mid: Pt; view: View }
     lastTile?: string
@@ -142,13 +153,16 @@ export function Board(p: BoardProps) {
       }
       return
     }
-    const el = (e.target as Element).closest("[data-node],[data-edge]")
+    const el = (e.target as Element).closest(
+      "[data-handle],[data-node],[data-edge]",
+    )
     gesture.current = {
       start: pt,
       view,
       moved: false,
       target: el
         ? {
+            handle: el.getAttribute("data-handle") ?? undefined,
             node: el.getAttribute("data-node") ?? undefined,
             edge: el.getAttribute("data-edge") ?? undefined,
           }
@@ -211,6 +225,12 @@ export function Board(p: BoardProps) {
     }
     gesture.current = null
     if (!g || g.moved) return
+    if (g.target?.handle) {
+      const [kind, id = ""] = g.target.handle.split(":")
+      return kind === "start"
+        ? p.handles?.onStart(id)
+        : p.handles?.onReceive(id)
+    }
     if (g.target?.node) return p.onTapNode(g.target.node)
     if (g.target?.edge) return p.onTapEdge(g.target.edge)
     const w = toWorld(local(e))
@@ -496,6 +516,56 @@ export function Board(p: BoardProps) {
               </g>
             )
           })}
+
+          {p.handles &&
+            nodes.map((n) => {
+              const h = p.handles
+              if (!h) return null
+              const { sx, sy } = iso(n.x, n.y)
+              const drawing = h.from !== undefined
+              const kind = !drawing
+                ? "start"
+                : n.id === h.from
+                  ? "start"
+                  : h.canReceive(n.id)
+                    ? "receive"
+                    : null
+              if (!kind) return null
+              const glyph = !drawing ? "+" : kind === "receive" ? "=" : "×"
+              return (
+                <g
+                  key={`handle-${n.id}`}
+                  data-handle={`${kind}:${n.id}`}
+                  transform={`translate(${sx + 30} ${sy - 34})`}
+                  className="cursor-pointer"
+                  aria-label={
+                    kind === "receive"
+                      ? "Connect here"
+                      : drawing
+                        ? "Cancel connection"
+                        : "Connect from here"
+                  }
+                >
+                  {/* A generous hit area: the board is often zoomed out on a phone. */}
+                  <circle r={24} fill="transparent" />
+                  <circle
+                    r={13}
+                    fill={kind === "receive" ? "#22d3ee" : "#0f172a"}
+                    stroke="#67e8f9"
+                    strokeWidth={1.5}
+                  />
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={18}
+                    fontWeight={700}
+                    fill={kind === "receive" ? "#020617" : "#a5f3fc"}
+                  >
+                    {glyph}
+                  </text>
+                </g>
+              )
+            })}
         </g>
       </svg>
       {p.graph.edges.some((e) => e.carries?.length) && (

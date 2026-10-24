@@ -104,21 +104,44 @@ export function useBoardEditor({
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
+  /** Start a connection from this component, or cancel one already started. */
+  const startConnect = (id: string) => {
+    if (running) return
+    setSel({})
+    setTool(
+      tool.t === "connect" && tool.from === id
+        ? { t: "select" }
+        : { t: "connect", from: id },
+    )
+  }
+
+  /**
+   * Finish the connection being drawn at this component. `inspect`: select
+   * the target and bring up the inspector, as a tap on it does; the build
+   * tab's handles stay put instead.
+   */
+  const finishConnect = (id: string, inspect: boolean) => {
+    if (tool.t !== "connect") return
+    if (canConnect(graph, tool.from, id)) {
+      dispatch({ type: "connect", from: tool.from, to: id })
+      if (inspect) setSel({ node: id })
+    } else if (id !== tool.from) {
+      onToast?.(
+        "Those two are already connected, or that isn't a valid target.",
+      )
+    }
+    setTool({ t: "select" })
+    if (inspect) onInspect?.()
+  }
+
+  /** The build tab's receive handle: connect, and stay ready to build. */
+  const receive = (id: string) => {
+    if (!running) finishConnect(id, false)
+  }
+
   const onTapNode = (id: string) => {
     if (running) return
-    if (tool.t === "connect") {
-      if (canConnect(graph, tool.from, id)) {
-        dispatch({ type: "connect", from: tool.from, to: id })
-        setSel({ node: id })
-      } else if (id !== tool.from) {
-        onToast?.(
-          "Those two are already connected, or that isn't a valid target.",
-        )
-      }
-      setTool({ t: "select" })
-      onInspect?.()
-      return
-    }
+    if (tool.t === "connect") return finishConnect(id, true)
     if (tool.t === "diagnose") {
       setTool({ t: "select" })
       if (id !== CLIENT_ID) onDiagnose?.(id)
@@ -165,6 +188,8 @@ export function useBoardEditor({
           : null
 
   return {
+    startConnect,
+    receive,
     graph,
     dispatch,
     tool,

@@ -494,7 +494,7 @@ export function Play({
         onMove={onMove}
         traffic={level.load.traffic}
         handles={
-          (wide || tab === "build") && !running && tool.t !== "diagnose"
+          !wide && tab === "build" && !running
             ? {
                 from: tool.t === "connect" ? tool.from : undefined,
                 canReceive: (id) =>

@@ -808,10 +808,17 @@ export function InspectPanel({
           Tap a component to configure it. Tap a connection to inspect or remove
           it.
         </p>
-        <p>
+        <p className="lg:hidden">
           To wire things up, tap the <b className="text-slate-200">+</b> next to
           a component (start with <b className="text-slate-200">Users</b>), then
           the <b className="text-slate-200">=</b> where its requests should go.
+        </p>
+        <p className="hidden lg:block">
+          To wire things up, select a component (start with{" "}
+          <b className="text-slate-200">Users</b>), press{" "}
+          <b className="text-slate-200">Connect</b> or{" "}
+          <b className="text-slate-200">C</b>, then click where its requests
+          should go.
         </p>
         <p>
           Drag a component to move it. Pinch or scroll to zoom, drag the floor

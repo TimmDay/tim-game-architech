@@ -326,6 +326,179 @@ export const TOPICS: Topic[] = [
     ],
   ),
   topic(
+    "topic-internals",
+    "Distributed systems internals",
+    "What's inside the boxes: consistent hashing, load-balancing algorithms, proxies, indexes, clocks, gossip, Merkle trees and elections.",
+    [
+      [
+        "decision",
+        "Why does 'hash the key, mod the number of servers' break when you add a server, and what does consistent hashing do instead?",
+        [
+          "Changing the server count changes almost every key's server: going from four cache nodes to five moves about 80% of keys, and the cache goes cold.",
+          "Consistent hashing puts servers and keys on the same ring of hash values. Each key belongs to the next server clockwise.",
+          "A new server takes over only the keys between it and its neighbour, so about one key in N moves.",
+        ],
+        "Where in a design would you reach for it?",
+      ],
+      [
+        "tradeoff",
+        "Why do consistent-hashing rings give each server many virtual nodes?",
+        [
+          "With one point per server the arcs between them are uneven, so one server can own far more keys than another.",
+          "A hundred or so points per server evens the load out, and a lost server's keys are shared among many neighbours instead of landing on one.",
+          "A bigger machine can take more points, so servers don't all need the same capacity.",
+        ],
+        "What's rendezvous hashing, and when is it simpler?",
+      ],
+      [
+        "decision",
+        "Round robin, least connections or 'power of two choices': how should a load balancer pick a server?",
+        [
+          "Round robin takes turns. It's fine when every request costs about the same.",
+          "Least connections sends work to the least busy server, which matters when some requests take a hundred times longer than others.",
+          "Power of two choices picks two servers at random and uses the less busy one: nearly as good as checking them all, and when many balancers share the servers, they don't all rush the same idle one.",
+        ],
+      ],
+      [
+        "tradeoff",
+        "When would you route each user to the same server (sticky sessions), and what does it cost?",
+        [
+          "When that server holds something for them: a session in memory, or a warm cache of their data.",
+          "The cost: load goes uneven when a few users are heavy, and losing a server loses everyone pinned to it.",
+          "Usually better: keep servers stateless and put sessions in a shared store, so any server can answer.",
+        ],
+      ],
+      [
+        "resilience",
+        "How does a load balancer decide a server is unhealthy?",
+        [
+          "Active checks: it calls a health endpoint every few seconds and takes the server out after a few failures in a row.",
+          "Passive checks: it watches real responses and ejects a server that starts returning errors.",
+          "A health check should say whether this server can work, not whether a shared database is up. Otherwise one database blip ejects every server at once.",
+        ],
+      ],
+      [
+        "decision",
+        "What's a reverse proxy, and what does it do for you?",
+        [
+          "A server that clients talk to in place of yours. It hides the servers behind one address.",
+          "It ends TLS, compresses, caches, rate-limits, and routes by host or path.",
+          "A {load-balancer} is a reverse proxy that spreads requests; an {api-gateway} is one that understands your API.",
+        ],
+        "What's a forward proxy, then?",
+      ],
+      [
+        "tradeoff",
+        "A load balancer that works at layer 4 or at layer 7?",
+        [
+          "Layer 4 forwards TCP connections without reading them: very fast, but it can only route by address and port.",
+          "Layer 7 reads each HTTP request, so it can route by path, header or cookie, retry, and end TLS, at more cost per request.",
+          "Long-lived connections such as WebSockets stay on one server for their whole life either way, so plan how to drain and rebalance them.",
+        ],
+      ],
+      [
+        "decision",
+        "What does a database index do, and what does it cost?",
+        [
+          "It's a sorted copy of some columns that points at the rows, usually a B-tree: a lookup or range reads a few pages instead of the whole table.",
+          "Every write must also update every index on the table, so each one slows writes and takes space.",
+          "Index the queries you actually run. An index nobody uses is pure cost.",
+        ],
+      ],
+      [
+        "edge-case",
+        "There's an index on (country, city). Which queries can use it?",
+        [
+          "Queries on country, or on country and city: the index is sorted by country first, then by city within each country.",
+          "A query on city alone can't use it well, because the cities are scattered through every country.",
+          "Put the columns you match exactly first, and the one you range over or sort by last.",
+        ],
+      ],
+      [
+        "scale",
+        "When does an index not help, and what happens to indexes once data is sharded?",
+        [
+          "If the index holds every column a query needs (a covering index), the answer comes from the index alone. Otherwise each match costs a jump to its row.",
+          "For a query that matches most of the table, those jumps cost more than reading it all, so the planner scans instead.",
+          "Sharded, an index on anything but the key is either local to each shard (reads ask every shard) or global (each write also updates another shard).",
+        ],
+      ],
+      [
+        "decision",
+        "Why can't you order events on different machines by their timestamps?",
+        [
+          "Clocks on different machines drift and get corrected, sometimes backwards, so a later event can carry an earlier time.",
+          "Last-writer-wins by timestamp can silently throw away the write that really came second.",
+          "Logical clocks order events by what each machine has seen, not by the time on its clock.",
+        ],
+        "What does a Lamport clock give you, and what can't it tell you?",
+      ],
+      [
+        "decision",
+        "What does a vector clock tell you that a timestamp can't?",
+        [
+          "Each copy keeps a counter for every copy, and a write carries the counters it has seen.",
+          "If one write's counters are all at least as high as another's, it came after it. If neither is, they happened at the same time without knowing about each other: a real conflict.",
+          "Conflicting writes are kept side by side for the app, or a CRDT, to merge, instead of one silently winning.",
+        ],
+      ],
+      [
+        "decision",
+        "How do hundreds of nodes know which of them are alive, with no central list?",
+        [
+          "Gossip: every second or so, each node swaps what it knows with a few others picked at random.",
+          "News spreads like an epidemic. It reaches every node in a number of rounds that grows with the logarithm of the cluster size, so doubling the cluster adds about one round.",
+          "No node is special, so there's nothing central to fail. The price is that each node's view is briefly out of date.",
+        ],
+      ],
+      [
+        "tradeoff",
+        "A node stops answering. Is it dead, or just slow?",
+        [
+          "From outside you can't tell: a slow network, a long pause and a crash look the same.",
+          "A short timeout notices failures fast but declares healthy nodes dead. A long one is accurate but slow to react.",
+          "Asking other nodes to try reaching it too, or raising suspicion gradually as heartbeats go missing, cuts the false alarms.",
+        ],
+      ],
+      [
+        "decision",
+        "Two copies of a huge table may have drifted apart. How do you find what differs without sending everything?",
+        [
+          "Build a Merkle tree on each: hash each range of keys, then hash pairs of hashes, up to a single root.",
+          "Compare the roots. If they match, the copies agree. If not, compare the children, and go down only the branches that differ.",
+          "Only the ranges that differ are sent, so repairing a handful of keys out of a billion costs a few hashes and those keys.",
+        ],
+      ],
+      [
+        "alternative",
+        "Where else do Merkle trees show up?",
+        [
+          "Version control names every file and folder by the hash of its contents, so identical files are stored once and a change is found fast.",
+          "File sync compares hash trees of folders, so only what changed is sent.",
+          "Append-only logs publish a root hash, so anyone can check that history hasn't been rewritten.",
+        ],
+      ],
+      [
+        "decision",
+        "How does a Raft-style election choose a leader?",
+        [
+          "Followers expect regular heartbeats. One that hears nothing for a random timeout becomes a candidate, starts a new term and asks for votes.",
+          "Each node votes once per term, and only for a candidate whose log is at least as up to date as its own. A majority of votes makes a leader.",
+          "Random timeouts make split votes rare, and the term number lets everyone ignore an old leader that comes back.",
+        ],
+      ],
+      [
+        "edge-case",
+        "Why elect a leader by majority, rather than 'the live node with the lowest ID'?",
+        [
+          "During a network split, each side finds its own lowest live node, and you have two leaders.",
+          "A majority can exist on only one side, so at most one leader is elected per term.",
+          "A leader can also hold a lease and act only while it's valid, stepping down when it can't renew. That relies on clocks not drifting too far.",
+        ],
+      ],
+    ],
+  ),
+  topic(
     "topic-event-logs",
     "Event logs and distributed transactions",
     "Partitioned logs, consumer groups and offsets, then sagas and the outbox.",

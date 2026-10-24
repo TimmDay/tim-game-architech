@@ -211,8 +211,12 @@ export type Fault =
   | { kind: "slow-dependency"; target: ComponentKind; extraMs: number }
   /** Some messages fail every time. Without a dead-letter queue they're retried forever. */
   | { kind: "poison-message" }
-  /** Attackers try stolen passwords at `multiplier` times normal traffic. */
-  | { kind: "credential-stuffing"; multiplier: number }
+  /**
+   * A flood at `multiplier` times normal traffic: stolen passwords being
+   * tried, or a runaway client. `perKey`: it comes from many addresses under
+   * a few API keys, so only something that reads the key can limit it.
+   */
+  | { kind: "credential-stuffing"; multiplier: number; perKey?: boolean }
   /** Someone calls the API without signing in. */
   | { kind: "unauthenticated-probe" }
   /** A bad migration corrupts the system of record and it must be restored. */

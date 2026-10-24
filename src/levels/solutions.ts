@@ -502,6 +502,154 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "save-game": {
+    overview:
+      "A key-value store keyed by player ID spreads millions of saves evenly, and keeps taking them during a split, because a lost save is the one thing players won't forgive. The catch is the single key everyone reads: no partition can serve 4,050 reads a second of one key, so the {cache} answers it.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. Every request names the player.",
+      "Loads go to the {cache} first. Today's event settings, read by every player, are nearly always there, and so are active players' saves.",
+      "Misses and saves go to the {nosql} store, partitioned by player ID, with three copies across zones.",
+      "During a split, every copy keeps accepting saves. When it heals, copies exchange what they missed, and a per-player version decides which save wins.",
+    ],
+    numbers: [
+      "30,000 requests a second: 27,000 loads and 3,000 saves.",
+      "Fifty {app-server} instances run at 60%.",
+      "The {cache} answers 15,390 loads a second, including almost every read of the event key. 11,610 reach the store.",
+      "Keyed by player, saves spread across five {nosql} blocks at 60%. The event key gets 1,741 reads a second, under the 3,000 one key can take.",
+      "Without the cache, that one key gets 4,050 reads a second, 135% of its limit. Ten blocks don't help: one key lives in one place.",
+      "Keyed by region, the biggest region's partition takes 40% of the traffic and overloads. Keyed by time of save, every new save lands on the newest partition, and loading a player means a scan.",
+      "During the split, the cut-off zone keeps taking about 1,000 saves a second, merged when it heals. Refusing instead fails 16% of requests.",
+      "Cost: $1 + about $262 for the {load-balancer} + 50 × $70 + 2 × $150 + 5 × $950 = $8,813 of $9,500.",
+    ],
+    tradeoffs: [
+      "A player who saves on one side of a split and loads on the other can see an older save for a moment. A version on each save means the newest wins when copies meet.",
+      "Two devices saving the same player at once is a real conflict. Merge by the game's rules (most progress, the union of items) rather than letting the last write silently win.",
+      "The cached event settings can be a minute stale after a change. Version the key, or push changes, if an event must start on the second.",
+    ],
+    alternatives: [
+      "Ship today's event with the app, or serve it from a {cdn}: it's the same for everyone, so it needn't touch the store at all.",
+      "Store the hot key as ten copies and read one at random: reads spread over ten partitions without a cache, and the daily write updates all ten.",
+      "A {sql-primary} with replicas takes the loads, but 3,000 saves a second is its entire write capacity, so growth means sharding by hand.",
+    ],
+  },
+  "fair-share": {
+    overview:
+      "The limit has to live where the API key is known, and its counters have to be shared. Each {app-server} checks the caller's key against a counter in the {cache} before doing any work, and refuses with '429 Too Many Requests' once the key is over its limit. The same cache holds popular map data, so the {sql-primary} sees only the misses.",
+    walkthrough: [
+      "{dns} → {load-balancer}, which limits by address: enough for a simple flood from one machine, not for this one.",
+      "The {app-server} reads the API key and takes a token from that key's bucket in the {cache}: one atomic step, so two servers can't both spend the last token.",
+      "Over the limit, the app answers 429 straight away, with how long to wait. Under it, the request carries on.",
+      "Tile and address reads come from the {cache}; misses and writes go to the {sql-primary}.",
+    ],
+    numbers: [
+      "20,000 requests a second: 19,000 reads and 1,000 writes.",
+      "The {cache} answers 14,440 reads a second and keeps every key's count; the {sql-primary} sees 4,560 reads and 1,000 writes, at 46%.",
+      "Thirty-six {app-server} instances run at 56%.",
+      "The runaway script adds 60,000 requests a second. Each is refused at the first server it reaches, so the servers stay at 56%.",
+      "With no limit in the app, the flood reaches every server: they run at 222% and over half of all requests fail, everyone's included.",
+      "Counting in each server's memory instead lets the script through almost unchecked: each server sees only a 36th of its requests.",
+      "Cost: $1 + about $183 for the {load-balancer} + 36 × $70 + 2 × $150 + 2 × $400 = $3,804 of $4,100.",
+    ],
+    tradeoffs: [
+      "Every request now makes a call to the {cache}, so it's on the critical path. If it fails, a paid API should let requests through and alert; sign-ins might refuse instead.",
+      "A token bucket allows short bursts and holds the average. A fixed window is cheaper but lets a caller send double across the boundary.",
+      "Counts are shared within one region. Across regions, split the limit or sync counts every few seconds, and accept a little overshoot.",
+    ],
+    alternatives: [
+      "A managed {api-gateway}: per-key limits and usage tiers with nothing to run, but it's billed per call, about $15,800 a month at this traffic.",
+      "Counting in memory and syncing to the shared store every second: far fewer calls to the {cache}, at the price of briefly overshooting the limit.",
+      "Limiting only by address at the {load-balancer}: cheap and worth keeping, but this script comes from hundreds of machines under one key.",
+    ],
+  },
+  "pay-button": {
+    overview:
+      "A payment is recorded before it's charged, and charged in the background. The {app-server} writes it to the ledger as pending and queues the charge; {worker} instances call the provider with a timeout, backoff and the payment's idempotency key, then record the result. Every change goes on an {event-stream}, and the {data-warehouse} reconciles the ledger against the provider's records each day.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. The shopper's request carries an idempotency key, so a repeat returns the first answer instead of making a second payment.",
+      "The app writes the payment to the ledger on the {sql-primary} as pending, in double entry: the shopper's side and the seller's side, always summing to zero.",
+      "It puts the charge on the {queue} and tells the shopper the payment is processing. Their app checks the status, or is told when it changes.",
+      "{worker} instances call the provider with a half-second timeout and retry with backoff and jitter, passing the same idempotency key every time, so the provider charges once however many attempts it takes.",
+      "Each status change is published to the {event-stream}. The {data-warehouse} matches the ledger against the provider's settlement records every day and flags anything that doesn't agree.",
+    ],
+    numbers: [
+      "2,000 requests a second: 1,400 status checks and 600 payments.",
+      "Six {app-server} instances across three zones run at 33%, and 50% when a zone goes dark.",
+      "The ledger's {sql-primary} is 20% busy, with a standby in a second zone that takes over in the outage.",
+      "A charge takes about 300ms, nearly all waiting, so each worker keeps 100 in flight: about 333 charges a second. Twelve run at 15% on a normal day.",
+      "On the bad afternoon the timeout holds each slow call for half a second, backoff adds a fifth more calls, and the dark zone takes four workers with it. The eight left run at 67%.",
+      "Without idempotency keys, retries charge about 72 payments a second twice. Charging inside the request fails every payment once the provider slows, and a single ledger instance takes everything down with its zone.",
+      "Cost: $1 + about $41 for the {load-balancer} + 6 × $70 + 2 × $400 + about $568 for the {queue} + 12 × $120 + $25 + $1,000 = $4,294 of $4,700. The provider's fees are a business cost, not counted here.",
+    ],
+    tradeoffs: [
+      "The shopper sees 'processing' rather than an instant answer. Most charges finish in under a second; on a bad afternoon the app must say so, and never show 'paid' until the provider has confirmed.",
+      "Twelve workers are mostly idle on a normal day. That's the price of surviving a slow provider and a lost zone at the same time.",
+      "Idempotency keys only protect while both sides remember them. One large provider deletes them after about 24 hours, so a retry days later must check the payment's own record first.",
+    ],
+    alternatives: [
+      "Authorise the card while the shopper waits and take the money later in the background: an instant yes or no, at the cost of a slow request when the provider is slow. Many checkouts do this with a short timeout and fall back to 'processing'.",
+      "A {nosql} ledger scales writes further, but double entry needs both sides of each movement written together, which relational transactions do best.",
+      "Reconciling straight from the {sql-primary}: simple, but heavy queries compete with payments. Feeding the warehouse from the event stream keeps them apart.",
+    ],
+  },
+  "web-crawler": {
+    overview:
+      "Finding links is fast and fetching pages is slow, so they're split. The frontier service checks each link against the URLs already seen and queues the new ones; {worker} instances fetch them with a timeout, store the pages in the {object-store}, and never ask any site for more than politeness allows.",
+    walkthrough: [
+      "Links found on fetched pages arrive at the {load-balancer} and the {app-server} frontier service.",
+      "The frontier normalises each URL (lowercase host, no fragment or tracking parameters) and looks up its hash in the {nosql} seen set. Four in five are already there.",
+      "New URLs are recorded in the seen set and put on the frontier {queue}.",
+      "Fetcher {worker} instances take URLs off the queue and fetch them, with a half-second timeout and backoff on retries. Pages are stored in the {object-store}, keyed by URL, so a repeated fetch overwrites rather than duplicates.",
+    ],
+    numbers: [
+      "7,500 links a second: 6,000 already seen and 1,500 new.",
+      "Fourteen {app-server} instances run at 54%.",
+      "The seen set grows by 1,500 keys a second, about 130 million a day, far too many for one database to keep forever. Two {nosql} blocks take the writes at 75% and the lookups at 60%.",
+      "A fetch takes about a second, nearly all waiting, so each fetcher keeps 100 in flight. Thirty fetch 1,500 pages a second at 50%, using 75% of the sites' politeness budget.",
+      "When big sites slow to ten seconds, the timeout cuts each try at half a second and backoff retries it later: the fetchers rise to 80% and keep up. With no timeout, each fetch waits the full ten seconds and the crawl falls 1,269 pages a second behind.",
+      "Fetching inside the frontier service instead puts every site's response time on every link: p99 passes 13 seconds and most requests fail.",
+      "Cost: about $84 for the {load-balancer} + 14 × $70 + 2 × $950 + about $1,419 for the {queue} + 30 × $120 + about $5,938 for the {object-store} = $13,921 of $15,000. Storing each page as its own object is the biggest line: writes are billed per request.",
+    ],
+    tradeoffs: [
+      "One object per page is simple but costs about $5,900 a month in write requests. Real crawlers append pages into large archive files, which cuts the request count a thousandfold at the cost of keeping an index of where each page sits.",
+      "Politeness caps the crawl: the sites set the pace, not your fetchers. More throughput means more sites in flight at once, not faster fetching from each.",
+      "A timeout abandons slow pages, so slow sites are crawled less often. That's usually right: a slow site may be struggling, and asking less is the polite answer.",
+    ],
+    alternatives: [
+      "A {sql-primary} for the seen set works at first, but it grows by 130 million rows a day, and every lookup is by one key. A partitioned key-value store is built for exactly that.",
+      "A Bloom filter in memory in front of the seen set answers 'definitely new' without a lookup, and saves most of the reads for a small chance of skipping a URL that was new.",
+      "Revisiting with conditional requests: an unchanged page answers 'not modified' with no body, so recrawling for freshness costs far less than the first fetch.",
+    ],
+  },
+  "push-alerts": {
+    overview:
+      "Sending a push is slow, rate-limited work done by someone else. The {app-server} records each notification and puts it on a {queue}; {worker} instances hand them to the provider at the rate its quota allows. When a goal doubles traffic, the line grows for a minute and then drains, and the app never waits on the provider.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. A request to notify someone is checked against their settings (muted? quiet hours?) and written to the {sql-primary} as pending.",
+      "The app puts the notification on the {queue} and answers straight away. Whoever asked doesn't wait for the push.",
+      "{worker} instances take notifications off the queue, look up the user's device tokens and call the provider, about 100 calls in flight each.",
+      "When the provider accepts, the worker marks the notification sent. If it refuses or times out, the message goes back on the queue and is retried with backoff; after a few failures it moves to a dead-letter queue.",
+      "Inbox loads read the {sql-primary}, so a notification swiped away on the lock screen is still there when the app opens.",
+    ],
+    numbers: [
+      "3,000 requests a second: 1,200 notifications to send and 1,800 inbox loads.",
+      "Nine {app-server} instances run at 33%, and 67% when the goal doubles traffic.",
+      "The {sql-primary} is 40% busy on writes, and 80% during the goal.",
+      "A provider call takes about 150ms, nearly all waiting, so each worker keeps 100 in flight and sends about 667 a second. Three send 2,000 a second, exactly the provider's quota, and run at 60% at peak.",
+      "The goal brings 2,400 notifications a second. 2,000 go out and the line grows by 400 a second; when the burst passes, the spare capacity drains it.",
+      "Calling the provider inside the request instead puts its 600ms p99, and every refusal, on the app's critical path: p99 passes 12 seconds, and requests fail before the goal even goes in.",
+      "Cost: $1 + about $49 for the {load-balancer} + 9 × $70 + 2 × $400 + about $1,135 for the {queue} + 3 × $120 = $2,975 of $3,250. The provider's own fees are a business cost, not counted here.",
+    ],
+    tradeoffs: [
+      "A notification can arrive seconds late during a burst. For a goal alert that's fine; for a sign-in code it isn't, so time-critical messages deserve their own queue that bulk alerts can't hold up.",
+      "The queue is billed per message: about $1,135 a month here. Sending and receiving in batches of ten cuts most of that.",
+      "Delivery is at-least-once, so a retry can send a push twice. A notification ID the worker checks before sending keeps duplicates rare, and a collapse key lets the phone show only one.",
+    ],
+    alternatives: [
+      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
+      "Buying more quota instead of queueing: the provider caps it, and a goal would still overshoot it for a minute. Queueing is cheaper than paying for a peak you hit twice a season.",
+      "{serverless} senders: they scale per message with nothing to run, but every one still counts against the same quota, so you still need the queue to pace them.",
+    ],
+  },
   typeahead: {
     overview:
       "No time to search: the top suggestions for every prefix are worked out in advance and kept in memory. The {cdn} answers common prefixes at the edge, the {cache} answers the rest, and completed searches flow through an {event-stream} to the {data-warehouse}, where tomorrow's suggestions are built.",

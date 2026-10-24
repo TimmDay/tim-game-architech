@@ -16,7 +16,12 @@ import type {
   SimResult,
 } from "./types"
 import { CLIENT_ID } from "./types"
-import { missingPractices, rateLimitPoints, type PracticeId } from "./practices"
+import {
+  floodLimitPoints,
+  missingPractices,
+  sharesCounters,
+  type PracticeId,
+} from "./practices"
 
 export type Finding = {
   severity: "error" | "warn"
@@ -389,14 +394,22 @@ export function findings(
             concept: "dead-letter-queue",
             text: `${chaosLabel}: ${name(q)} hands the failing messages back forever, so its consumers spend most of their time on work that will never succeed.`,
           })
-    if (faults.some((f) => f.kind === "credential-stuffing"))
-      for (const c of rateLimitPoints(graph))
+    const flood = faults.find((f) => f.kind === "credential-stuffing")
+    if (flood)
+      for (const c of floodLimitPoints(graph, flood.perKey))
         if (!c.practices?.rateLimit)
           out.push({
             severity: "error",
             componentId: c.id,
             concept: "rate-limiting",
-            text: `${chaosLabel}: ${name(c)} has no rate limit, so every password guess goes through to the servers behind it.`,
+            text: `${chaosLabel}: ${name(c)} has no rate limit, so the flood goes straight through to whatever is behind it.`,
+          })
+        else if (!sharesCounters(graph, c))
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "rate-limiting",
+            text: `${chaosLabel}: ${name(c)} limits each caller, but its ${c.instances} instances each count alone, so a caller spread across them gets ${c.instances} times the limit. Keep the counters in a shared {cache}.`,
           })
     for (const id of chaos.exposed) {
       const c = graph.components.find((c) => c.id === id)

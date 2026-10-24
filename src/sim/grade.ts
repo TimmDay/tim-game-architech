@@ -24,8 +24,11 @@ export type Targets = {
   budgetUsd: number
   /** Each sink must receive (nearly) every write. */
   writesReach: WriteSink[]
-  /** Async consumers must keep up with what's produced. */
-  noBacklog: boolean
+  /**
+   * Async consumers must keep up with what's produced. "peak": at the normal
+   * peak, but a burst may queue up during the chaos round and drain later.
+   */
+  noBacklog: boolean | "peak"
   /**
    * What a network split must not break. "consistent": no side accepts a
    * write the other can't see, and the majority side keeps serving. Refusing
@@ -135,7 +138,7 @@ export function grade(
           ? chaos.divergentRps <= 0.5 && chaos.errorRate < MAJORITY_SERVES
           : chaos.errorRate <=
             Math.max(targets.maxErrorRate, CHAOS_ERROR_BUDGET)) &&
-        (!targets.noBacklog || chaos.backlogGrowthRps <= 0.5) &&
+        (targets.noBacklog !== true || chaos.backlogGrowthRps <= 0.5) &&
         chaos.duplicateRps <= 0.5 &&
         chaos.exposed.length === 0 &&
         chaos.dataLossMinutes <= (targets.rpoMinutes ?? Infinity),

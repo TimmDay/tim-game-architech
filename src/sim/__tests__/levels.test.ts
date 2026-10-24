@@ -255,6 +255,159 @@ describe("the interview classics' traps", () => {
     const g = patch(l.reference, "topk", { kind: "search-index", instances: 1 })
     expect(failed(l, g)).toEqual(["latency"])
   })
+
+  it("web crawler: fetchers with no timeout wait out slow sites and fall behind", () => {
+    const l = level("web-crawler")
+    const g = patch(l.reference, "fetch", {
+      practices: {
+        ...l.reference.components.find((c) => c.id === "fetch")?.practices,
+        timeouts: false,
+      },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("web crawler: fetching inside the frontier service fails users", () => {
+    const l = level("web-crawler")
+    const g = rewire(
+      l.reference,
+      ["frontier", "fetch"],
+      ["app>web", "app>pages"],
+    )
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("web crawler: a retried fetch that isn't keyed by URL is fetched twice", () => {
+    const l = level("web-crawler")
+    const g = patch(l.reference, "fetch", {
+      practices: {
+        ...l.reference.components.find((c) => c.id === "fetch")?.practices,
+        idempotency: false,
+      },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: retries without idempotency keys charge people twice", () => {
+    const l = level("pay-button")
+    const pay = l.reference.components.find((c) => c.id === "pay")
+    const g = patch(l.reference, "pay", {
+      practices: { ...pay?.practices, idempotency: false },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: charging inside the request fails once the provider slows", () => {
+    const l = level("pay-button")
+    const g = rewire(l.reference, ["charges", "pay"], ["app>provider"])
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: one ledger instance goes down with its zone", () => {
+    const l = level("pay-button")
+    const g = patch(l.reference, "ledger", { instances: 1, zones: 1 })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("fair share: with no limit in the app, the runaway script reaches every server", () => {
+    const l = level("fair-share")
+    const app = l.reference.components.find((c) => c.id === "app")
+    const g = patch(l.reference, "app", {
+      practices: { ...app?.practices, rateLimit: false },
+    })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("fair share: servers that count alone let the script through", () => {
+    const l = level("fair-share")
+    // A cache for map data that the app doesn't keep its counters in.
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter((c) => c.id !== "cache"),
+        { id: "tiles", kind: "cache", x: 7, y: 3, instances: 2, zones: 2 },
+      ],
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => e.from !== "cache" && e.to !== "cache",
+        ),
+        { id: "lb>tiles", from: "lb", to: "tiles" },
+        { id: "tiles>app", from: "tiles", to: "app" },
+        { id: "app>db", from: "app", to: "db" },
+      ],
+    }
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("fair share: a managed gateway limits by key, but breaks the budget", () => {
+    const l = level("fair-share")
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter((c) => c.id !== "lb"),
+        {
+          id: "gw",
+          kind: "api-gateway",
+          x: 3,
+          y: 4,
+          instances: 3,
+          zones: 1,
+          practices: { rateLimit: true, auth: true, alerts: true },
+        },
+      ],
+      edges: [
+        ...l.reference.edges.filter((e) => e.from !== "lb" && e.to !== "lb"),
+        { id: "dns>gw", from: "dns", to: "gw" },
+        { id: "gw>app", from: "gw", to: "app" },
+      ],
+    }
+    expect(failed(l, g)).toContain("budget")
+  })
+
+  it("save game: without a cache, the event key overloads at any capacity", () => {
+    const l = level("save-game")
+    for (const instances of [5, 10]) {
+      const g = patch(rewire(l.reference, ["cache"], ["app>saves"]), "saves", {
+        instances,
+      })
+      expect(failed(l, g)).toContain("traffic")
+    }
+  })
+
+  it("save game: keyed by region or by time of save, one partition takes the load", () => {
+    const l = level("save-game")
+    for (const partitionKey of ["region", "saved"])
+      expect(
+        failed(l, patch(l.reference, "saves", { partitionKey })),
+      ).toContain("traffic")
+  })
+
+  it("save game: refusing saves during a split fails players", () => {
+    const l = level("save-game")
+    const g = patch(l.reference, "saves", { consistency: "strong" })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
+    const l = level("push-alerts")
+    const r = grade(l.reference, l.load, l.targets, l.chaos.faults)
+    expect(r.chaos.backlogGrowthRps).toBeGreaterThan(0)
+    expect(r.stars).toBe(3)
+  })
+
+  it("push alerts: calling the provider inside the request fails users", () => {
+    const l = level("push-alerts")
+    const g = rewire(l.reference, ["sends", "push"], ["app>provider"])
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("push alerts: too little quota or too few workers fall behind at a normal peak", () => {
+    const l = level("push-alerts")
+    expect(
+      failed(l, patch(l.reference, "provider", { instances: 10 })),
+    ).toContain("backlog")
+    expect(failed(l, patch(l.reference, "push", { instances: 1 }))).toContain(
+      "backlog",
+    )
+  })
 })
 
 describe("existing levels keep their numbers", () => {

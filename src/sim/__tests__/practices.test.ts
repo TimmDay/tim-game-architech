@@ -7,7 +7,7 @@ import {
   missingPractices,
   type PracticeId,
 } from "../practices"
-import type { Graph, Practices } from "../types"
+import type { Fault, Graph, Practices } from "../types"
 
 const level = (id: string) => {
   const l = levelById(id)
@@ -34,14 +34,28 @@ const wants = (id: string) => {
       .map((x) => x.practice)
 }
 
+/** Faults that a production setting is what survives. */
+const SETTING_FAULTS: Fault["kind"][] = [
+  "slow-dependency",
+  "poison-message",
+  "credential-stuffing",
+  "unauthenticated-probe",
+  "bad-migration",
+  "silent-stall",
+]
+
 describe.each(LEVELS)("$id", (l) => {
   it("has stakes, and its reference without production settings earns two stars, not three", () => {
     expect(l.targets.stakes).toBeDefined()
     const g = grade(bare(l.reference), l.load, l.targets, l.chaos.faults)
     const failed = g.checks.filter((c) => !c.pass).map((c) => c.id)
-    // On the incidents shelf, the chaos round is what the settings are for.
+    // Where the chaos round tests a setting (all of the incidents shelf, and
+    // some classics), the bare reference fails it too.
+    const testsASetting =
+      l.track === "ops" ||
+      l.chaos.faults.some((f) => SETTING_FAULTS.includes(f.kind))
     expect(failed).toEqual(
-      l.track === "ops" ? ["chaos", "practices"] : ["practices"],
+      testsASetting ? ["chaos", "practices"] : ["practices"],
     )
     expect(g.stars).toBe(2)
   })

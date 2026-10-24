@@ -1080,6 +1080,9 @@ const REPAIR: Level[] = [
   },
 ]
 
+const SPLIT: Fault[] = [{ kind: "network-split" }]
+const SPLIT_LABEL = "A network split cuts one zone off"
+
 /**
  * The questions interviewers ask most, as build levels. Each one's graded
  * trap is the mistake that question is designed to catch.
@@ -1579,10 +1582,408 @@ const CLASSICS: Level[] = [
     concepts: ["precomputation", "latency-budget", "cdn"],
     hint: "There's no time to search on every keystroke. Work out the top suggestions for each prefix ahead of time, keep them in memory, and let the {cdn} answer the most common prefixes.",
   },
+  {
+    id: "push-alerts",
+    mode: "build",
+    track: "classic",
+    requires: ["upload-rush"],
+    title: "Push Alerts",
+    tagline: "A goal goes in, and a million phones want to know at once.",
+    scenario: {
+      product: "the notification service",
+      reads: "apps loading their notification inbox and settings",
+      writes: "other services asking for a notification to be sent",
+      hot: "each user's notification settings and device tokens",
+      records: "every notification sent, and each user's preferences",
+      job: "handing each notification to the push provider",
+    },
+    brief:
+      "A sports app's notification service: other parts of the app ask it to tell someone about a goal, a kick-off or a reply, and it sends a push to their phone. Peak is 3,000 requests a second: 1,200 notifications to send, and 1,800 apps loading their inbox. Pushes go through a provider, a {third-party-api} that sells quota in blocks of 100 messages a second, up to 2,000, and refuses anything over it. In the chaos round a cup final goal doubles everything. A notification may arrive a little late. It must never be lost, and the app must never stall waiting for one.",
+    load: {
+      peakRps: 3_000,
+      readFraction: 0.6,
+      cacheableFraction: 0.2,
+      heavyWriteFraction: 1,
+      // Handing a notification to the provider: one call, mostly waiting.
+      job: { seconds: 0.15, cpuBound: false },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 3_250,
+      writesReach: ["sql-primary", "third-party-api"],
+      noBacklog: "peak",
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 2 }],
+      label: "Cup final goal (2x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "queue",
+      "event-stream",
+      "worker",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 9, 2],
+        ["db", "sql-primary", 7, 6, 2, 2],
+        ["sends", "queue", 7, 2],
+        ["push", "worker", 9, 2, 3, 2],
+        ["provider", "third-party-api", 11, 2, 20],
+      ],
+      [
+        `${C}>dns`,
+        "dns>lb",
+        "lb>app",
+        "app>db",
+        "app>sends",
+        "sends>push",
+        "push>provider",
+      ],
+    ),
+    concepts: ["provider-quotas", "backpressure", "delivery-guarantees"],
+    hint: "The provider refuses anything over its quota. Put a {queue} between the app and the provider, and let {worker} instances send at the rate it accepts.",
+  },
+  {
+    id: "web-crawler",
+    mode: "build",
+    track: "classic",
+    requires: ["upload-rush"],
+    title: "Web Crawler",
+    tagline: "Fetch the web politely, and don't wait on the slow parts.",
+    scenario: {
+      product: "the crawler",
+      reads: "links that turn out to be already seen",
+      writes: "new links to fetch",
+      hot: "the set of URLs already seen",
+      records: "every URL seen, and every page fetched",
+      files: "the fetched pages",
+      job: "fetching a page from its site",
+    },
+    brief:
+      "A search engine's crawler. Common Crawl gathers about 2.4 billion pages in roughly two weeks: some 2,000 a second. Here, every fetched page yields links, and 7,500 a second arrive at the frontier service. Four in five are URLs you've already seen; the rest, 1,500 a second, must be fetched and stored. Fetching is mostly waiting on someone else's site, and the web, a {third-party-api} here, may only be asked so fast: politeness allows 100 pages a second per block of sites, 2,000 in all. In the chaos round some big sites slow to ten seconds a page.",
+    load: {
+      peakRps: 7_500,
+      readFraction: 0.8,
+      cacheableFraction: 0,
+      heavyWriteFraction: 1,
+      // Fetching one page: about a second, nearly all of it waiting.
+      job: { seconds: 1, cpuBound: false },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 15_000,
+      writesReach: ["nosql", "third-party-api", "object-store"],
+      noBacklog: true,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [
+        { kind: "slow-dependency", target: "third-party-api", extraMs: 10_000 },
+      ],
+      label: "Some big sites take ten seconds a page",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+      "queue",
+      "worker",
+      "object-store",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 14, 2],
+        ["seen", "nosql", 6, 6, 2],
+        ["frontier", "queue", 6, 2],
+        ["fetch", "worker", 8, 2, 30, 2, { practices: { idempotency: true } }],
+        ["web", "third-party-api", 10, 1, 20],
+        ["pages", "object-store", 10, 4],
+      ],
+      [
+        `${C}>lb`,
+        "lb>app",
+        "app>seen",
+        "app>frontier",
+        "frontier>fetch",
+        "fetch>web",
+        "fetch>pages",
+      ],
+    ),
+    concepts: ["provider-quotas", "timeouts-and-retries", "object-storage"],
+    hint: "Check each link against the URLs already seen, queue the new ones, and let {worker} instances fetch them with a timeout, so a slow site can't hold a fetcher for ten seconds.",
+  },
+  {
+    id: "pay-button",
+    mode: "build",
+    track: "classic",
+    requires: ["zone-outage"],
+    title: "Pay Button",
+    tagline:
+      "Every charge exactly once, even with the provider slow and a zone dark.",
+    scenario: {
+      product: "the payment service",
+      reads: "shoppers and merchants checking a payment's status",
+      writes: "payments being made",
+      hot: "recent payments and their status",
+      records: "the ledger: every payment and every movement of money",
+      events: "a payment-changed event for every status change",
+      job: "charging the card through the payment provider",
+    },
+    brief:
+      "A marketplace's payment service. Visa says its network can handle more than 65,000 transaction messages a second, but averages a few thousand. Here, peak is 2,000 requests a second: 600 payments, and 1,400 checks on how one is going. Cards are charged through a payment provider, a {third-party-api} that sells 100 calls a second per block; a call usually takes 300ms. Finance reconciles the ledger against the provider's records every day. The chaos round is the worst afternoon of the year: the provider slows by five seconds a call, and a zone loses power. No payment may be lost, and nobody may be charged twice.",
+    load: {
+      peakRps: 2_000,
+      readFraction: 0.7,
+      cacheableFraction: 0,
+      heavyWriteFraction: 1,
+      // A charge is a call to the provider: about 300ms, nearly all waiting.
+      job: { seconds: 0.3, cpuBound: false },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 4_700,
+      writesReach: ["sql-primary", "third-party-api", "data-warehouse"],
+      noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: true,
+        abuse: true,
+      },
+    },
+    chaos: {
+      faults: [
+        { kind: "slow-dependency", target: "third-party-api", extraMs: 5_000 },
+        { kind: "zone-outage" },
+      ],
+      label: "The provider slows by five seconds, and a zone goes dark",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "sql-replica",
+      "queue",
+      "event-stream",
+      "worker",
+      "data-warehouse",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 6, 3],
+        ["ledger", "sql-primary", 7, 6, 2, 2],
+        ["charges", "queue", 7, 2],
+        ["pay", "worker", 9, 2, 12, 3],
+        ["provider", "third-party-api", 11, 2, 10],
+        ["events", "event-stream", 9, 6],
+        ["recon", "data-warehouse", 11, 6],
+      ],
+      [
+        `${C}>dns`,
+        "dns>lb",
+        "lb>app",
+        "app>ledger",
+        "app>charges",
+        "app>events",
+        "charges>pay",
+        "pay>provider",
+        "events>recon",
+      ],
+    ),
+    concepts: ["idempotency", "timeouts-and-retries", "standby"],
+    hint: "Record the payment, then charge it in the background with a timeout, backoff and an idempotency key. Then ask what the ledger and the workers lose when a zone goes dark.",
+  },
+  {
+    id: "fair-share",
+    mode: "build",
+    track: "classic",
+    requires: ["front-page"],
+    title: "Fair Share",
+    tagline:
+      "One customer's runaway script must not take the API down for everyone.",
+    scenario: {
+      product: "the maps API",
+      reads: "developers' apps asking for map tiles and addresses",
+      writes: "saved places and usage records",
+      hot: "popular map tiles, and each API key's request count",
+      records: "customers, their API keys and their saved places",
+    },
+    brief:
+      "A maps API that developers pay for by the call. GitHub's API allows a signed-in user 5,000 requests an hour, and an anonymous caller only 60, counted by address. Here, every customer's API key is limited to 100 requests a second. Peak is 20,000 requests a second, mostly map tiles and address lookups. In the chaos round one customer's script runs away on hundreds of machines and sends four times your normal traffic. A limit by address can't stop it; only something that reads the API key can. Everyone else must keep working.",
+    load: {
+      peakRps: 20_000,
+      readFraction: 0.95,
+      cacheableFraction: 0.8,
+      heavyWriteFraction: 0,
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 4_100,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "credential-stuffing", multiplier: 4, perKey: true }],
+      label: "One customer's runaway script (4x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "api-gateway",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "sql-replica",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 36, 2, { practices: { rateLimit: true } }],
+        ["cache", "cache", 7, 3, 2, 2],
+        ["db", "sql-primary", 9, 5, 2, 2],
+      ],
+      [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>db"],
+    ),
+    concepts: ["rate-limiting", "cache-aside", "horizontal-scaling"],
+    hint: "Limit each API key in the {app-server}, where the key is known, and keep the counters in a shared {cache}: each server only sees a thirtieth of the traffic.",
+  },
+  {
+    id: "save-game",
+    mode: "build",
+    track: "classic",
+    requires: ["step-counter"],
+    title: "Save Game",
+    tagline:
+      "Millions of players' progress, one hot key, and saves that never fail.",
+    scenario: {
+      product: "the game's save service",
+      reads: "players loading their progress and today's event",
+      writes: "players saving their progress",
+      hot: "today's event settings, and active players' saves",
+      records: "every player's save, by player ID",
+    },
+    brief:
+      "A mobile game keeps every player's progress in a key-value store. Amazon's Dynamo paper describes a store built so the shopping cart always accepts writes, even when machines or links fail; a save button needs the same promise. Peak is 30,000 requests a second: 27,000 loads and 3,000 saves. Every player also reads today's event settings, a single key that takes 15% of all reads, and any one {nosql} key tops out around 3,000 reads a second. Pick the partition key and what the store does during a split, which is the chaos round.",
+    load: {
+      peakRps: 30_000,
+      readFraction: 0.9,
+      cacheableFraction: 0.6,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+      partitionKeys: [
+        {
+          id: "player",
+          label: "Player ID",
+          // Saves spread evenly; the event key is still one key.
+          hotShare: 0.15,
+          scatterReads: 0,
+        },
+        {
+          id: "region",
+          label: "Player's region",
+          hotShare: 0.4,
+          scatterReads: 0,
+        },
+        {
+          id: "saved",
+          label: "Time of save",
+          hotShare: 0.9,
+          scatterReads: 0.9,
+          // Loading one player's save means scanning for it.
+          scatterFanout: 50,
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 9_500,
+      writesReach: ["nosql"],
+      noBacklog: false,
+      onSplit: "available",
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: { faults: SPLIT, label: SPLIT_LABEL },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 50, 2],
+        ["cache", "cache", 7, 3, 2, 2],
+        [
+          "saves",
+          "nosql",
+          9,
+          5,
+          5,
+          1,
+          { partitionKey: "player", consistency: "eventual" },
+        ],
+      ],
+      [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>saves"],
+    ),
+    concepts: ["hot-keys", "key-value-modelling", "conflict-resolution"],
+    hint: "Key saves by player so they spread. Then look at the one key every player reads: no amount of capacity lifts a single key's limit, but a {cache} can answer it.",
+  },
 ]
-
-const SPLIT: Fault[] = [{ kind: "network-split" }]
-const SPLIT_LABEL = "A network split cuts one zone off"
 
 /**
  * The CAP shelf. Each level turns on the sidebar's consistency choice, its

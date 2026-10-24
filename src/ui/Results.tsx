@@ -60,7 +60,8 @@ function checkLabel(
         return `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} refused (< 50%), ${rps(g.chaos.divergentRps)} conflicting writes (must be 0)`
       return [
         `${level.chaos.label}: ${pct(g.chaos.errorRate, 1)} errors`,
-        t.noBacklog && `backlog growth ${rps(g.chaos.backlogGrowthRps)}`,
+        t.noBacklog === true &&
+          `backlog growth ${rps(g.chaos.backlogGrowthRps)}`,
         g.chaos.duplicateRps > 0.5 &&
           `${rps(g.chaos.duplicateRps)} applied twice`,
         g.chaos.exposed.length > 0 && "answered an unsigned caller",

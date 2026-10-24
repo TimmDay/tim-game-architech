@@ -165,6 +165,10 @@ export const ACRONYMS: Record<string, Acronym> = {
     expansion: "Single Sign-On",
     note: "One login (e.g. your company's) for many apps.",
   },
+  TCP: {
+    expansion: "Transmission Control Protocol",
+    note: "The protocol that gives two machines a reliable, ordered stream of bytes. Most HTTP traffic runs on it.",
+  },
   TLS: {
     expansion: "Transport Layer Security",
     note: "The encryption behind https.",
@@ -222,6 +226,7 @@ export const NOT_ACRONYMS = new Set([
   "JavaScript",
   "WhatsApp",
   "YouTube",
+  "GitHub",
   "WebSockets",
   "GraphQL",
   "OAuth",

@@ -47,20 +47,23 @@ export type Unit = {
   bytes: string
 }
 
-/** A unit for every day of a streak, in decimal (SI) steps of 1,000. */
+/**
+ * A unit for every day of a streak, in decimal (SI) steps of 1,000. The
+ * sizes say "~": in binary, as RAM and Windows count, each step is 1,024.
+ */
 export const UNITS: Unit[] = [
   { name: "Bit", short: "bit", bytes: "⅛ byte" },
   { name: "Byte", short: "B", bytes: "1 byte" },
-  { name: "Kilobyte", short: "KB", bytes: "1,000 bytes" },
-  { name: "Megabyte", short: "MB", bytes: "1,000,000 bytes" },
-  { name: "Gigabyte", short: "GB", bytes: "10⁹ bytes" },
-  { name: "Terabyte", short: "TB", bytes: "10¹² bytes" },
-  { name: "Petabyte", short: "PB", bytes: "10¹⁵ bytes" },
-  { name: "Exabyte", short: "EB", bytes: "10¹⁸ bytes" },
-  { name: "Zettabyte", short: "ZB", bytes: "10²¹ bytes" },
-  { name: "Yottabyte", short: "YB", bytes: "10²⁴ bytes" },
-  { name: "Ronnabyte", short: "RB", bytes: "10²⁷ bytes" },
-  { name: "Quettabyte", short: "QB", bytes: "10³⁰ bytes" },
+  { name: "Kilobyte", short: "KB", bytes: "~1,000 bytes" },
+  { name: "Megabyte", short: "MB", bytes: "~1,000,000 bytes" },
+  { name: "Gigabyte", short: "GB", bytes: "~10⁹ bytes" },
+  { name: "Terabyte", short: "TB", bytes: "~10¹² bytes" },
+  { name: "Petabyte", short: "PB", bytes: "~10¹⁵ bytes" },
+  { name: "Exabyte", short: "EB", bytes: "~10¹⁸ bytes" },
+  { name: "Zettabyte", short: "ZB", bytes: "~10²¹ bytes" },
+  { name: "Yottabyte", short: "YB", bytes: "~10²⁴ bytes" },
+  { name: "Ronnabyte", short: "RB", bytes: "~10²⁷ bytes" },
+  { name: "Quettabyte", short: "QB", bytes: "~10³⁰ bytes" },
 ]
 
 /** The units a streak of n days has climbed through, the last one its title. */

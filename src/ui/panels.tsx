@@ -263,8 +263,8 @@ export function BriefPanel({
             </span>
             <span className="text-[12px] text-slate-400">
               {quiz.passed
-                ? "Passed: the suggested solution is unlocked"
-                : `${QUIZZES[level.id]?.length} questions; pass ${PASS_MARK} to unlock the solution`}
+                ? "Passed: solution unlocked"
+                : `Pass ${PASS_MARK}/${QUIZZES[level.id]?.length} to unlock the solution`}
             </span>
           </span>
           <ArrowRight size={16} className="text-amber-200/70" />

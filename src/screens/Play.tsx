@@ -329,10 +329,11 @@ export function Play({
   }
 
   // --- panels --------------------------------------------------------------
-  const brief = (
+  const brief = (components?: React.ReactNode) => (
     <BriefPanel
       level={level}
       provider={provider}
+      components={components}
       onDeck={onDeck}
       quiz={
         sandbox || !SOLUTIONS[level.id]
@@ -670,8 +671,8 @@ export function Play({
         {header}
         <div className="flex min-h-0 flex-1">
           <aside className="w-80 shrink-0 space-y-6 overflow-y-auto border-r border-white/5 bg-slate-950/40 p-4">
-            {sandbox ? sandboxBrief : brief}
-            {palette}
+            {sandbox ? sandboxBrief : brief(palette)}
+            {sandbox && palette}
             {solution}
           </aside>
           {board}
@@ -702,7 +703,7 @@ export function Play({
       >
         {sheetOpen && (
           <div className="max-h-[44dvh] overflow-y-auto px-4 pt-3 pb-2">
-            {tab === "brief" && (sandbox ? sandboxBrief : brief)}
+            {tab === "brief" && (sandbox ? sandboxBrief : brief())}
             {tab === "build" && (
               <div className="space-y-4">
                 {palette}

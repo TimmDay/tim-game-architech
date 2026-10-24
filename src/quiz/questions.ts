@@ -1299,7 +1299,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "200 with a page that redirects in JavaScript",
         "301, and count clicks from the browser's history",
       ],
-      "Browsers may cache a 301 and never ask again, so repeat clicks go uncounted.",
+      "Browsers may cache a 301 and never ask again, so repeat clicks go uncounted. (Real shorteners often send 301 with short cache headers instead.)",
       9,
     ],
     [
@@ -2711,7 +2711,7 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "A burst of 3,000 uploads a second for ten minutes hits eight workers. What happens?",
-      "The queue grows to over a million jobs and takes about an hour to drain",
+      "The queue grows to over a million jobs and takes hours to drain",
       [
         "Uploads start failing as soon as the workers are saturated",
         "The workers process the burst at their usual speed with no delay",
@@ -3593,9 +3593,9 @@ export const QUIZZES: Record<string, Question[]> = {
       [
         "Rename fields in place in a single deploy",
         "Pause the stream while every consumer updates",
-        "Ask consumers to ignore fields they don't recognise",
+        "Remove the old fields first, then tell consumers what changed",
       ],
-      "Add fields rather than renaming, use a schema registry, and dual-publish for breaking changes.",
+      "Add fields rather than renaming, have consumers ignore fields they don't recognise, use a schema registry, and dual-publish for breaking changes.",
       13,
     ],
     [

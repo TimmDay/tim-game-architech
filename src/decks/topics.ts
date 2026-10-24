@@ -344,7 +344,7 @@ export const TOPICS: Topic[] = [
         "What are a log's partitions for, and how many should it have?",
         [
           "Partitions are how a log scales: each is read by one consumer in a group at a time.",
-          "More partitions allow more parallel consumers, but cost more and make reordering harder.",
+          "More partitions allow more parallel consumers, but each one costs memory and files, and rebalancing a group takes longer.",
           "The partition key decides which events stay in order together, such as all events for one order.",
         ],
       ],
@@ -609,7 +609,7 @@ export const TOPICS: Topic[] = [
         [
           "OAuth lets an app act on a user's behalf with a limited token, without their password.",
           "OpenID Connect adds sign-in on top: a token that says who the user is.",
-          "A JWT is just a signed token format. It can't be revoked before it expires, so keep its lifetime short.",
+          "A JWT is just a signed token format. Revoking one before it expires needs a denylist every check consults, so keep its lifetime short.",
         ],
       ],
       [

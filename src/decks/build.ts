@@ -180,7 +180,7 @@ export const FIRST_CUSTOMERS = deck("first-customers", [
     "resilience",
     "The database fails over mid-request. What does the user see, and how do you make it graceful?",
     [
-      "A burst of errors or timeouts for seconds to a minute while the standby is promoted.",
+      "A burst of errors or timeouts while the standby is promoted, typically one to two minutes on a managed database.",
       "Retries with exponential backoff and jitter in the app hide most of it.",
       "Writes must be idempotent (an idempotency key per reply) so a retried save doesn't post twice.",
     ],
@@ -314,7 +314,7 @@ export const FRONT_PAGE = deck("front-page", [
     "Cache vs read replicas for this workload: compare them properly.",
     [
       "A replica takes about 2,000 reads a second for $120. A cache node takes 50,000 for $25.",
-      "Replicas are always consistent within a few milliseconds of the primary; a cache is as stale as its TTL.",
+      "Replicas usually trail the primary by milliseconds, sometimes seconds under load; a cache is as stale as its TTL.",
       "Replicas serve any query; a cache only helps data that's shared and hot.",
     ],
   ],
@@ -784,8 +784,8 @@ export const UPLOAD_RUSH = deck("upload-rush", [
     "scale",
     "A burst brings 3,000 uploads a second for ten minutes. What happens?",
     [
-      "The queue grows: 2,700 more jobs a second than workers finish.",
-      "That's 1.6 million queued jobs, taking about an hour to drain with eight workers.",
+      "The queue grows: eight workers finish 400 a second, so 2,600 more arrive each second than leave.",
+      "That's about 1.6 million queued jobs. Once normal uploads resume, eight workers have only 100 a second to spare, so draining takes over four hours.",
       "Autoscale workers on queue depth, and tell users processing may be slow.",
     ],
   ],
@@ -927,7 +927,7 @@ export const ZONE_OUTAGE = deck("zone-outage", [
     "What's the acceptable data loss and recovery time if the primary database dies?",
     [
       "RPO: with synchronous replication to a standby, close to zero.",
-      "RTO: an automatic failover typically takes seconds to a minute.",
+      "RTO: an automatic failover typically takes one to two minutes on a managed database.",
       "If they need zero downtime and zero loss, that's a different class of database.",
     ],
   ],

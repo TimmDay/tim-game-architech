@@ -1074,7 +1074,7 @@ export const HALF_THE_ORDERS = deck("half-the-orders", [
     "edge-case",
     "You need to change the event format. How do you avoid breaking consumers?",
     [
-      "Make backwards-compatible changes: add fields, don't rename or remove.",
+      "Make backwards-compatible changes: add fields, don't rename or remove, and have consumers ignore fields they don't recognise.",
       "Use a schema registry and versioned schemas.",
       "For breaking changes, publish both versions during a migration period.",
     ],

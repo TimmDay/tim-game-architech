@@ -96,7 +96,7 @@ export const SHORT_LINKS = deck("short-links", [
     [
       "301 (permanent): browsers and proxies may cache it, so repeat clicks never reach you.",
       "302 (temporary): every click comes back, so every click can be counted.",
-      "If analytics is part of the product, choose 302 and handle the load.",
+      "Interviewers usually expect 302 when analytics matter. In practice, big shorteners often send 301 with cache headers that keep browsers from caching it for long, so clicks still come back. Know both.",
     ],
   ],
   [
@@ -212,7 +212,7 @@ export const SHORT_LINKS = deck("short-links", [
     "The database's zone goes down. What happens to clicks and to new links?",
     [
       "Popular clicks keep working from the {cache}, which is the point of running it in two zones.",
-      "The standby in the other zone takes over within a minute or so; misses and creates fail briefly in between.",
+      "The standby in the other zone takes over within a minute or two; misses and creates fail briefly in between.",
       "Clients creating links should retry with the same request ID, so a retry doesn't create two links.",
     ],
   ],

@@ -18,6 +18,33 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "step-counter": {
+    overview:
+      "Syncs are small writes, keyed by user and day, and every read is for one user. That's what a {nosql} store is built for: it spreads users across partitions, so writes scale by adding capacity. One {sql-primary} would need four times its write limit.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. A sync carries the wristband's samples since the last one.",
+      "The app writes them to the {nosql} store under the key 'user ID + date', adding to that day's item.",
+      "Opening the app reads today's item, or the last seven, all by key: no scans, no joins.",
+      "Keys spread across partitions, so the busiest user is one tiny share of the traffic.",
+    ],
+    numbers: [
+      "3,000 requests a second: 2,100 syncs and 900 reads.",
+      "One {sql-primary} would run at 420% on writes; standbys add none. Two {nosql} instances run at 42%.",
+      "Twelve {app-server} instances run at 63%, and at 94% on the January spike, without dropping anything.",
+      "One {nosql} instance is $70 cheaper, but at 84% its p99 pushes the total past 300ms, and the spike takes it to 126%: 14% of requests fail.",
+      "Cost: $20 + 12 × $30 + 2 × $70 = $520 of $650.",
+    ],
+    tradeoffs: [
+      "The key decides what's cheap to ask. 'All users who walked over 20,000 steps yesterday' needs a scan, or a second copy built for it.",
+      "No transactions across users. Fine here; a leaderboard between friends would need care.",
+      "A managed store bills per capacity: at quiet times you pay for headroom you don't use, unless it scales on demand.",
+    ],
+    alternatives: [
+      "A {sql-primary} with writes queued behind a {queue} still takes them at 500 a second: the queue grows by 1,600 a second.",
+      "Sharding SQL by user works, but you'd run and rebalance the shards yourself for data that never joins.",
+      "Batching samples on the wristband (sync every ten minutes instead of five) halves the writes for free, if the product allows it.",
+    ],
+  },
   "slow-partner": {
     overview:
       "Orders are saved straight away and charged later. The {app-server} writes the order to the {sql-primary} and puts a charge on a {queue}; {worker} instances call the payment provider. When the provider slows down, customers don't notice: workers give up on slow calls after half a second, retry with backoff, and send an idempotency key so a retried charge is never taken twice.",

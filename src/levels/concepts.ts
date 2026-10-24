@@ -53,6 +53,7 @@ export type ConceptId =
   | "pacelc"
   | "conflict-resolution"
   | "scatter-gather"
+  | "key-value-modelling"
   | "backups-and-rpo"
   | "encryption-at-rest"
   | "authn-authz"
@@ -63,6 +64,12 @@ export type ConceptId =
   | "alerting"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
+  "key-value-modelling": {
+    title: "When a key-value store fits",
+    body: "A {nosql} store looks items up by a key and spreads keys across partitions, so writes scale by adding capacity instead of hitting one primary's ceiling. In return you design around your queries up front: the key (here, user and day) must be in every lookup, and joins, ad-hoc filters and transactions across many items are hard or missing.",
+    interview:
+      "Say the access patterns first ('read one user's day, read one user's week'), then the key that serves them. If you can't list the queries, or the data is full of relationships, a relational database is the safer start.",
+  },
   "backups-and-rpo": {
     title: "Backups, RPO and RTO",
     body: "Standbys and replicas copy every change instantly, including a bad migration or a dropped table, so they don't protect data from mistakes. Only backups do. The RPO (recovery point objective) is how much recent data you can lose: a nightly backup means up to a day. Point-in-time recovery replays the database's log to any minute. The RTO is how long the restore takes.",

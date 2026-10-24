@@ -7,6 +7,10 @@
 export type Acronym = { expansion: string; note?: string }
 
 export const ACRONYMS: Record<string, Acronym> = {
+  UTC: {
+    expansion: "Coordinated Universal Time",
+    note: "One clock for the whole world, with no time zones or daylight saving.",
+  },
   CQRS: {
     expansion: "Command Query Responsibility Segregation",
     note: "Separate models for writing data and for reading it.",

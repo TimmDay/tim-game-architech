@@ -5,6 +5,7 @@ import {
   GOING_VIRAL,
   PLUG_FINDER,
   SHOEBOX_RECEIPTS,
+  STEP_COUNTER,
   UPLOAD_RUSH,
   ZONE_OUTAGE,
 } from "./build"
@@ -47,6 +48,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "front-page": FRONT_PAGE,
   "going-viral": GOING_VIRAL,
   "upload-rush": UPLOAD_RUSH,
+  "step-counter": STEP_COUNTER,
   "zone-outage": ZONE_OUTAGE,
   "feed-the-analysts": FEED_THE_ANALYSTS,
   "shoebox-receipts": SHOEBOX_RECEIPTS,

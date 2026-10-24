@@ -252,13 +252,13 @@ export const CONCEPTS: Record<ConceptId, Card> = {
   },
   standby: {
     title: "Standby replicas and failover",
-    body: "A {sql-primary} can't spread writes across instances, so extra instances are hot standbys in other zones. They add no capacity, only another failure domain. Failover promotes one when the primary dies, usually in under a minute.",
+    body: "A {sql-primary} can't spread writes across instances, so extra instances are hot standbys in other zones. They add no capacity, only another failure domain. Failover promotes one when the primary dies, typically in one to two minutes on a managed database.",
     interview:
       "Separate the two jobs: standbys are for availability, backups are for durability. Neither replaces the other.",
   },
   "cache-aside": {
     title: "Cache-aside",
-    body: "The app checks the {cache} first and goes to the database only on a miss, writing the result back. Hits are served in about a millisecond and never touch the database. The hit ratio depends on how much of your data is shared and hot, not on how big the cache is.",
+    body: "The app checks the {cache} first and goes to the database only on a miss, writing the result back. Hits are served in about a millisecond and never touch the database. The hit ratio depends mostly on how much of your data is shared and hot, and on the cache being big enough to hold that hot set.",
     interview:
       "Mention invalidation (TTL or delete-on-write) and the cold-start stampede: what happens to the database when the cache restarts empty?",
   },

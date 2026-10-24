@@ -103,9 +103,9 @@ export const SOLUTIONS: Record<string, Solution> = {
   },
   "login-flood": {
     overview:
-      "The same small design as any read-heavy app, with two settings that matter here: a rate limit on the {load-balancer}, so password guesses from each source are capped where they land, and a sign-in check on the {app-server}, so a request without a valid session gets nothing.",
+      "The same small design as any read-heavy app, with two settings that matter here: a rate limit at the {load-balancer} (usually a web application firewall rule attached to it), so password guesses from each source are capped where they land, and a sign-in check on the {app-server}, so a request without a valid session gets nothing.",
     walkthrough: [
-      "{load-balancer} → {app-server}. The balancer counts requests per source and per account, and turns away anything over the limit with a 'slow down' answer.",
+      "{load-balancer} → {app-server}. A firewall rule at the balancer counts requests per source, and turns away anything over the limit with a 'slow down' answer.",
       "The {app-server} checks the session on every request before reading anything.",
       "Catalogue reads come from the {cache}; accounts and watch history from the {sql-primary}.",
       "Sign-in attempts are also limited per account, so one account can't be guessed at slowly from thousands of addresses.",
@@ -345,7 +345,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Cost: $1 + $20 + 16 × $30 + 2 × $25 + 2 × $120 = $791 of $850.",
     ],
     tradeoffs: [
-      "A 301 (permanent) redirect lets browsers cache it, which cuts load but hides repeat clicks from your analytics. A 302 counts every click. Most shorteners pick 302 because click counts are the product.",
+      "A 301 (permanent) redirect lets browsers cache it, which cuts load but can hide repeat clicks from your analytics. A 302 sends every click back. Interviewers usually expect 302 when analytics matter; in practice big shorteners often send 301 with cache headers that keep browsers from caching it for long, and still count clicks.",
       "Long cache expiry is safe because links almost never change. When one is edited or taken down for abuse, delete its cache entry explicitly.",
       "Counter-based codes are unique without a lookup, but sequential codes are guessable. Shuffle or encrypt the counter if links must not be enumerable.",
     ],
@@ -704,7 +704,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     ],
     tradeoffs: [
       "Two zones means each must carry 100% of peak, so you buy double. Three zones means each needs 50%, which is cheaper headroom once a tier is large.",
-      "Failover isn't instant: expect seconds to a minute of errors while the standby is promoted.",
+      "Failover isn't instant: expect a minute or two of errors while the standby is promoted.",
       "Leaving the {cache} single-zone is a deliberate bet that the database can survive a cold start. If it couldn't, you'd need a second node.",
     ],
     alternatives: [

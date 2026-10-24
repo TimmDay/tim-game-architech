@@ -17,7 +17,7 @@ export const ACRONYMS: Record<string, Acronym> = {
   },
   JWT: {
     expansion: "JSON Web Token",
-    note: "A signed token format. It can't be revoked before it expires.",
+    note: "A signed token format. Hard to revoke before it expires, unless every check consults a denylist.",
   },
   REST: {
     expansion: "Representational State Transfer",
@@ -48,8 +48,8 @@ export const ACRONYMS: Record<string, Acronym> = {
     note: "What a database transaction promises. Its C means rules are kept, not the C in CAP.",
   },
   AP: {
-    expansion: "Available under a Partition",
-    note: "A store that keeps answering during a network split, and lets its copies disagree.",
+    expansion: "Availability + Partition tolerance",
+    note: "A store that keeps answering during a network split, and lets its copies disagree for a while.",
   },
   API: {
     expansion: "Application Programming Interface",
@@ -61,7 +61,7 @@ export const ACRONYMS: Record<string, Acronym> = {
   },
   CAP: {
     expansion: "Consistency, Availability, Partition tolerance",
-    note: "During a network split, a store can refuse requests or let its copies disagree, not neither.",
+    note: "During a network split, a store must choose: refuse some requests (consistency) or let its copies disagree (availability).",
   },
   CD: {
     expansion: "Continuous Delivery",
@@ -84,7 +84,7 @@ export const ACRONYMS: Record<string, Acronym> = {
     note: "Data designed to merge cleanly, whatever order the copies' changes arrive in.",
   },
   CP: {
-    expansion: "Consistent under a Partition",
+    expansion: "Consistency + Partition tolerance",
     note: "A store that refuses requests during a network split rather than give an answer that might be wrong.",
   },
   CPU: {

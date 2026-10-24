@@ -64,8 +64,15 @@ export type ConceptId =
   | "dead-letter-queue"
   | "idempotency"
   | "alerting"
+  | "simplest-design"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
+  "simplest-design": {
+    title: "The simplest design that meets the targets",
+    body: "Every component you add is something to deploy, patch, monitor, pay for and be paged about. A {cache} in front of a database that isn't busy, a replica nobody reads from, or a second region for users who all live in one country makes the design harder to run without making it better. Here, a part the targets don't need costs the third star.",
+    interview:
+      "Start from the targets and add a component only when a number calls for it: 'the primary can take 3,000 writes, we need 400, so no sharding yet.' Then say what would change your mind, and what you'd add first when it does.",
+  },
   "key-value-modelling": {
     title: "When a key-value store fits",
     body: "A {nosql} store looks items up by a key and spreads keys across partitions, so writes scale by adding capacity instead of hitting one primary's ceiling. In return you design around your queries up front: the key (here, user and day) must be in every lookup, and joins, ad-hoc filters and transactions across many items are hard or missing.",
@@ -92,7 +99,7 @@ export const CONCEPTS: Record<ConceptId, Card> = {
   },
   "rate-limiting": {
     title: "Rate limiting",
-    body: "A limit on how fast one caller (an account, an IP address, an API key) can send requests, enforced where traffic first lands. It stops credential stuffing, scraping and runaway clients from taking capacity meant for everyone else, and caps the bill when each request costs money.",
+    body: "A limit on how fast one caller (an account, an IP address, an API key) can send requests, enforced where traffic first lands. It stops credential stuffing, scraping and runaway clients from taking capacity meant for everyone else, and caps the bill when each request costs money. A limit you run yourself, across several instances, needs its counters in a shared {cache}: if each instance counts alone, a caller spread across all of them gets the limit once per instance.",
     interview:
       "Say what you limit per (account and IP for logins, API key for partners), where it's enforced (the edge), and what the caller sees: a 429 with a retry time, not a timeout.",
   },
@@ -425,7 +432,7 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
   },
   "sql-primary": {
     title: "{sql-primary}",
-    body: "The source of truth: transactions, constraints, joins. Takes all the writes. Scales reads with replicas and caches, writes only by sharding or a bigger box. Extra instances here are standbys.",
+    body: "The source of truth: transactions, constraints, joins. Takes all the writes, about 3,000 a second here, alongside about 10,000 reads. Scales reads with replicas and caches, writes only by sharding or a bigger box. Extra instances here are standbys. Run it in several regions and one leader still takes every write, so writes from far away cross an ocean.",
     interview:
       "Default choice for transactional data. Say why before reaching for NoSQL.",
   },
@@ -436,7 +443,7 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
   },
   nosql: {
     title: "{nosql}",
-    body: "Partitioned key-value or document storage that scales writes horizontally. You design tables around access patterns because joins are limited or absent.",
+    body: "Partitioned key-value or document storage that scales writes horizontally. Here a block of capacity serves about 5,000 reads and 1,000 writes a second, but any single key tops out around 3,000 reads and 1,000 writes however many blocks you buy, so the partition key decides whether load spreads. Reads can be strong or eventual: eventual is faster and keeps answering when copies can't reach each other, at the price of sometimes being a moment out of date. You design tables around access patterns because joins are limited or absent.",
     interview:
       "Choose it for huge write volume or simple key lookups at scale; say what you lose (ad-hoc queries, multi-row transactions).",
   },

@@ -335,6 +335,7 @@ export function findings(
     out.push({
       severity: "warn",
       componentId: c?.id,
+      concept: "simplest-design",
       text: `${o.why} It costs the third star.`,
     })
   }

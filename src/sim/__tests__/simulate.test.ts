@@ -476,3 +476,26 @@ describe("connection types", () => {
     expect(r.perComponent.b?.writeRps).toBeCloseTo(200)
   })
 })
+
+it("lets aggregating workers write far less than they read", () => {
+  const g = graph(
+    [
+      ["app", "app-server", 0, 0, 4],
+      ["s", "event-stream", 0, 0, 2],
+      ["w", "worker", 0, 0, 1],
+      ["kv", "nosql", 0, 0],
+    ],
+    [`${C}>app`, "app>s", "s>w", "w>kv"],
+  )
+  // A thousand clicks become one count.
+  const r = simulate(
+    g,
+    load({
+      readFraction: 0,
+      heavyWriteFraction: 1,
+      job: { seconds: 0.001, cpuBound: true, emits: 0.001 },
+    }),
+  )
+  expect(r.perComponent.w?.writeRps).toBeCloseTo(1_000)
+  expect(r.perComponent.kv?.writeRps).toBeCloseTo(1)
+})

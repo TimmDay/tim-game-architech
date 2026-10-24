@@ -417,6 +417,22 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toContain("traffic")
   })
 
+  it("click counter: writing each click to the hot ad's key fails the ad break", () => {
+    const l = level("click-counter")
+    const g = patch(
+      rewire(l.reference, ["clicks", "agg", "raw"], ["app>counts"]),
+      "counts",
+      { instances: 20 },
+    )
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["chaos", "budget"]))
+  })
+
+  it("click counter: writing to the warehouse inside the click puts its latency on every redirect", () => {
+    const l = level("click-counter")
+    const g = rewire(l.reference, ["clicks", "agg"], ["app>raw"])
+    expect(failed(l, g)).toContain("latency")
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

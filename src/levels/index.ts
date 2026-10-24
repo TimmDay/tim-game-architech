@@ -2078,6 +2078,90 @@ const CLASSICS: Level[] = [
     concepts: ["signed-urls", "object-storage", "horizontal-scaling"],
     hint: "Relaying every chunk through the app tier would take more servers than you can buy. Connect Users straight to the {object-store}, and set that connection to carry the chunks.",
   },
+  {
+    id: "click-counter",
+    mode: "build",
+    track: "classic",
+    requires: ["feed-the-analysts"],
+    title: "Click Counter",
+    tagline: "Every ad click is money, so every one is counted exactly once.",
+    scenario: {
+      product: "the ad click service",
+      reads: "advertisers checking their dashboards",
+      writes: "people clicking ads",
+      hot: "this minute's counts for the busiest ads",
+      records: "every click, raw, and a count per ad per minute",
+      events: "a click event for every click",
+      job: "adding clicks into per-ad, per-minute counts",
+    },
+    brief:
+      "An ad network: advertisers pay per click, and watch their counts on a dashboard. Peak is 15,000 clicks a second, each one a redirect that must be fast, and each one recorded so finance can bill it and check the bill later. One ad can take 5% of all clicks, and any one {nosql} key takes about 1,000 writes a second. In the chaos round a big game's half-time ad doubles everything.",
+    load: {
+      peakRps: 15_000,
+      readFraction: 0,
+      cacheableFraction: 0,
+      heavyWriteFraction: 1,
+      // Adding a click to a running count: a couple of milliseconds, and a
+      // minute's clicks for one ad become one write.
+      job: { seconds: 0.002, cpuBound: true, emits: 0.001 },
+      partitionKeys: [
+        { id: "ad", label: "Ad ID", hotShare: 0.05, scatterReads: 0 },
+        { id: "minute", label: "Minute", hotShare: 1, scatterReads: 0 },
+      ],
+    },
+    targets: {
+      p99Ms: 200,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 9_000,
+      writesReach: ["data-warehouse"],
+      noBacklog: true,
+      stakes: {
+        signedIn: false,
+        personalData: false,
+        money: true,
+        abuse: true,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 2 }],
+      label: "Half-time ad break (2x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+      "queue",
+      "event-stream",
+      "worker",
+      "data-warehouse",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 40, 2],
+        ["clicks", "event-stream", 7, 4, 40],
+        ["agg", "worker", 9, 2, 20, 2],
+        ["counts", "nosql", 11, 2, 1, 1, { partitionKey: "ad" }],
+        ["raw", "data-warehouse", 9, 6],
+      ],
+      [
+        `${C}>dns`,
+        "dns>lb",
+        "lb>app",
+        "app>clicks",
+        "clicks>agg",
+        "agg>counts",
+        "clicks>raw",
+      ],
+    ),
+    concepts: ["queue-vs-log", "hot-keys", "idempotency"],
+    hint: "Publish each click to an {event-stream} and redirect at once. Let {worker} instances count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
+  },
 ]
 
 /**

@@ -29,6 +29,7 @@ import {
   FAIR_SHARE,
   SAVE_GAME,
   SYNC_FOLDER,
+  CLICK_COUNTER,
   VIDEO_NIGHT,
 } from "./classics"
 import {
@@ -72,6 +73,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "fair-share": FAIR_SHARE,
   "save-game": SAVE_GAME,
   "sync-folder": SYNC_FOLDER,
+  "click-counter": CLICK_COUNTER,
   "balance-sheet": BALANCE_SHEET,
   "full-basket": FULL_BASKET,
   "tenant-split": TENANT_SPLIT,

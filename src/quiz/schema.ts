@@ -27,6 +27,38 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "click-counter": s([
+    [
+      "What's the key of the counts table?",
+      "Ad ID, then the minute",
+      [
+        "The minute alone, holding every ad's count",
+        "The click's own ID",
+        "The advertiser's ID alone",
+      ],
+      "Dashboards read one ad's minutes, and keying by ad spreads the writes across ads.",
+    ],
+    [
+      "What does a raw click event need?",
+      "A click ID, the ad, when it happened, and who clicked",
+      [
+        "Only the ad's ID, to keep events small",
+        "The advertiser's running total so far",
+        "The page the visitor came from, and nothing else",
+      ],
+      "The ID removes duplicates, the time puts it in a window, and the clicker lets fraud filters work.",
+    ],
+    [
+      "What should the click link look like?",
+      "GET /c/:id with a signed ID, redirecting at once",
+      [
+        "POST /clicks with the ad in the body, then a page",
+        "GET /c?ad=…&price=… so it's easy to read",
+        "A script that records the click, then navigates",
+      ],
+      "A short signed ID can't be forged or edited, and a redirect works anywhere a link does.",
+    ],
+  ]),
   "short-links": s([
     [
       "What's the key of the links table?",

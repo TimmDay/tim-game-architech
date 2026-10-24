@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "click-counter": q([
+    [
+      "Why publish clicks to an {event-stream} rather than count them in the request?",
+      "The redirect returns before any counting happens",
+      [
+        "Streams count every click for you automatically",
+        "App servers can't write to a database at all",
+        "It makes every click arrive in perfect order",
+      ],
+      "Counting, billing and fraud checks each read every click at their own pace, and raw events can be replayed.",
+      4,
+    ],
+    [
+      "Why does counting per minute fix the hot ad?",
+      "Its key gets one write a minute, not one per click",
+      [
+        "It moves the ad to a bigger partition",
+        "It drops clicks over the key's limit",
+        "It spreads the ad across ten random keys",
+      ],
+      "Per click, the top ad's key takes 750 writes a second, and 1,500 in the ad break: over the 1,000 a key allows.",
+      6,
+    ],
+    [
+      "A worker restarts and sees some clicks twice. What keeps the counts right?",
+      "Committing its position and its counts together",
+      [
+        "Never restarting a worker mid-minute",
+        "Deleting the stream after every minute",
+        "Doubling how long the stream keeps events",
+      ],
+      "And writing counts by key rather than adding, so a rewrite is harmless.",
+      7,
+    ],
+    [
+      "A click arrives three minutes late. Where does it count?",
+      "In the minute it happened",
+      [
+        "In the minute it arrived",
+        "Nowhere: late clicks are dropped",
+        "Spread across all three minutes",
+      ],
+      "Event time, not arrival time. A watermark keeps windows open a little; anything later goes to the nightly correction.",
+      13,
+    ],
+    [
+      "Why also recount raw clicks in the warehouse each night?",
+      "To catch anything the fast path got wrong",
+      [
+        "Because the stream deletes clicks after a minute",
+        "To make the dashboards load faster",
+        "Because workers can't count reliably at all",
+      ],
+      "Fresh numbers come from the stream, billing-grade numbers from the batch path.",
+      8,
+    ],
+    [
+      "Why not increment a counter in the {sql-primary} for each click?",
+      "15,000 writes a second is five times what it takes",
+      [
+        "It can't store numbers that large",
+        "Increments aren't allowed inside transactions",
+        "It would stop the redirect being cached",
+      ],
+      "And in {nosql}, the hot ad's key alone passes its limit in the ad break.",
+      9,
+    ],
+    [
+      "How do you find the top 100 ads across many workers?",
+      "Merge each worker's own top 100",
+      [
+        "Ask every worker for every count",
+        "Sort all the raw clicks each time",
+        "Keep a single global counter per ad",
+      ],
+      "With each ad owned by one worker, the overall top 100 is inside the union of their lists.",
+      12,
+    ],
+    [
+      "A bot clicks one ad 1,000 times. What should happen?",
+      "Count them raw, but don't bill the repeats",
+      [
+        "Bill the advertiser for every click",
+        "Delete the ad straight away",
+        "Block the advertiser's account",
+      ],
+      "Keep raw and billable counts apart, and refund fraud found later from the nightly recount.",
+      14,
+    ],
+    [
+      "How do you stop forged click events?",
+      "Only accept clicks signed by your ad server",
+      [
+        "Hide the click endpoint's address",
+        "Count clicks only from signed-in users",
+        "Ask advertisers to report fake clicks",
+      ],
+      "A signed click ID can't be invented. Rate limits and raw evidence handle the rest.",
+      17,
+    ],
+    [
+      "Which signal shows counting falling behind?",
+      "The counting consumers' stream lag",
+      [
+        "Redirect latency",
+        "The number of active ads",
+        "The warehouse's free disk space",
+      ],
+      "Watch the gap between the fast counts and the nightly recount too.",
+      18,
+    ],
+  ]),
   "sync-folder": q([
     [
       "Why do devices upload chunks straight to the {object-store}?",

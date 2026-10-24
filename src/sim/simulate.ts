@@ -447,6 +447,14 @@ export function simulate(
         }
       }
       workerPassed.set(c.id, passed + Math.min(total, room))
+      // Aggregating workers write far less than they read.
+      const emits = load.job?.emits ?? 1
+      if (emits !== 1)
+        out = {
+          reads: out.reads * emits,
+          writes: out.writes * emits,
+          cacheable: out.cacheable * emits,
+        }
     }
     queue.push(...distribute(c.id, out))
   }

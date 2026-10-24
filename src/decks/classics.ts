@@ -2734,3 +2734,187 @@ export const SYNC_FOLDER = deck("sync-folder", [
     ],
   ],
 ])
+
+export const CLICK_COUNTER = deck("click-counter", [
+  [
+    "clarify",
+    "What would you ask about counting?",
+    [
+      "Exactly once for billing, or approximate for the dashboard? Often both, from different paths.",
+      "How fresh must the dashboard be: seconds, or a minute?",
+      "How long are raw clicks kept, and who reconciles them?",
+    ],
+    "Why might the two answers come from different systems?",
+  ],
+  [
+    "clarify",
+    "What would you ask about fraud?",
+    [
+      "Do bots and repeat clicks count? Advertisers won't pay for them.",
+      "Is filtering done before counting, or afterwards with a refund?",
+      "Who can see why a click was rejected?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about traffic?",
+    [
+      "Clicks a second at peak, and how spiky: a half-time ad doubles it.",
+      "How skewed: one ad can take 5% of everything.",
+      "How many ads, and how many advertisers watching dashboards?",
+    ],
+  ],
+  [
+    "product",
+    "Why must the click itself be fast?",
+    [
+      "The click is a redirect to the advertiser's page: every millisecond is someone waiting.",
+      "Slow redirects lose visitors, which costs the advertiser and you.",
+      "So recording a click must never wait for counting it.",
+    ],
+  ],
+  [
+    "decision",
+    "Why publish clicks to a stream instead of counting them in the request?",
+    [
+      "The redirect returns as soon as the event is published.",
+      "Every consumer (counting, billing, fraud checks) reads every click at its own pace.",
+      "Raw events can be replayed if a count turns out wrong.",
+    ],
+  ],
+  [
+    "decision",
+    "How do workers count clicks per ad per minute?",
+    [
+      "Each keeps running counts in memory for the current minute, for the ads it owns.",
+      "When a minute closes, it writes one count per ad: here about 15 writes a second instead of 15,000.",
+      "That's a tumbling window: fixed minutes that don't overlap.",
+    ],
+  ],
+  [
+    "decision",
+    "Why does aggregation solve the hot ad?",
+    [
+      "Written per click, the top ad's key gets 750 writes a second, and 1,500 in the ad break: over the 1,000 a key takes.",
+      "Aggregated, it gets one write a minute.",
+      "Partition the stream by ad, so one worker owns each ad's count.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Exactly once: how close can you get?",
+    [
+      "The stream delivers at least once, so a worker can see a click twice after a restart.",
+      "Write each minute's count by key, so rewriting it is harmless, and give every click an ID.",
+      "Commit the stream position together with the counts, so a restart resumes exactly where it stopped.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "A fast path and a batch path, or only one?",
+    [
+      "Stream counts give dashboards numbers that are seconds old.",
+      "The warehouse recounts raw clicks nightly for billing, catching anything the fast path got wrong.",
+      "Two paths (the 'lambda' pattern) are more to run; one stream path with replay ('kappa') is simpler, if you trust it.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you increment a counter in the database for each click?",
+    [
+      "15,000 increments a second is five times what one {sql-primary} writes.",
+      "In {nosql}, the hot ad's key alone passes its limit in the ad break.",
+      "Counting per click only works at small scale.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the warehouse do all the counting?",
+    [
+      "Yes, in batches: load raw clicks and query them every few minutes.",
+      "Dashboards would then be minutes behind.",
+      "Writing to it inside the click request would put its seconds of latency on every redirect.",
+    ],
+  ],
+  [
+    "scale",
+    "Clicks grow tenfold. What changes?",
+    [
+      "More stream shards and workers: both scale out by partition.",
+      "The counts store barely notices: aggregation keeps its writes tiny.",
+      "Raw storage grows fastest: compress it, and move old clicks to cheaper storage.",
+    ],
+  ],
+  [
+    "scale",
+    "How do you find the top 100 ads this hour?",
+    [
+      "Each worker keeps a top list for the ads it owns.",
+      "Merge those lists: since each ad belongs to one worker, the overall top 100 is somewhere in their lists.",
+      "For approximate counts over a huge number of ads, a count-min sketch uses fixed memory.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A click arrives three minutes late. Which minute does it count in?",
+    [
+      "The minute it happened (event time), not the minute it arrived.",
+      "Keep each window open a little longer (a watermark), then close it.",
+      "Clicks later than that go to a correction the nightly recount picks up.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A bot clicks the same ad 1,000 times.",
+    [
+      "Filter repeats from one user, device or address within a short window.",
+      "Count raw clicks and billable clicks separately.",
+      "Refunds for fraud found later come from the nightly recount.",
+    ],
+  ],
+  [
+    "resilience",
+    "A counting worker crashes in the middle of a minute.",
+    [
+      "Its counts in memory are lost, but the stream still holds the clicks.",
+      "The replacement resumes from the last committed position and counts them again.",
+      "Nothing is billed twice, because counts are written by key, not added.",
+    ],
+  ],
+  [
+    "resilience",
+    "The warehouse is down for maintenance.",
+    [
+      "Raw clicks wait in the stream, which must keep them long enough.",
+      "Counting and redirects carry on unaffected.",
+      "When it's back, it catches up from where it stopped.",
+    ],
+  ],
+  [
+    "security",
+    "What could an attacker do to a click service?",
+    [
+      "Click fraud: inflate a competitor's bill, or their own payouts.",
+      "Forge click events directly, so only accept clicks carrying an ID signed by your ad server.",
+      "Rate-limit by address and device, and keep raw evidence for disputes.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Stream lag for each consumer: how far counting and billing are behind.",
+      "The gap between the fast counts and the nightly recount.",
+      "Clicks a second per ad, to spot fraud and hot ads.",
+    ],
+  ],
+  [
+    "observability",
+    "An advertiser disputes their bill. How do you answer?",
+    [
+      "Recount their clicks from the raw events for that period.",
+      "Show the filtered clicks separately, with the reason for each.",
+      "Because raw events are kept, the answer is evidence, not a guess.",
+    ],
+  ],
+])

@@ -85,7 +85,13 @@ export function TargetList({
         ))}
       </span>,
     ])
-  if (targets.noBacklog) rows.push(["Async backlog", "must not grow"])
+  if (targets.noBacklog)
+    rows.push([
+      "Async backlog",
+      targets.noBacklog === "peak"
+        ? "must keep up at peak; a burst may queue"
+        : "must not grow",
+    ])
   if (targets.stakes) rows.push(["Production settings", "in place for ★3"])
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">

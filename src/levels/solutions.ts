@@ -502,6 +502,36 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "push-alerts": {
+    overview:
+      "Sending a push is slow, rate-limited work done by someone else. The {app-server} records each notification and puts it on a {queue}; {worker} instances hand them to the provider at the rate its quota allows. When a goal doubles traffic, the line grows for a minute and then drains, and the app never waits on the provider.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. A request to notify someone is checked against their settings (muted? quiet hours?) and written to the {sql-primary} as pending.",
+      "The app puts the notification on the {queue} and answers straight away. Whoever asked doesn't wait for the push.",
+      "{worker} instances take notifications off the queue, look up the user's device tokens and call the provider, about 100 calls in flight each.",
+      "When the provider accepts, the worker marks the notification sent. If it refuses or times out, the message goes back on the queue and is retried with backoff; after a few failures it moves to a dead-letter queue.",
+      "Inbox loads read the {sql-primary}, so a notification swiped away on the lock screen is still there when the app opens.",
+    ],
+    numbers: [
+      "3,000 requests a second: 1,200 notifications to send and 1,800 inbox loads.",
+      "Nine {app-server} instances run at 33%, and 67% when the goal doubles traffic.",
+      "The {sql-primary} is 40% busy on writes, and 80% during the goal.",
+      "A provider call takes about 150ms, nearly all waiting, so each worker keeps 100 in flight and sends about 667 a second. Three send 2,000 a second, exactly the provider's quota, and run at 60% at peak.",
+      "The goal brings 2,400 notifications a second. 2,000 go out and the line grows by 400 a second; when the burst passes, the spare capacity drains it.",
+      "Calling the provider inside the request instead puts its 600ms p99, and every refusal, on the app's critical path: p99 passes 12 seconds, and requests fail before the goal even goes in.",
+      "Cost: $1 + about $49 for the {load-balancer} + 9 × $70 + 2 × $400 + about $1,135 for the {queue} + 3 × $120 = $2,975 of $3,250. The provider's own fees are a business cost, not counted here.",
+    ],
+    tradeoffs: [
+      "A notification can arrive seconds late during a burst. For a goal alert that's fine; for a sign-in code it isn't, so time-critical messages deserve their own queue that bulk alerts can't hold up.",
+      "The queue is billed per message: about $1,135 a month here. Sending and receiving in batches of ten cuts most of that.",
+      "Delivery is at-least-once, so a retry can send a push twice. A notification ID the worker checks before sending keeps duplicates rare, and a collapse key lets the phone show only one.",
+    ],
+    alternatives: [
+      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
+      "Buying more quota instead of queueing: the provider caps it, and a goal would still overshoot it for a minute. Queueing is cheaper than paying for a peak you hit twice a season.",
+      "{serverless} senders: they scale per message with nothing to run, but every one still counts against the same quota, so you still need the queue to pace them.",
+    ],
+  },
   typeahead: {
     overview:
       "No time to search: the top suggestions for every prefix are worked out in advance and kept in memory. The {cdn} answers common prefixes at the edge, the {cache} answers the rest, and completed searches flow through an {event-stream} to the {data-warehouse}, where tomorrow's suggestions are built.",

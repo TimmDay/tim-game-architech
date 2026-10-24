@@ -1579,6 +1579,83 @@ const CLASSICS: Level[] = [
     concepts: ["precomputation", "latency-budget", "cdn"],
     hint: "There's no time to search on every keystroke. Work out the top suggestions for each prefix ahead of time, keep them in memory, and let the {cdn} answer the most common prefixes.",
   },
+  {
+    id: "push-alerts",
+    mode: "build",
+    track: "classic",
+    requires: ["upload-rush"],
+    title: "Push Alerts",
+    tagline: "A goal goes in, and a million phones want to know at once.",
+    scenario: {
+      product: "the notification service",
+      reads: "apps loading their notification inbox and settings",
+      writes: "other services asking for a notification to be sent",
+      hot: "each user's notification settings and device tokens",
+      records: "every notification sent, and each user's preferences",
+      job: "handing each notification to the push provider",
+    },
+    brief:
+      "A sports app's notification service: other parts of the app ask it to tell someone about a goal, a kick-off or a reply, and it sends a push to their phone. Peak is 3,000 requests a second: 1,200 notifications to send, and 1,800 apps loading their inbox. Pushes go through a provider, a {third-party-api} that sells quota in blocks of 100 messages a second, up to 2,000, and refuses anything over it. In the chaos round a cup final goal doubles everything. A notification may arrive a little late. It must never be lost, and the app must never stall waiting for one.",
+    load: {
+      peakRps: 3_000,
+      readFraction: 0.6,
+      cacheableFraction: 0.2,
+      heavyWriteFraction: 1,
+      // Handing a notification to the provider: one call, mostly waiting.
+      job: { seconds: 0.15, cpuBound: false },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 3_250,
+      writesReach: ["sql-primary", "third-party-api"],
+      noBacklog: "peak",
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 2 }],
+      label: "Cup final goal (2x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "queue",
+      "event-stream",
+      "worker",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 9, 2],
+        ["db", "sql-primary", 7, 6, 2, 2],
+        ["sends", "queue", 7, 2],
+        ["push", "worker", 9, 2, 3, 2],
+        ["provider", "third-party-api", 11, 2, 20],
+      ],
+      [
+        `${C}>dns`,
+        "dns>lb",
+        "lb>app",
+        "app>db",
+        "app>sends",
+        "sends>push",
+        "push>provider",
+      ],
+    ),
+    concepts: ["provider-quotas", "backpressure", "delivery-guarantees"],
+    hint: "The provider refuses anything over its quota. Put a {queue} between the app and the provider, and let {worker} instances send at the rate it accepts.",
+  },
 ]
 
 const SPLIT: Fault[] = [{ kind: "network-split" }]

@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "push-alerts": q([
+    [
+      "Why put a {queue} between the app and the push provider?",
+      "The app never waits on the provider, and bursts can queue",
+      [
+        "The provider only accepts messages that come from a queue",
+        "Queues send pushes faster than app servers can",
+        "It lets the provider skip notifications users have muted",
+      ],
+      "The provider is slow and refuses anything over quota. A queue keeps both away from the user's request.",
+      5,
+    ],
+    [
+      "How should you size the worker pool?",
+      "To the provider's quota, not the incoming rate",
+      [
+        "One worker for every hundred users",
+        "As many as there are messages waiting in the queue",
+        "Twice the peak rate, so the queue is always empty",
+      ],
+      "Here three workers send 2,000 a second, exactly the quota. More would only collect 'too many requests'.",
+      6,
+    ],
+    [
+      "A goal brings 2,400 notifications a second against a 2,000 quota. What happens?",
+      "The line grows by 400 a second, then drains",
+      [
+        "400 notifications a second are lost for good",
+        "The provider raises your quota for the burst",
+        "The app servers send the extra 400 themselves",
+      ],
+      "Behind a queue a burst means late, not lost. The 40% spare capacity drains it when the burst ends.",
+      12,
+    ],
+    [
+      "A worker sends a push, then crashes before marking it sent. What happens?",
+      "Another worker sends it again",
+      [
+        "The notification is lost",
+        "The provider cancels the first push",
+        "The queue stops until that worker restarts",
+      ],
+      "At-least-once delivery. Check a notification ID before sending, and use a collapse key so the phone shows one.",
+      14,
+    ],
+    [
+      "Why give urgent notifications their own queue?",
+      "So a bulk blast can't sit in front of a sign-in code",
+      [
+        "Urgent notifications are larger messages",
+        "Providers refuse queues that mix the two",
+        "So urgent ones don't need to be stored",
+      ],
+      "Keep workers and quota back for urgent sends, and spread bulk ones out on purpose.",
+      9,
+    ],
+    [
+      "A goal alert has waited ten minutes in the queue. What should the worker do?",
+      "Drop it, because it has expired",
+      [
+        "Send it straight away",
+        "Send it twice to make up for the delay",
+        "Move it to the front of every other queue",
+      ],
+      "Give each notification an expiry. Late can be worse than never.",
+      16,
+    ],
+    [
+      "The provider answers 'too many requests'. What should the workers do?",
+      "Back off with jitter and retry later",
+      [
+        "Retry straight away until it succeeds",
+        "Delete the notification and move on",
+        "Send it by email instead, every time",
+      ],
+      "Hammering a provider that's refusing you makes the refusals last longer. The message stays safely on the queue.",
+      17,
+    ],
+    [
+      "The provider says a device token is invalid. What do you do?",
+      "Delete the token",
+      [
+        "Retry it every hour",
+        "Ask the user to reinstall the app",
+        "Send to the user's other devices twice",
+      ],
+      "The app was uninstalled or the token replaced. Dead tokens waste quota.",
+      15,
+    ],
+    [
+      "Why authenticate the services that ask for notifications?",
+      "So nobody can spam your users through you",
+      [
+        "The provider requires it for every message",
+        "It makes notifications arrive faster",
+        "So users can see which service sent each one",
+      ],
+      "The send endpoint and the device tokens behind it are worth protecting. Keep sensitive detail off the lock screen too.",
+      19,
+    ],
+    [
+      "Which measure shows how late notifications are running?",
+      "The age of the oldest message in the queue",
+      [
+        "The app servers' average CPU",
+        "The number of device tokens stored",
+        "The provider's median response time",
+      ],
+      "Queue depth alone hides how long messages have waited. Watch refusals against the quota too.",
+      20,
+    ],
+  ]),
   "ticket-drop": q([
     [
       "Why must seat holds go to the {sql-primary}?",

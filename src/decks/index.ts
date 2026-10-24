@@ -23,6 +23,7 @@ import {
   SHORT_LINKS,
   TICKET_DROP,
   TYPEAHEAD,
+  PUSH_ALERTS,
   VIDEO_NIGHT,
 } from "./classics"
 import {
@@ -60,6 +61,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "video-night": VIDEO_NIGHT,
   "ride-hailing": RIDE_HAILING,
   typeahead: TYPEAHEAD,
+  "push-alerts": PUSH_ALERTS,
   "balance-sheet": BALANCE_SHEET,
   "full-basket": FULL_BASKET,
   "tenant-split": TENANT_SPLIT,

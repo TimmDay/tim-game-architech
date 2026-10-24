@@ -1522,3 +1522,205 @@ export const TYPEAHEAD = deck("typeahead", [
     ],
   ],
 ])
+
+export const PUSH_ALERTS = deck("push-alerts", [
+  [
+    "clarify",
+    "What would you ask about the notifications themselves?",
+    [
+      "Which channels: push only, or email and text messages too? Each has its own provider and limits.",
+      "Which are urgent (a sign-in code, a driver arriving) and which can wait (a weekly digest)?",
+      "Can users choose what they get, and when, with quiet hours?",
+    ],
+    "How does 'urgent or bulk' change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about volume?",
+    [
+      "How many a day, and how spiky? Sports alerts arrive in bursts, when something happens.",
+      "How many devices per user? A phone and a tablet are two sends.",
+      "What's the provider's quota, and can it be raised? One major push service's default is 600,000 messages a minute per project.",
+    ],
+  ],
+  [
+    "clarify",
+    "What does 'delivered' mean here?",
+    [
+      "Accepted by the provider, shown on the phone, or opened? You only control the first.",
+      "Must every notification arrive, or is dropping a stale one fine?",
+      "Should a notification an hour late still be sent? A goal alert from an hour ago is noise.",
+    ],
+  ],
+  [
+    "product",
+    "Why does the app keep an inbox as well as sending pushes?",
+    [
+      "Pushes are best-effort: phones are off, notifications get swiped away or collapsed.",
+      "An inbox kept on the server means nothing is truly missed.",
+      "It's also where unread counts come from.",
+    ],
+  ],
+  [
+    "product",
+    "How do you stop users turning notifications off?",
+    [
+      "Send fewer, better ones, and respect preferences and quiet hours.",
+      "Cap how many one user gets in an hour, and bundle several into one: '3 goals in your matches'.",
+      "Track the opt-out rate per kind of notification, and treat a rise as a bug.",
+    ],
+  ],
+  [
+    "decision",
+    "Why put a queue between the app and the provider?",
+    [
+      "The provider is slow (hundreds of milliseconds) and refuses anything over quota. Neither should reach the user's request.",
+      "The queue absorbs a burst, and workers send at the rate the provider accepts.",
+      "If the provider is down for a while, notifications wait instead of failing.",
+    ],
+  ],
+  [
+    "decision",
+    "How many workers, and why that number?",
+    [
+      "A call is mostly waiting, so one worker keeps about 100 in flight: roughly 667 sends a second.",
+      "Size the pool to the provider's quota, not to the incoming rate. Here three workers send exactly 2,000 a second.",
+      "Workers beyond the quota only collect more 'too many requests' refusals.",
+    ],
+  ],
+  [
+    "decision",
+    "What's stored before the push goes out?",
+    [
+      "The notification, who it's for and its status, so the inbox can show it and a lost one can be found.",
+      "Each user's preferences and device tokens, to decide whether and where to send.",
+      "Writing it before enqueueing means a crash in between can't lose the record.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "A queue or an event stream for outgoing notifications?",
+    [
+      "A queue gives per-message retries and a dead-letter queue: right for 'send this, once'.",
+      "A stream keeps history and lets several consumers read it, such as analytics and email digests.",
+      "A common shape: services publish events to a stream, and the notification service turns them into sends on a queue.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Urgent and bulk notifications in the same queue?",
+    [
+      "A million goal alerts would sit in front of someone's sign-in code.",
+      "Separate queues or priorities, with workers and quota kept back for the urgent ones.",
+      "Bulk sends can be spread out on purpose. Urgent ones can't wait.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the provider's topics replace your own fan-out?",
+    [
+      "Some push services let a device subscribe to a topic, and one call reaches every subscriber.",
+      "That's far fewer calls for 'everyone following this match'.",
+      "You lose per-user control: preferences, quiet hours and language then have to be handled on the device, or with finer topics.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you keep a connection open to every phone instead of using a provider?",
+    [
+      "Phones close background connections to save battery. The operating system's push service is the only reliable way to wake an app.",
+      "While the app is open, a live connection (WebSockets) is fine for instant updates.",
+      "Most apps do both: live updates in the app, pushes when it's closed.",
+    ],
+  ],
+  [
+    "scale",
+    "A goal doubles traffic. What happens, minute by minute?",
+    [
+      "2,400 notifications a second arrive. 2,000 go out, and the line grows by 400 a second.",
+      "When the burst passes, the 40% spare capacity drains the line.",
+      "Each notification is late by however long it waited, and none is lost.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the users. What changes first?",
+    [
+      "The provider quota: ask for more early, since increases are usually granted on usage you've already shown.",
+      "Topic sends for broadcasts, so a goal is one call per match rather than one per fan.",
+      "Partition the notification log by user once one primary can't take the writes.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A worker sends a push, then crashes before marking it sent.",
+    [
+      "The queue hands it to another worker, which sends it again: at-least-once delivery.",
+      "Check a notification ID before sending, and give the push a collapse key so the phone shows one.",
+      "Exactly once isn't possible through a provider you don't control. Aim for duplicates that are rare and harmless.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The provider says a device token is no longer valid.",
+    [
+      "The app was uninstalled, or the token was replaced.",
+      "Delete it, so you stop spending quota on a dead device.",
+      "Dead tokens pile up over time. Cleaning them out is part of staying within quota.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A notification has waited ten minutes in the queue. Should it still go out?",
+    [
+      "Give each one an expiry. A goal alert ten minutes late is noise; a delivery update may still matter.",
+      "Workers drop expired ones and record that in the log.",
+      "Providers take an expiry too, for phones that are offline.",
+    ],
+  ],
+  [
+    "resilience",
+    "The provider refuses calls with 'too many requests'. What do the workers do?",
+    [
+      "Back off, with jitter, and retry. Hammering it makes the refusals last longer.",
+      "Leave the message on the queue: it isn't lost.",
+      "Treat refusals as a signal to slow the whole pool, not just one worker.",
+    ],
+  ],
+  [
+    "resilience",
+    "The provider is down for twenty minutes.",
+    [
+      "Notifications wait in the queue. Check it keeps messages that long.",
+      "Expire the ones that won't matter by the time it's back.",
+      "When it recovers, drain at the quota rate, not all at once, or you'll be refused again.",
+    ],
+  ],
+  [
+    "security",
+    "What needs protecting in a notification service?",
+    [
+      "Device tokens and phone numbers are personal data: encrypt them at rest and limit who can read them.",
+      "Only your own services may ask for a send. Authenticate them, so nobody can spam your users through you.",
+      "Keep sensitive content (a balance, a test result) off the lock screen: say 'you have a new message' and show the detail in the app.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "The age of the oldest message in the queue: how late notifications are running.",
+      "Provider refusals and errors per minute, against the quota.",
+      "Sent, delivered and opened counts per kind of notification, and opt-outs.",
+    ],
+  ],
+  [
+    "observability",
+    "A user says they never got an alert. How do you find out why?",
+    [
+      "Look the notification up by user and time: created, skipped by a preference, queued, sent or refused?",
+      "A status on every notification makes this a lookup, not an investigation.",
+      "Check when that device token last worked. Often it's dead.",
+    ],
+  ],
+])

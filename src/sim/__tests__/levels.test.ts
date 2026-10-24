@@ -255,6 +255,29 @@ describe("the interview classics' traps", () => {
     const g = patch(l.reference, "topk", { kind: "search-index", instances: 1 })
     expect(failed(l, g)).toEqual(["latency"])
   })
+
+  it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
+    const l = level("push-alerts")
+    const r = grade(l.reference, l.load, l.targets, l.chaos.faults)
+    expect(r.chaos.backlogGrowthRps).toBeGreaterThan(0)
+    expect(r.stars).toBe(3)
+  })
+
+  it("push alerts: calling the provider inside the request fails users", () => {
+    const l = level("push-alerts")
+    const g = rewire(l.reference, ["sends", "push"], ["app>provider"])
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("push alerts: too little quota or too few workers fall behind at a normal peak", () => {
+    const l = level("push-alerts")
+    expect(
+      failed(l, patch(l.reference, "provider", { instances: 10 })),
+    ).toContain("backlog")
+    expect(failed(l, patch(l.reference, "push", { instances: 1 }))).toContain(
+      "backlog",
+    )
+  })
 })
 
 describe("existing levels keep their numbers", () => {

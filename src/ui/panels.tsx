@@ -134,6 +134,7 @@ export function BriefPanel({
   provider,
   onConcept,
   diagnose,
+  components,
   onDeck,
   quiz,
 }: {
@@ -141,6 +142,8 @@ export function BriefPanel({
   provider: Provider
   onConcept: (id: ConceptId) => void
   diagnose?: React.ReactNode
+  /** The palette, on wide screens: building comes before reading up. */
+  components?: React.ReactNode
   onDeck?: (schema?: boolean) => void
   /** The check that unlocks the suggested solution. */
   quiz?: { passed: boolean; open: () => void }
@@ -198,6 +201,7 @@ export function BriefPanel({
           </p>
         )}
       </div>
+      {components}
       <div>
         <H>Concepts</H>
         <div className="flex flex-wrap gap-1.5">

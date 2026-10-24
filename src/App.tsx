@@ -16,6 +16,7 @@ import { Survival } from "~/screens/Survival"
 import { SURVIVAL_REQUIRES } from "~/survival/engine"
 import { PointsChip } from "~/ui/PointsChip"
 import { AchievementToaster } from "~/ui/AchievementToaster"
+import { UpdateToast } from "~/ui/UpdateToast"
 import { MuteButton } from "~/ui/MuteButton"
 import { AccountButton } from "~/ui/AccountButton"
 import { useAuth } from "~/auth/auth"
@@ -80,13 +81,20 @@ export function App() {
   useEffect(() => subscribeProfile(() => setProgress(loadProgress())), [])
   const auth = useAuth()
   // With sign-in configured, a signed-out player chooses: account or guest.
+  // A new version can arrive on any screen, the welcome one included.
   if (auth.status === "loading" || auth.status === "signed-out")
-    return <Welcome auth={auth} />
+    return (
+      <>
+        <Welcome auth={auth} />
+        <UpdateToast />
+      </>
+    )
   // Achievements are granted from anywhere; the toaster sits above every screen.
   return (
     <>
       <AppScreens progress={progress} setProgress={setProgress} />
       <AchievementToaster progress={progress} />
+      <UpdateToast />
     </>
   )
 }

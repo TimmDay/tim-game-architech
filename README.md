@@ -78,7 +78,7 @@ pnpm build        # production build with the service worker
 pnpm preview      # serve the build: the only way to test the PWA offline
 ```
 
-It's a PWA: open it on a phone and use "Add to Home Screen". After the first visit it works offline. Progress, builds and the provider choice live in `localStorage`.
+It's a PWA. Where the browser can install apps (Chrome, Edge, Android), the home page offers an Install button; on an iPhone it explains Share, then Add to Home Screen. After the first visit it works offline. A new version never reloads a tab by itself: a toast offers it, and it loads when the player taps Reload. Progress, builds and the provider choice live in `localStorage`.
 
 ## Stack
 

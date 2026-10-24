@@ -35,6 +35,10 @@ export const saveProvider = (p: Provider) => write("lb.provider", p)
 export const loadOpenShelves = () => read<string[]>("lb.shelves", [])
 export const saveOpenShelves = (ids: string[]) => write("lb.shelves", ids)
 
+/** The install card was dismissed. Per device, never synced. */
+export const loadInstallDismissed = () => read<boolean>("lb.install", false)
+export const saveInstallDismissed = () => write("lb.install", true)
+
 export const loadProgress = () => read<Progress>("lb.progress", {})
 export const saveProgress = (p: Progress) => write("lb.progress", p)
 

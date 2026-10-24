@@ -407,3 +407,72 @@ describe("floods and shared rate-limit counters", () => {
     expect(offered(stack(true, true, true), perKey)).toBeCloseTo(1_000)
   })
 })
+
+describe("connection types", () => {
+  const chunks: LoadProfile["traffic"] = [
+    {
+      id: "chunks",
+      label: "File chunks",
+      of: "writes",
+      share: 0.5,
+      relayCost: 40,
+      to: ["object-store"],
+    },
+  ]
+  const l = load({ readFraction: 0.6, traffic: chunks })
+  const relayed = graph(
+    [
+      ["app", "app-server", 0, 0, 20],
+      ["blobs", "object-store", 0, 0],
+    ],
+    [`${C}>app`, "app>blobs"],
+  )
+  const direct = (marks: string[]) => ({
+    ...relayed,
+    edges: [
+      ...relayed.edges,
+      { id: `${C}>blobs`, from: C, to: "blobs", carries: marks },
+    ],
+  })
+
+  it("makes the app tier pay for relaying a traffic type", () => {
+    // 600 reads, 200 ordinary writes, and 200 chunks at 40 requests' worth.
+    const u = simulate(relayed, l).perComponent.app?.utilization ?? 0
+    expect(u).toBeCloseTo((600 + 400 * (1 + 0.5 * 39)) / 20_000)
+  })
+
+  it("sends a traffic type straight to the store over a line marked with it", () => {
+    const r = simulate(direct(["chunks"]), l)
+    expect(r.perEdge[`${C}>blobs`]?.rps).toBeCloseTo(200)
+    expect(r.perComponent.app?.writeRps).toBeCloseTo(200)
+    expect(r.perComponent.app?.utilization).toBeCloseTo(800 / 20_000)
+    // Every write still reaches the store: 200 direct, 200 through the app.
+    expect(r.perComponent.blobs?.writeRps).toBeCloseTo(400)
+  })
+
+  it("carries none of the ordinary traffic on a line marked only with a type", () => {
+    const r = simulate(direct(["chunks"]), l)
+    expect(r.perComponent.app?.readRps).toBeCloseTo(600)
+  })
+
+  it("lets the player say a line carries only reads or only writes", () => {
+    const g = graph(
+      [
+        ["a", "app-server", 0, 0, 4],
+        ["b", "app-server", 0, 0, 4],
+      ],
+      [],
+    )
+    const lines = {
+      ...g,
+      edges: [
+        { id: "r", from: C, to: "a", carries: ["reads"] },
+        { id: "w", from: C, to: "b", carries: ["writes"] },
+      ],
+    }
+    const r = simulate(lines, load())
+    expect(r.perComponent.a?.readRps).toBeCloseTo(800)
+    expect(r.perComponent.a?.writeRps).toBe(0)
+    expect(r.perComponent.b?.writeRps).toBeCloseTo(200)
+  })
+})

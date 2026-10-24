@@ -1596,6 +1596,114 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "sync-folder": q([
+    [
+      "Why do devices upload chunks straight to the {object-store}?",
+      "Relaying them would swamp the app tier",
+      [
+        "The store refuses uploads from servers",
+        "Direct uploads are always encrypted",
+        "It lets the app skip recording versions",
+      ],
+      "One relayed chunk costs about 25 ordinary requests. Here the app tier would run at 883%.",
+      5,
+    ],
+    [
+      "What does a signed URL grant?",
+      "One action on one key, for a few minutes",
+      [
+        "Full access to the user's account",
+        "Read access to the whole store",
+        "Access until the user signs out",
+      ],
+      "Anyone holding the link can use it, so keep it narrow and short-lived.",
+      19,
+    ],
+    [
+      "Why split files into chunks?",
+      "A small edit re-uploads only what changed",
+      [
+        "Object stores can't hold large files",
+        "Chunks are encrypted and whole files aren't",
+        "It makes every file the same size",
+      ],
+      "Chunks named by hash are also stored once, and a failed upload resumes from the last chunk.",
+      4,
+    ],
+    [
+      "Why name chunks by their hash?",
+      "Identical chunks are stored only once",
+      [
+        "Hashes are shorter than file names",
+        "It hides which user owns each chunk",
+        "Hashes sort by upload time",
+      ],
+      "Hash names also spread across the store's prefixes, and let a download be checked for corruption.",
+      13,
+    ],
+    [
+      "Inserting a byte at the start of a file changes every fixed-size chunk. What avoids that?",
+      "Content-defined chunking",
+      ["Bigger chunks", "Compressing each chunk", "Uploading the file whole"],
+      "Boundaries are found in the data itself, so an edit only changes the chunks around it.",
+      8,
+    ],
+    [
+      "Two devices edited the same file offline. What should happen?",
+      "Keep both, as a conflicted copy",
+      [
+        "Keep whichever arrived last",
+        "Merge them line by line",
+        "Refuse the second device's sync",
+      ],
+      "The second commit finds its base is no longer the latest version. Silent merging loses work.",
+      14,
+    ],
+    [
+      "A device uploads chunks but disconnects before committing. What do other devices see?",
+      "Nothing changes until the commit",
+      [
+        "A half-uploaded file",
+        "An error on the file",
+        "The new chunks as a separate file",
+      ],
+      "A version exists only once it's committed. Orphaned chunks are cleaned up later.",
+      15,
+    ],
+    [
+      "A user deletes a file whose chunks other files share. What's deleted?",
+      "Its metadata; chunks go when nothing uses them",
+      [
+        "Every chunk in the file, straight away",
+        "Nothing, until the user empties the bin",
+        "The chunks, and the other files are re-uploaded",
+      ],
+      "Count references or sweep periodically, and keep deleted versions for a while so restore works.",
+      16,
+    ],
+    [
+      "How does a device find out a file changed elsewhere?",
+      "It asks what changed since its last version",
+      [
+        "It downloads every file each hour",
+        "The object store emails it",
+        "It compares every chunk with the store",
+      ],
+      "Long polling or a live connection answers the moment a change lands. Then it fetches only the missing chunks.",
+      7,
+    ],
+    [
+      "What mostly drives this service's cost?",
+      "Per-request charges for chunks",
+      [
+        "The number of app servers",
+        "The metadata database",
+        "The load balancer",
+      ],
+      "About $8,540 of $10,253 a month is the object store. Skipping chunks it already has is the biggest saving.",
+      12,
+    ],
+  ]),
   "save-game": q([
     [
       "Why partition saves by player ID?",

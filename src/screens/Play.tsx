@@ -430,6 +430,7 @@ export function Play({
         dispatch({ type: "remove-edge", id })
         setSel({})
       }}
+      onSetEdge={(id, carries) => dispatch({ type: "set-edge", id, carries })}
       onLearn={(kind) => setInfo({ kind })}
       onDiscuss={(id) => setInfo({ discuss: id })}
     />
@@ -476,6 +477,7 @@ export function Play({
         onTapEdge={onTapEdge}
         onTapTile={onTapTile}
         onMove={onMove}
+        traffic={level.load.traffic}
       />
       {banner && (
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">

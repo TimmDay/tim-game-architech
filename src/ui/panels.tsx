@@ -42,6 +42,7 @@ import type {
   PlacedComponent,
   Practices,
   SimResult,
+  TrafficType,
 } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import { plain } from "~/text"
@@ -60,9 +61,12 @@ export const H = ({ children }: { children: React.ReactNode }) => (
 export function TargetList({
   targets,
   provider,
+  traffic,
 }: {
   targets: Targets
   provider: Provider
+  /** The level's traffic types: writes among them have their own stores. */
+  traffic?: TrafficType[]
 }) {
   const rows: [string, React.ReactNode][] = [
     ["p99 latency", `≤ ${ms(targets.p99Ms)}`],
@@ -72,7 +76,9 @@ export function TargetList({
   ]
   if (targets.writesReach.length > 0)
     rows.push([
-      "Every write reaches",
+      traffic?.some((t) => t.of === "writes")
+        ? "Other writes reach"
+        : "Every write reaches",
       <span className="flex flex-col items-end">
         {targets.writesReach.map((s) => (
           <span key={s}>
@@ -85,6 +91,16 @@ export function TargetList({
         ))}
       </span>,
     ])
+  for (const t of traffic ?? [])
+    if (t.of === "writes")
+      rows.push([
+        `${t.label} reach`,
+        <span className="flex flex-col items-end">
+          {t.to.map((k) => (
+            <Rich key={k} text={`{${k}}`} provider={provider} />
+          ))}
+        </span>,
+      ])
   if (targets.noBacklog)
     rows.push([
       "Async backlog",
@@ -148,7 +164,11 @@ export function BriefPanel({
       {diagnose}
       <div>
         <H>Targets</H>
-        <TargetList targets={level.targets} provider={provider} />
+        <TargetList
+          targets={level.targets}
+          provider={provider}
+          traffic={level.load.traffic}
+        />
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-amber-300/90">
           <TriangleAlert size={13} /> Chaos round: {level.chaos.label}
         </p>
@@ -573,6 +593,56 @@ function ProductionOptions({
   )
 }
 
+/** What a connection carries: inferred, or the player's choice. */
+function CarriesPicker({
+  value,
+  types,
+  onChange,
+}: {
+  value?: string[]
+  types: TrafficType[]
+  onChange: (v?: string[]) => void
+}) {
+  const on = new Set(value ?? [])
+  const toggle = (id: string) => {
+    const next = new Set(on)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    onChange(next.size ? [...next] : undefined)
+  }
+  const chip = (id: string, text: string, active: boolean, act: () => void) => (
+    <button
+      key={id}
+      type="button"
+      aria-pressed={active}
+      onClick={act}
+      className={clsx(
+        "rounded-full border px-3 py-1.5 text-[13px]",
+        active
+          ? "border-cyan-300 bg-cyan-300/15 text-cyan-100"
+          : "border-white/15 text-slate-300 hover:border-white/30",
+      )}
+    >
+      {text}
+    </button>
+  )
+  return (
+    <div className="space-y-1.5">
+      <div className="text-[12px] font-semibold tracking-wide text-slate-400 uppercase">
+        Carries
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {chip("auto", "Automatic", on.size === 0, () => onChange(undefined))}
+        {chip("reads", "Reads", on.has("reads"), () => toggle("reads"))}
+        {chip("writes", "Writes", on.has("writes"), () => toggle("writes"))}
+        {types.map((t) =>
+          chip(t.id, t.label, on.has(t.id), () => toggle(t.id)),
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function InspectPanel({
   graph,
   load,
@@ -587,6 +657,7 @@ export function InspectPanel({
   onSet,
   onRemove,
   onRemoveEdge,
+  onSetEdge,
   onLearn,
   onDiscuss,
 }: {
@@ -605,6 +676,8 @@ export function InspectPanel({
   onSet: (id: string, v: Settings) => void
   onRemove: (id: string) => void
   onRemoveEdge: (id: string) => void
+  /** Choose what a connection carries. Offered where the level has traffic types. */
+  onSetEdge?: (id: string, carries?: string[]) => void
   onLearn: (kind: ComponentKind) => void
   /** Omitted where there's no scenario to discuss (Survival). */
   onDiscuss?: (id: string) => void
@@ -620,6 +693,12 @@ export function InspectPanel({
     if (!e) return null
     const c = carries(graph, e)
     const async = result?.perEdge[e.id]?.async
+    const target = graph.components.find((x) => x.id === e.to)
+    // Traffic types can only go straight from the users to a store that takes them.
+    const types = (load?.traffic ?? []).filter(
+      (t) => e.from === CLIENT_ID && target && t.to.includes(target.kind),
+    )
+    const typed = types.filter((t) => e.carries?.includes(t.id))
     return (
       <div className="space-y-3">
         <H>Connection</H>
@@ -627,15 +706,32 @@ export function InspectPanel({
           {label(e.from)} → {label(e.to)}
         </div>
         <p className="text-[13px] leading-relaxed text-slate-400">
-          {c === "writes"
-            ? "Carries messages (writes) only."
-            : c === "reads"
-              ? "Carries reads only."
-              : "Carries reads and writes."}{" "}
-          {async || c === "writes"
-            ? "Asynchronous: the sender doesn't wait for the work to finish."
-            : "Synchronous: the caller waits for the answer."}
+          {typed.length > 0 && (
+            <>
+              Carries {typed.map((t) => t.label.toLowerCase()).join(" and ")}{" "}
+              straight from the users, through a signed URL.{" "}
+            </>
+          )}
+          {c === "none"
+            ? ""
+            : c === "writes"
+              ? "Carries messages (writes) only. "
+              : c === "reads"
+                ? "Carries reads only. "
+                : "Carries reads and writes. "}
+          {c === "none"
+            ? ""
+            : async || c === "writes"
+              ? "Asynchronous: the sender doesn't wait for the work to finish."
+              : "Synchronous: the caller waits for the answer."}
         </p>
+        {onSetEdge && (load?.traffic?.length ?? 0) > 0 && (
+          <CarriesPicker
+            value={e.carries}
+            types={types}
+            onChange={(v) => onSetEdge(e.id, v)}
+          />
+        )}
         {live && result && (
           <Stat k="Traffic" v={rps(result.perEdge[e.id]?.rps ?? 0)} />
         )}

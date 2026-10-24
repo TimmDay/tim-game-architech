@@ -154,6 +154,30 @@ export type Edge = {
   id: string
   from: string
   to: string
+  /**
+   * What the player says this connection carries: "reads", "writes", and any
+   * of the level's traffic types. Unset: inferred from its two ends.
+   */
+  carries?: string[]
+}
+
+/**
+ * A slice of a level's traffic with a name and a cost of its own, such as
+ * file chunks. Users can send it straight to a store over a connection
+ * marked with its id (a signed URL); otherwise the app tier relays it.
+ */
+export type TrafficType = {
+  id: string
+  /** "File chunks". Shown in the connection's picker. */
+  label: string
+  /** Which half of the traffic it's part of. */
+  of: "reads" | "writes"
+  /** Its share of that half. */
+  share: number
+  /** What relaying one costs a request tier, in ordinary requests. */
+  relayCost: number
+  /** The kinds users may send it to directly. */
+  to: ComponentKind[]
 }
 
 export type Graph = {
@@ -190,6 +214,8 @@ export type LoadProfile = {
   partitionKeys?: PartitionKey[]
   /** Stores can choose a consistency mode, and a network split tests it. */
   tunableConsistency?: boolean
+  /** Named slices of the traffic that users can send somewhere directly. */
+  traffic?: TrafficType[]
 }
 
 export type Fault =

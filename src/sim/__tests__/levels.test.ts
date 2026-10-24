@@ -5,6 +5,7 @@ import { findings, symptomsOnly } from "../findings"
 import { simulate } from "../simulate"
 import { SOLUTIONS } from "~/levels/solutions"
 import type { Graph, PlacedComponent } from "../types"
+import { CLIENT_ID as C } from "../types"
 
 describe.each(LEVELS)("$id", (level) => {
   it("has a reference solution that earns three stars", () => {
@@ -384,6 +385,36 @@ describe("the interview classics' traps", () => {
     const l = level("save-game")
     const g = patch(l.reference, "saves", { consistency: "strong" })
     expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("sync folder: relaying chunks through the app tier can't scale", () => {
+    const l = level("sync-folder")
+    const direct = (e: { from: string; to: string }) =>
+      e.from === C && e.to === "blobs"
+    const relay = (instances: number): Graph => ({
+      components: l.reference.components.map((c) =>
+        c.id === "app" ? { ...c, instances } : c,
+      ),
+      edges: [
+        ...l.reference.edges.filter((e) => !direct(e)),
+        { id: "app>blobs", from: "app", to: "blobs" },
+      ],
+    })
+    for (const instances of [12, 60])
+      expect(failed(l, relay(instances))).toContain("traffic")
+  })
+
+  it("sync folder: a line from the users that isn't set to carry chunks is a second entrance", () => {
+    const l = level("sync-folder")
+    const g: Graph = {
+      ...l.reference,
+      edges: l.reference.edges.map((e) =>
+        e.from === C && e.to === "blobs"
+          ? { id: e.id, from: e.from, to: e.to }
+          : e,
+      ),
+    }
+    expect(failed(l, g)).toContain("traffic")
   })
 
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {

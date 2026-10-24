@@ -11,7 +11,7 @@ import { CLIENT_TILE } from "~/levels"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
 import { carries } from "~/sim/simulate"
 import type { Graph, SimResult } from "~/sim/types"
-import { CLIENT_ID } from "~/sim/types"
+import { CLIENT_ID, type TrafficType } from "~/sim/types"
 import { Block, ClientBlock } from "./Block"
 import { TH, TW, diamond, iso, tileAt } from "./iso"
 import { useParticles } from "./particles"
@@ -32,7 +32,14 @@ export type BoardProps = {
   onTapEdge: (id: string) => void
   onTapTile: (x: number, y: number) => void
   onMove: (id: string, x: number, y: number) => void
+  /** The level's traffic types, for the legend. */
+  traffic?: TrafficType[]
 }
+
+const ALL_COLOR = "#38bdf8"
+const READS_COLOR = "#c084fc"
+const WRITES_COLOR = "#fbbf24"
+const TYPED_COLOR = "#2dd4bf"
 
 type View = { x: number; y: number; k: number }
 type Pt = { x: number; y: number }
@@ -244,9 +251,17 @@ export function Board(p: BoardProps) {
     const c = carries(p.graph, e)
     const async = p.result?.perEdge[e.id]?.async ?? false
     const toAsync = c === "writes"
-    const color =
-      async || toAsync ? "#fbbf24" : c === "reads" ? "#c084fc" : "#38bdf8"
-    return [{ e, a, b, color, dashed: async || toAsync }]
+    // A level's own traffic types (signed URLs) are teal and dotted.
+    const typed = e.carries?.some((x) => x !== "reads" && x !== "writes")
+    const color = typed
+      ? TYPED_COLOR
+      : async || toAsync
+        ? WRITES_COLOR
+        : c === "reads"
+          ? READS_COLOR
+          : ALL_COLOR
+    const dash = typed ? "2 5" : async || toAsync ? "7 6" : undefined
+    return [{ e, a, b, color, dash }]
   })
 
   const particleFlows = useMemo(
@@ -334,7 +349,7 @@ export function Board(p: BoardProps) {
             )
           })}
 
-          {edges.map(({ e, a, b, color, dashed }) => {
+          {edges.map(({ e, a, b, color, dash }) => {
             const sel = e.id === p.selectedEdgeId
             const mx = a.sx + (b.sx - a.sx) * 0.55
             const my = a.sy + (b.sy - a.sy) * 0.55
@@ -367,8 +382,8 @@ export function Board(p: BoardProps) {
                   stroke={sel ? "white" : color}
                   strokeOpacity={idle ? 0.35 : 1}
                   strokeWidth={2}
-                  strokeDasharray={dashed ? "7 6" : undefined}
-                  className={dashed ? "march" : "edge-draw"}
+                  strokeDasharray={dash}
+                  className={dash ? "march" : "edge-draw"}
                 />
                 <line
                   x1={a.sx + (b.sx - a.sx) * 0.5}
@@ -483,6 +498,24 @@ export function Board(p: BoardProps) {
           })}
         </g>
       </svg>
+      {p.graph.edges.some((e) => e.carries?.length) && (
+        <Legend
+          rows={[
+            ["Everything", ALL_COLOR, undefined],
+            ["Reads", READS_COLOR, undefined],
+            ["Writes and messages", WRITES_COLOR, "7 6"],
+            ...(p.traffic?.length
+              ? [
+                  [
+                    p.traffic.map((t) => t.label).join(", "),
+                    TYPED_COLOR,
+                    "2 5",
+                  ] as const,
+                ]
+              : []),
+          ]}
+        />
+      )}
       <button
         type="button"
         onPointerDown={(e) => e.stopPropagation()}
@@ -575,5 +608,33 @@ function Label({
         </text>
       )}
     </g>
+  )
+}
+
+/** What each line colour means. Shown once a connection has a chosen type. */
+function Legend({
+  rows,
+}: {
+  rows: readonly (readonly [string, string, string | undefined])[]
+}) {
+  return (
+    <div className="pointer-events-none absolute bottom-3 left-3 space-y-1 rounded-lg border border-white/10 bg-slate-950/80 px-2.5 py-2 text-[11px] text-slate-300 backdrop-blur">
+      {rows.map(([label, color, dash]) => (
+        <div key={label} className="flex items-center gap-2">
+          <svg width="22" height="6" aria-hidden>
+            <line
+              x1="1"
+              y1="3"
+              x2="21"
+              y2="3"
+              stroke={color}
+              strokeWidth="2"
+              strokeDasharray={dash}
+            />
+          </svg>
+          {label}
+        </div>
+      ))}
+    </div>
   )
 }

@@ -97,7 +97,12 @@ export function grade(
 ): Grade {
   const peak = simulate(graph, load)
   const chaos = simulate(graph, load, chaosFaults)
-  const expectedWrites = load.peakRps * (1 - load.readFraction)
+  const allWrites = load.peakRps * (1 - load.readFraction)
+  // Traffic types of writes (file chunks) belong in their own stores, so the
+  // level's write sinks expect only the ordinary writes.
+  const typedWrites = (load.traffic ?? []).filter((t) => t.of === "writes")
+  const expectedWrites =
+    allWrites * (1 - typedWrites.reduce((s, t) => s + t.share, 0))
 
   const checks: Check[] = [
     {
@@ -115,9 +120,15 @@ export function grade(
   if (targets.writesReach.length > 0 && expectedWrites > 0) {
     checks.push({
       id: "writes",
-      pass: targets.writesReach.every(
-        (s) => writesAt(graph, peak, s) >= expectedWrites * 0.99,
-      ),
+      pass:
+        targets.writesReach.every(
+          (s) => writesAt(graph, peak, s) >= expectedWrites * 0.99,
+        ) &&
+        typedWrites.every((t) =>
+          t.to.some(
+            (k) => writesAt(graph, peak, k) >= allWrites * t.share * 0.99,
+          ),
+        ),
       star: 1,
     })
   }

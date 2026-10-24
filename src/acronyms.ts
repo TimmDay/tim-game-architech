@@ -193,6 +193,10 @@ export const ACRONYMS: Record<string, Acronym> = {
     note: "Encryption and licensing that limit how paid content can be copied.",
   },
   ETA: { expansion: "Estimated Time of Arrival" },
+  MB: {
+    expansion: "Megabyte",
+    note: "A million bytes. A photo is a few.",
+  },
   GB: {
     expansion: "Gigabyte",
     note: "A billion bytes.",

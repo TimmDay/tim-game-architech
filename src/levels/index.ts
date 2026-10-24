@@ -86,6 +86,14 @@ export function graph(rows: Row[], edges: string[]): Graph {
   }
 }
 
+/** Set what one connection carries: a signed URL for a traffic type, say. */
+export function mark(g: Graph, edgeId: string, carries: string[]): Graph {
+  return {
+    ...g,
+    edges: g.edges.map((e) => (e.id === edgeId ? { ...e, carries } : e)),
+  }
+}
+
 export const CLIENT_TILE = { x: 0, y: 4 }
 const C = CLIENT_ID
 
@@ -1982,6 +1990,93 @@ const CLASSICS: Level[] = [
     ),
     concepts: ["hot-keys", "key-value-modelling", "conflict-resolution"],
     hint: "Key saves by player so they spread. Then look at the one key every player reads: no amount of capacity lifts a single key's limit, but a {cache} can answer it.",
+  },
+  {
+    id: "sync-folder",
+    mode: "build",
+    track: "classic",
+    requires: ["upload-rush"],
+    title: "Sync Folder",
+    tagline:
+      "Every device's files, everywhere, without the bytes touching your servers.",
+    scenario: {
+      product: "the file sync service",
+      reads: "devices checking for changes and downloading file chunks",
+      writes: "devices uploading chunks and committing file changes",
+      hot: "recent changes for each folder",
+      records: "every file's metadata: its chunks, version and folder",
+      files: "file contents, as 4 MB chunks",
+    },
+    brief:
+      "A file sync app, like the one on your laptop. Dropbox's API describes a file as 4 MB blocks, each named by its hash, and a device only uploads blocks the server doesn't already have. Peak is 10,000 requests a second: 5,000 checks for changes, 2,000 chunk downloads, 2,000 chunk uploads, and 1,000 commits recording a file's new version. Relaying one chunk costs an {app-server} about 25 ordinary requests' worth of its network. In this level you can tap a connection and choose what it carries. The chaos round is Monday at 9am, when everyone opens their laptop at once.",
+    load: {
+      peakRps: 10_000,
+      readFraction: 0.7,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      traffic: [
+        {
+          id: "chunk-up",
+          label: "Chunk uploads",
+          of: "writes",
+          share: 2 / 3,
+          relayCost: 25,
+          to: ["object-store"],
+        },
+        {
+          id: "chunk-down",
+          label: "Chunk downloads",
+          of: "reads",
+          share: 2 / 7,
+          relayCost: 25,
+          to: ["object-store"],
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 11_000,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
+      label: "Monday, 9am (1.5x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "sql-replica",
+      "object-store",
+      "cdn",
+    ],
+    reference: mark(
+      graph(
+        [
+          ["dns", "dns", 1, 4],
+          ["lb", "load-balancer", 3, 4],
+          ["app", "app-server", 5, 4, 12, 2],
+          ["db", "sql-primary", 7, 5, 2, 2],
+          ["blobs", "object-store", 4, 7],
+        ],
+        [`${C}>dns`, "dns>lb", "lb>app", "app>db", `${C}>blobs`],
+      ),
+      `${C}>blobs`,
+      ["chunk-up", "chunk-down"],
+    ),
+    concepts: ["signed-urls", "object-storage", "horizontal-scaling"],
+    hint: "Relaying every chunk through the app tier would take more servers than you can buy. Connect Users straight to the {object-store}, and set that connection to carry the chunks.",
   },
 ]
 

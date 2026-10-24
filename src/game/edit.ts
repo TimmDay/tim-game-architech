@@ -14,6 +14,8 @@ export type Action =
   | { type: "connect"; from: string; to: string }
   | { type: "remove"; id: string }
   | { type: "remove-edge"; id: string }
+  /** What a connection carries. Unset or empty: inferred from its ends. */
+  | { type: "set-edge"; id: string; carries?: string[] }
   | ({ type: "set"; id: string } & Settings)
   | { type: "reset"; graph: Graph }
 
@@ -85,6 +87,15 @@ export function edit(g: Graph, a: Action): Graph {
       }
     case "remove-edge":
       return { ...g, edges: g.edges.filter((e) => e.id !== a.id) }
+    case "set-edge":
+      return {
+        ...g,
+        edges: g.edges.map((e) => {
+          if (e.id !== a.id) return e
+          if (a.carries?.length) return { ...e, carries: a.carries }
+          return { id: e.id, from: e.from, to: e.to }
+        }),
+      }
     case "set":
       return {
         ...g,

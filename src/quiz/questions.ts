@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "pay-button": q([
+    [
+      "Why record a payment as pending before charging the card?",
+      "So a crash after charging can't lose the payment",
+      [
+        "The provider requires a database row first",
+        "It makes the charge itself faster",
+        "So the shopper can cancel before being charged",
+      ],
+      "Write pending, charge, then record the result. A sweeper finds anything stuck in pending.",
+      4,
+    ],
+    [
+      "How do idempotency keys stop double charges?",
+      "A repeat returns the first result, not a new charge",
+      [
+        "They encrypt the card number on each attempt",
+        "They make the provider answer faster",
+        "They limit each shopper to one payment a day",
+      ],
+      "The client sends the same key with every attempt. Without them, retries here charge about 72 payments a second twice.",
+      7,
+    ],
+    [
+      "The provider times out. What should the worker do?",
+      "Retry with the same key, and never assume it failed",
+      [
+        "Mark the payment as failed and refund it",
+        "Retry with a new key, so it's a fresh attempt",
+        "Ask the shopper to pay again",
+      ],
+      "The charge may have worked just after the timeout. The same key makes a retry safe.",
+      14,
+    ],
+    [
+      "What does double-entry bookkeeping guarantee?",
+      "Every movement's entries sum to zero",
+      [
+        "Every payment is stored in two databases",
+        "Each payment is charged twice and one refunded",
+        "Balances never need to be checked",
+      ],
+      "Money can't appear or vanish without a matching entry, so mistakes show up when you add up.",
+      6,
+    ],
+    [
+      "Why charge in the background rather than while the shopper waits?",
+      "A slow provider then delays payments instead of failing them",
+      [
+        "Background charges cost less per payment",
+        "Providers refuse calls that come from app servers",
+        "The payment then never needs recording",
+      ],
+      "Here, charging inline fails every payment once the provider slows.",
+      5,
+    ],
+    [
+      "Why run twelve workers when two cover a normal day?",
+      "A slow provider and a lost zone can hit at once",
+      [
+        "Each worker can only charge one card brand",
+        "Providers want one caller per shop",
+        "Twelve is the smallest pool a queue allows",
+      ],
+      "Calls are held longer, retries add a fifth, and a zone takes four workers. The eight left run at 67%.",
+      13,
+    ],
+    [
+      "A webhook and your ledger disagree about a payment. What do you do?",
+      "Ask the provider's API for its current state",
+      [
+        "Trust the webhook, because it's newer",
+        "Trust the ledger, because it's yours",
+        "Delete the payment and start again",
+      ],
+      "Webhooks can be late or out of order. Record the fix as a correcting entry.",
+      15,
+    ],
+    [
+      "Why use the provider's token instead of storing card numbers?",
+      "It keeps most of your system out of card-data rules",
+      [
+        "Tokens make each charge faster",
+        "Card numbers are too long to store",
+        "Tokens let shoppers skip their address",
+      ],
+      "Encrypt the ledger at rest, and rate-limit attempts per card to stop people testing stolen ones.",
+      19,
+    ],
+    [
+      "What does daily reconciliation catch?",
+      "Payments the ledger and the provider disagree on",
+      [
+        "Shoppers who forgot their passwords",
+        "Slow pages in the checkout",
+        "Cards that are about to expire",
+      ],
+      "Match by payment ID and amount. The count of unmatched entries should be zero.",
+      11,
+    ],
+    [
+      "A shopper double-clicks Pay. What stops a second payment?",
+      "Both requests share one idempotency key",
+      [
+        "The button greys out after one click",
+        "The provider ignores clicks a second apart",
+        "The second request arrives too late to count",
+      ],
+      "The key is made when checkout loads. Disable the button too, but never rely on it alone.",
+      16,
+    ],
+  ]),
   "web-crawler": q([
     [
       "Why put a {queue} between the frontier and the fetchers?",

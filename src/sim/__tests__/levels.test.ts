@@ -288,6 +288,27 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toContain("chaos")
   })
 
+  it("pay button: retries without idempotency keys charge people twice", () => {
+    const l = level("pay-button")
+    const pay = l.reference.components.find((c) => c.id === "pay")
+    const g = patch(l.reference, "pay", {
+      practices: { ...pay?.practices, idempotency: false },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: charging inside the request fails once the provider slows", () => {
+    const l = level("pay-button")
+    const g = rewire(l.reference, ["charges", "pay"], ["app>provider"])
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: one ledger instance goes down with its zone", () => {
+    const l = level("pay-button")
+    const g = patch(l.reference, "ledger", { instances: 1, zones: 1 })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

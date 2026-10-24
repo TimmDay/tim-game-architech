@@ -502,6 +502,36 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "pay-button": {
+    overview:
+      "A payment is recorded before it's charged, and charged in the background. The {app-server} writes it to the ledger as pending and queues the charge; {worker} instances call the provider with a timeout, backoff and the payment's idempotency key, then record the result. Every change goes on an {event-stream}, and the {data-warehouse} reconciles the ledger against the provider's records each day.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. The shopper's request carries an idempotency key, so a repeat returns the first answer instead of making a second payment.",
+      "The app writes the payment to the ledger on the {sql-primary} as pending, in double entry: the shopper's side and the seller's side, always summing to zero.",
+      "It puts the charge on the {queue} and tells the shopper the payment is processing. Their app checks the status, or is told when it changes.",
+      "{worker} instances call the provider with a half-second timeout and retry with backoff and jitter, passing the same idempotency key every time, so the provider charges once however many attempts it takes.",
+      "Each status change is published to the {event-stream}. The {data-warehouse} matches the ledger against the provider's settlement records every day and flags anything that doesn't agree.",
+    ],
+    numbers: [
+      "2,000 requests a second: 1,400 status checks and 600 payments.",
+      "Six {app-server} instances across three zones run at 33%, and 50% when a zone goes dark.",
+      "The ledger's {sql-primary} is 20% busy, with a standby in a second zone that takes over in the outage.",
+      "A charge takes about 300ms, nearly all waiting, so each worker keeps 100 in flight: about 333 charges a second. Twelve run at 15% on a normal day.",
+      "On the bad afternoon the timeout holds each slow call for half a second, backoff adds a fifth more calls, and the dark zone takes four workers with it. The eight left run at 67%.",
+      "Without idempotency keys, retries charge about 72 payments a second twice. Charging inside the request fails every payment once the provider slows, and a single ledger instance takes everything down with its zone.",
+      "Cost: $1 + about $41 for the {load-balancer} + 6 × $70 + 2 × $400 + about $568 for the {queue} + 12 × $120 + $25 + $1,000 = $4,294 of $4,700. The provider's fees are a business cost, not counted here.",
+    ],
+    tradeoffs: [
+      "The shopper sees 'processing' rather than an instant answer. Most charges finish in under a second; on a bad afternoon the app must say so, and never show 'paid' until the provider has confirmed.",
+      "Twelve workers are mostly idle on a normal day. That's the price of surviving a slow provider and a lost zone at the same time.",
+      "Idempotency keys only protect while both sides remember them. One large provider deletes them after about 24 hours, so a retry days later must check the payment's own record first.",
+    ],
+    alternatives: [
+      "Authorise the card while the shopper waits and take the money later in the background: an instant yes or no, at the cost of a slow request when the provider is slow. Many checkouts do this with a short timeout and fall back to 'processing'.",
+      "A {nosql} ledger scales writes further, but double entry needs both sides of each movement written together, which relational transactions do best.",
+      "Reconciling straight from the {sql-primary}: simple, but heavy queries compete with payments. Feeding the warehouse from the event stream keeps them apart.",
+    ],
+  },
   "web-crawler": {
     overview:
       "Finding links is fast and fetching pages is slow, so they're split. The frontier service checks each link against the URLs already seen and queues the new ones; {worker} instances fetch them with a timeout, store the pages in the {object-store}, and never ask any site for more than politeness allows.",

@@ -1926,3 +1926,205 @@ export const WEB_CRAWLER = deck("web-crawler", [
     ],
   ],
 ])
+
+export const PAY_BUTTON = deck("pay-button", [
+  [
+    "clarify",
+    "What would you ask about the payments?",
+    [
+      "Which methods: cards, bank transfers, wallets? Each has its own provider and timing.",
+      "One-off payments, subscriptions, or payouts to sellers as well?",
+      "Which currencies and countries? Rules and providers differ.",
+    ],
+    "How do payouts to sellers change the ledger?",
+  ],
+  [
+    "clarify",
+    "What does 'done' mean for a payment?",
+    [
+      "Authorised (the bank has agreed), captured (the money is taken) or settled (it has actually moved)? They can be days apart.",
+      "Can a payment be partly refunded, or disputed weeks later?",
+      "What must the shopper see at each step?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about failures?",
+    [
+      "What's worse for the business: a lost payment, a double charge or a wrongly declined one?",
+      "How long may a payment stay 'processing' before you tell the shopper?",
+      "Who carries the loss if money goes missing in flight?",
+    ],
+  ],
+  [
+    "product",
+    "Why show 'processing' rather than 'paid' straight away?",
+    [
+      "Saying 'paid' before the provider confirms risks telling people money moved when it didn't.",
+      "Most charges confirm in under a second, so the wait is usually invisible.",
+      "On a bad day, 'processing, we'll email you' is honest. A spinning button that times out makes people pay again.",
+    ],
+  ],
+  [
+    "decision",
+    "Why record the payment before charging it?",
+    [
+      "If the charge goes through and you crash before writing it down, you've taken money you can't account for.",
+      "Write 'pending', charge, then mark the result: every state is on record.",
+      "A sweeper finds payments stuck in pending and asks the provider what happened.",
+    ],
+  ],
+  [
+    "decision",
+    "Why charge in the background rather than in the request?",
+    [
+      "The provider can slow to seconds. In the request, that wait, and every failure, lands on the shopper.",
+      "Here, charging inline fails every payment once the provider slows.",
+      "Behind a queue, a slow provider means slower confirmations, not errors.",
+    ],
+  ],
+  [
+    "decision",
+    "What's double-entry bookkeeping, and why use it?",
+    [
+      "Every movement is written as entries that sum to zero: the shopper's account down, the seller's up.",
+      "Balances are derived from the entries, so they can always be checked by adding up.",
+      "Money can't appear or vanish without a matching entry, which makes mistakes visible.",
+    ],
+  ],
+  [
+    "decision",
+    "How do idempotency keys stop double charges?",
+    [
+      "The client makes one key per payment and sends it with every attempt.",
+      "Your service and the provider store the key with the result, and a repeat gets the stored result instead of a new charge.",
+      "Without them, retries here charge about 72 payments a second twice.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Authorise while the shopper waits, or do everything in the background?",
+    [
+      "Authorising inline gives an instant yes or no, which helps checkout.",
+      "But the request is then only as fast as the provider: give it a short timeout, and fall back to 'processing'.",
+      "Taking the money, refunds and payouts belong in the background either way.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Why a {sql-primary} for the ledger rather than {nosql}?",
+    [
+      "Double entry writes both sides of a movement together, which a relational transaction does well.",
+      "Consistency matters more than write scale: 600 payments a second is well within one primary.",
+      "Partition by merchant later, if writes outgrow it.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you skip the queue and let the provider call you back?",
+    [
+      "Providers do send webhooks when a payment changes, and you should handle them.",
+      "But you still need to make the charge request reliably, and webhooks can arrive late, twice or out of order.",
+      "Treat webhooks as events to check against, not as your only record.",
+    ],
+  ],
+  [
+    "alternative",
+    "How is reconciliation done?",
+    [
+      "Every day, match each ledger entry against the provider's settlement report, by payment ID and amount.",
+      "Anything unmatched (charged but not recorded, or recorded but not charged) is investigated.",
+      "It catches bugs no single request would reveal.",
+    ],
+  ],
+  [
+    "scale",
+    "Payments grow tenfold. What changes?",
+    [
+      "The provider quota first: negotiate more, or spread payments across providers.",
+      "Partition the ledger by merchant, so writes spread over several primaries.",
+      "Keep each payment's entries on one partition, so a payment is still one transaction.",
+    ],
+  ],
+  [
+    "scale",
+    "Why twelve workers when two would cover a normal day?",
+    [
+      "On a bad afternoon each call is held longer, retries add a fifth, and a lost zone takes a third of the workers.",
+      "Here the eight that survive run at 67%.",
+      "Size for the worst day you've promised to survive, not the average one.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The provider times out. Did the charge happen?",
+    [
+      "You can't tell: it may have succeeded just after you gave up.",
+      "Retry with the same idempotency key, and the provider returns the original result if it did.",
+      "If retries run out, keep the payment pending and ask the provider later. Never assume it failed.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A webhook says a payment succeeded, but your ledger says it failed.",
+    [
+      "Trust neither blindly: ask the provider's API for the payment's current state.",
+      "Webhooks can arrive out of order, so check a timestamp or version before applying one.",
+      "Write a correcting entry, with the reason, rather than editing history.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A shopper double-clicks Pay.",
+    [
+      "Both requests carry the same idempotency key, made when the checkout page loaded.",
+      "The second finds the first one's record and returns its result.",
+      "Disable the button too, but never rely on the button alone.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone loses power in the middle of the afternoon.",
+    [
+      "The ledger's standby in another zone is promoted, after a short pause in writes.",
+      "Payments already on the queue wait; nothing is lost.",
+      "The surviving workers carry on: here eight of twelve, at 67%.",
+    ],
+  ],
+  [
+    "resilience",
+    "The provider is down for an hour.",
+    [
+      "Payments wait as pending, and shoppers are told they're processing.",
+      "Workers back off, so the provider isn't flooded when it returns.",
+      "Some businesses switch to a second provider, which needs its own idempotency and reconciliation.",
+    ],
+  ],
+  [
+    "security",
+    "What has to be protected?",
+    [
+      "Never store card numbers yourself. The provider gives you a token that stands in for the card, which keeps most of your system out of card-data rules.",
+      "Encrypt the ledger at rest, and log every access to it.",
+      "Rate-limit payment attempts per account and per card, to stop people testing stolen cards.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Payments stuck in pending, by how long they've waited.",
+      "Provider errors and latency, and the share of payments declined.",
+      "Unmatched entries from reconciliation. The number should be zero.",
+    ],
+  ],
+  [
+    "observability",
+    "Finance says yesterday's totals are $2,000 out. How do you find it?",
+    [
+      "Reconciliation lists the payments that don't match, by ID.",
+      "Look up each one's history in the ledger and in the provider's records.",
+      "Fix it with correcting entries, and add a check so the same bug is caught on the day.",
+    ],
+  ],
+])

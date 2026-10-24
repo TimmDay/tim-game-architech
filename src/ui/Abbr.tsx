@@ -1,10 +1,31 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react"
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import { createPortal } from "react-dom"
 import { ACRONYMS } from "~/acronyms"
 
 /** Gap between the word and its popover, and the popover and the screen edge. */
 const GAP = 6
 const MARGIN = 8
+
+/**
+ * Inside a scope (a modal, say), only the first mention of each acronym gets
+ * an asterisk: the rest render as plain text. Claims are made in render
+ * order, which is document order. Outside a scope, every mention is marked
+ * (Rich still marks only the first within one piece of text).
+ */
+const Scope = createContext<Map<string, string> | null>(null)
+
+export function AcronymScope({ children }: { children: React.ReactNode }) {
+  const [claims] = useState(() => new Map<string, string>())
+  return <Scope.Provider value={claims}>{children}</Scope.Provider>
+}
 
 /**
  * An acronym with a small asterisk. Tap, click, hover or focus it to see it
@@ -72,7 +93,9 @@ export function Abbr({
     return () => window.removeEventListener("pointerdown", close)
   }, [pinned])
 
-  if (!a) return <>{children}</>
+  const scope = useContext(Scope)
+  if (scope && !scope.has(term)) scope.set(term, id)
+  if (!a || (scope && scope.get(term) !== id)) return <>{children}</>
   // A tap pins it open (phones have no hover); another tap closes it.
   const toggle = () => {
     const next = !pinned

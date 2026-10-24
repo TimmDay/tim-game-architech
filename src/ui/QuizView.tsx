@@ -11,6 +11,7 @@ import type { Provider } from "~/providers/names"
 import { PASS_MARK, QUIZZES, type Question } from "~/quiz/questions"
 import { H } from "./panels"
 import { Rich } from "./Rich"
+import { ModalHeader } from "./Modal"
 
 const shuffle = <T,>(items: T[]): T[] => {
   const out = [...items]
@@ -192,7 +193,7 @@ export function QuizView({
   // ----- one question ------------------------------------------------------
   return (
     <div className="space-y-4">
-      <div className="pr-8">
+      <ModalHeader>
         <div className="font-mono text-[10px] tracking-[0.18em] text-amber-300/80 uppercase">
           Unlock the solution · {PASS_MARK} of {total} to pass
         </div>
@@ -216,7 +217,7 @@ export function QuizView({
             )
           })}
         </div>
-      </div>
+      </ModalHeader>
 
       <p className="font-display text-[18px] leading-snug font-semibold text-white">
         <Rich text={current.q.prompt} provider={provider} />

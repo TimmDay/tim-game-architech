@@ -9,6 +9,7 @@ import { expectedPractices, PRACTICE_LABEL } from "~/sim/practices"
 import { Board } from "./Board"
 import { ms, nines, pct, usd } from "./format"
 import { H } from "./panels"
+import { ModalHeader } from "./Modal"
 import { Rich } from "./Rich"
 
 const noop = () => {}
@@ -64,14 +65,14 @@ export function SolutionView({
 
   return (
     <div className="space-y-5">
-      <div className="pr-8">
+      <ModalHeader>
         <div className="font-mono text-[10px] tracking-[0.18em] text-amber-300/80 uppercase">
           Suggested solution
         </div>
         <h2 className="font-display text-xl font-bold text-white">
           {level.title}
         </h2>
-      </div>
+      </ModalHeader>
 
       <div className="h-64 overflow-hidden rounded-xl border border-white/10 bg-slate-950/60 sm:h-80">
         <Board

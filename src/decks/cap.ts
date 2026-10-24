@@ -118,7 +118,7 @@ export const BALANCE_SHEET = deck("balance-sheet", [
     "Is the 'C' in CAP the same as the 'C' in ACID?",
     [
       "No. ACID's consistency means the database keeps its own rules, such as balances never going negative.",
-      "CAP's consistency means every copy gives the same, latest answer: what you read is what was last committed anywhere.",
+      "CAP's consistency (linearizability) means every read sees the latest committed write, as if there were only one copy.",
       "Mixing them up is a common interview slip. Say which one you mean.",
     ],
   ],
@@ -701,7 +701,7 @@ export const LIKE_STORM = deck("like-storm", [
     [
       "A {cache} holding each post's total for a few seconds.",
       "On a miss, the app sums the sub-keys and refreshes the cache.",
-      "The cache takes 2,280 of the 3,000 count reads a second here.",
+      "The cache takes 10,830 of the 12,000 count reads a second here. Without it, the store would run at 222%.",
     ],
   ],
   [

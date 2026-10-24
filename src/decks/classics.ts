@@ -1309,7 +1309,7 @@ export const TYPEAHEAD = deck("typeahead", [
     "What would you ask about the suggestions?",
     [
       "How many suggestions, and ranked by what: popularity, recency, personal history?",
-      "Are they personalised? That decides whether one answer can be shared and cached.",
+      "Are they personalised? That decides whether the edge can cache them.",
       "Do suggestions differ by language or country?",
     ],
     "How does personalisation change your caching?",
@@ -1356,14 +1356,14 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Suggestions are published content: filter harmful completions before they go live.",
       "Let users report a suggestion.",
-      "Have a fast path to remove one suggestion everywhere, including caches.",
+      "Have a fast path to remove one suggestion everywhere, including edge caches.",
     ],
   ],
   [
     "decision",
     "Why precompute suggestions rather than search on every keystroke?",
     [
-      "A search per keystroke adds about 110ms here; p99 reaches 262ms against a 200ms target.",
+      "A search per keystroke adds about 75ms here; p99 reaches 232ms against a 200ms target.",
       "The top ten for a prefix barely changes from minute to minute.",
       "So work it out once, in the background, and look it up in memory.",
     ],
@@ -1379,11 +1379,11 @@ export const TYPEAHEAD = deck("typeahead", [
   ],
   [
     "decision",
-    "Should a CDN cache suggestions?",
+    "Why can the CDN cache suggestions?",
     [
-      "It could: they aren't personalised here, so everyone typing 'pizz' gets the same answer.",
-      "But each answer is a few hundred bytes from memory, and edge fees of about $1 per million requests would add about $7,900 a month: more than the whole origin.",
-      "The browser's own cache is free: a few minutes' lifetime per prefix answers backspaces and retyping.",
+      "They aren't personalised here, so everyone typing 'pizz' gets the same answer.",
+      "Popular prefixes are asked thousands of times a minute, and the edge answers them close to the user, which matters on a 200ms budget.",
+      "The edge serves 9,025 of 9,500 keystrokes a second. It's billed per request, so it's the biggest line on the bill.",
     ],
   ],
   [
@@ -1401,16 +1401,16 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Personalised suggestions are more useful, but can't be cached at the edge.",
       "Shared ones cache beautifully, but ignore what the user cares about.",
-      "Blend them: a few personal ones from the device, the rest shared from the server.",
+      "Blend them: a few personal ones from the device, the rest shared from the edge.",
     ],
   ],
   [
     "tradeoff",
-    "How long should a browser keep a prefix's answer?",
+    "How long should the CDN cache a prefix?",
     [
       "Longer: more hits and less load.",
       "Shorter: trending topics appear faster, and removed suggestions disappear sooner.",
-      "Minutes is a common compromise. Nobody can purge a browser's cache, so keep it short.",
+      "Minutes is a common compromise, with explicit purges for removals. Browsers can't be purged, so keep their lifetime shorter.",
     ],
   ],
   [
@@ -1453,8 +1453,8 @@ export const TYPEAHEAD = deck("typeahead", [
     "scale",
     "Breaking news doubles traffic, and everyone types the same thing.",
     [
-      "Good news: identical prefixes are cheap lookups, and browsers answer repeats themselves.",
-      "The app tier takes the rest: here 80% busy at double traffic.",
+      "Good news: identical prefixes are exactly what the edge caches best.",
+      "The app tier sees the misses: here 49% busy at double traffic.",
       "But the news itself isn't in yesterday's suggestions: that's the freshness problem.",
     ],
   ],
@@ -1500,7 +1500,7 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Suggestion latency at p99, measured on the client, where the user feels it.",
       "How often a suggestion is picked, and at which keystroke: that's the product's success rate.",
-      "Cache hit rate, and the age of the current suggestion set.",
+      "Edge hit rate, and the age of the current suggestion set.",
     ],
   ],
   [
@@ -1509,14 +1509,14 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Validate a new set before publishing: size, top entries for common prefixes, banned terms.",
       "Keep the previous set, so rolling back is a switch, not a rebuild.",
-      "Short browser cache lifetimes mean the bad set leaves users' devices within minutes.",
+      "Purge the {cdn} after rolling back, or the edge keeps serving the bad set.",
     ],
   ],
   [
     "resilience",
     "A {cache} node holding suggestions is lost.",
     [
-      "The other node holds every prefix too, so suggestions keep working.",
+      "Common prefixes keep coming from the {cdn}.",
       "Reload the node from the last build; nothing is lost, because suggestions are rebuilt from the search log.",
       "Until then, return no suggestions for its prefixes: search itself still works.",
     ],

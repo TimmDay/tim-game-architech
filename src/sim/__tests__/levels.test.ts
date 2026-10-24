@@ -252,12 +252,8 @@ describe("the interview classics' traps", () => {
 
   it("typeahead: a search per keystroke misses the latency budget", () => {
     const l = level("typeahead")
-    // Enough nodes for the traffic: it's the per-query time that hurts.
-    const g = patch(l.reference, "topk", {
-      kind: "search-index",
-      instances: 10,
-    })
-    expect(failed(l, g)).toContain("latency")
+    const g = patch(l.reference, "topk", { kind: "search-index", instances: 1 })
+    expect(failed(l, g)).toEqual(["latency"])
   })
 })
 
@@ -383,6 +379,20 @@ describe("the CAP shelf's traps", () => {
       expect(failed(l, g)).toContain("traffic")
       expect(concepts(l, g)).toContain("hot-keys")
     }
+  })
+
+  it("like storm: without the cache, count reads overwhelm the store", () => {
+    const l = level("like-storm")
+    const g: Graph = {
+      components: l.reference.components.filter((c) => c.id !== "cache"),
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => e.to !== "cache" && e.from !== "cache",
+        ),
+        { id: "app>db", from: "app", to: "db" },
+      ],
+    }
+    expect(failed(l, g)).toContain("traffic")
   })
 
   it("like storm: keyed by who liked, every count is a scan", () => {

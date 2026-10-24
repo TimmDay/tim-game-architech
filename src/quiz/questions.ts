@@ -1935,7 +1935,7 @@ export const QUIZZES: Record<string, Question[]> = {
   typeahead: q([
     [
       "Why not query a {search-index} on every keystroke?",
-      "It adds about 110ms, and p99 misses the 200ms target",
+      "It adds about 75ms, and p99 misses the 200ms target",
       [
         "Search indexes can't match the start of a word",
         "It would return suggestions in the wrong language",
@@ -1956,14 +1956,14 @@ export const QUIZZES: Record<string, Question[]> = {
       7,
     ],
     [
-      "Why not put a {cdn} in front of suggestions here?",
-      "At this volume, edge fees cost more than the origin",
+      "Why can the {cdn} cache suggestions here?",
+      "They aren't personalised, so everyone typing a prefix gets the same answer",
       [
-        "Suggestions are personalised, so none can be shared",
-        "A CDN can't cache responses under a kilobyte",
-        "Edge caches can't be purged when a suggestion is removed",
+        "Suggestions never change once published",
+        "Browsers refuse uncached responses",
+        "Keystrokes are too small and frequent for app servers to handle efficiently, so the edge must take them",
       ],
-      "Each answer is a few hundred bytes from memory. The edge would add about $7,900 a month; the browser's cache is free.",
+      "The edge serves 9,025 of 9,500 keystrokes a second, close to each user.",
       8,
     ],
     [
@@ -1979,13 +1979,13 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "What's the cost of personalising suggestions?",
-      "They can no longer be shared or cached",
+      "They can no longer be cached at the edge",
       [
         "They become less accurate",
         "They need a relational database",
         "They can only show three results",
       ],
-      "Blend: a few personal ones on the device, the rest shared from the server.",
+      "Blend: a few personal ones on the device, the rest shared from the edge.",
       10,
     ],
     [
@@ -1994,7 +1994,7 @@ export const QUIZZES: Record<string, Question[]> = {
       [
         "To make suggestions more accurate",
         "Because browsers limit how many requests a page can send per second to one site",
-        "So the cache can hold answers longer",
+        "So the CDN can cache longer",
       ],
       "And cancel in-flight requests when a newer keystroke arrives.",
       12,

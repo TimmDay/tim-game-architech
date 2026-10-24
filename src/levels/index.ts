@@ -1530,7 +1530,7 @@ const CLASSICS: Level[] = [
       p99Ms: 200,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 3_500,
+      budgetUsd: 10_300,
       writesReach: ["data-warehouse"],
       noBacklog: true,
       stakes: {
@@ -1559,16 +1559,25 @@ const CLASSICS: Level[] = [
     reference: graph(
       [
         ["dns", "dns", 1, 4],
+        ["cdn", "cdn", 2, 3],
         ["lb", "load-balancer", 3, 2],
-        ["app", "app-server", 5, 4, 25, 2],
+        ["app", "app-server", 5, 4, 4, 2],
         ["topk", "cache", 7, 5, 2, 2],
         ["stream", "event-stream", 7, 2, 2],
         ["dw", "data-warehouse", 10, 2],
       ],
-      [`${C}>dns`, "dns>lb", "lb>app", "app>topk", "app>stream", "stream>dw"],
+      [
+        `${C}>dns`,
+        "dns>cdn",
+        "cdn>lb",
+        "lb>app",
+        "app>topk",
+        "app>stream",
+        "stream>dw",
+      ],
     ),
     concepts: ["precomputation", "latency-budget", "cdn"],
-    hint: "There's no time to search on every keystroke. Work out the top suggestions for each prefix ahead of time, and keep them in memory, so each keystroke is a lookup.",
+    hint: "There's no time to search on every keystroke. Work out the top suggestions for each prefix ahead of time, keep them in memory, and let the {cdn} answer the most common prefixes.",
   },
 ]
 
@@ -1624,7 +1633,7 @@ const CAP: Level[] = [
       [`${C}>lb`, "lb>app", "app>db"],
     ),
     concepts: ["cap-theorem", "quorum", "pacelc"],
-    hint: "Set the {sql-primary} to refuse during a split, then count its copies: a side can keep writing only if it holds a majority of them. Is there a majority on either side of two?",
+    hint: "Count the {sql-primary}'s copies: during a split, a side can keep writing only if it holds a majority of them. Is there a majority on either side of two?",
   },
   {
     id: "full-basket",
@@ -1773,11 +1782,11 @@ const CAP: Level[] = [
       records: "every like, by post and by user",
     },
     brief:
-      "A singer with a hundred million followers posts a photo, and four in ten of the app's likes now go to it. Peak is 6,000 requests a second, half of them likes. Counts can be a few seconds stale, and a like must never fail: if a split leaves the copies apart, they can be added up later. Likes live in a {nosql} store, which spreads keys across its partitions, but any one key tops out around 1,000 writes a second, however much capacity you buy.",
+      "A singer with a hundred million followers posts a photo, and four in ten of the app's likes now go to it. Peak is 15,000 requests a second: 3,000 likes, and four times as many reads of like counts, since every view of a post shows one. Counts can be a few seconds stale, and a like must never fail: if a split leaves the copies apart, they can be added up later. Likes live in a {nosql} store, which spreads keys across its partitions, but any one key tops out around 1,000 writes a second, however much capacity you buy.",
     load: {
-      peakRps: 6_000,
-      readFraction: 0.5,
-      cacheableFraction: 0.8,
+      peakRps: 15_000,
+      readFraction: 0.8,
+      cacheableFraction: 0.95,
       heavyWriteFraction: 0,
       tunableConsistency: true,
       partitionKeys: [
@@ -1804,7 +1813,7 @@ const CAP: Level[] = [
       p99Ms: 400,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 5_500,
+      budgetUsd: 6_500,
       writesReach: ["durable"],
       noBacklog: false,
       stakes: {
@@ -1820,7 +1829,7 @@ const CAP: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 10, 2],
+        ["app", "app-server", 4, 4, 24, 2],
         ["cache", "cache", 6, 3, 2, 2],
         [
           "db",

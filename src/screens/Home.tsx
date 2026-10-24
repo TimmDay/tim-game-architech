@@ -339,7 +339,7 @@ export function Home({
       <FundamentalsSection onDeck={onDeck} />
       <SurvivalSection progress={progress} onOpen={onSurvival} />
       <RetentionSection onOpen={onRetention} />
-      <TrophyRoom />
+      <TrophyRoom progress={progress} />
     </main>
   )
 }

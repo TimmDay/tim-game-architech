@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react"
+import { Sparkles, Star } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useReview } from "~/game/points-store"
 import { sfx } from "~/game/sound"
@@ -35,6 +35,20 @@ export function PointsChip() {
           +{gain.n}
         </span>
       )}
+    </span>
+  )
+}
+
+/** Stars across every level: the second tally, beside points. */
+export function StarsChip({ stars }: { stars: number }) {
+  return (
+    <span
+      className="flex items-center gap-1 rounded-full border border-amber-300/25 bg-amber-300/[0.07] px-2.5 py-1 font-mono text-[11px] font-semibold text-amber-200"
+      title="Stars"
+      aria-label={`${stars} stars`}
+    >
+      <Star size={12} className="fill-amber-300 text-amber-300" />
+      {stars}
     </span>
   )
 }

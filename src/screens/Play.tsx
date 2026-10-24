@@ -221,6 +221,8 @@ export function Play({
                   g.peak.monthlyCostUsd <= level.targets.budgetUsd * 0.75
                 )
                   next = mark(next, "event:penny-pincher")
+                if (new Date(now).getHours() < 5)
+                  next = mark(next, "event:night-owl")
                 return next
               })
               updateReview((s) => {

@@ -5,6 +5,7 @@ import {
   Lock,
   Layers,
   BookOpen,
+  ChevronDown,
   FlaskConical,
   GraduationCap,
   Hammer,
@@ -22,6 +23,7 @@ import { TrophyRoom } from "~/ui/TrophyRoom"
 import { useReview } from "~/game/points-store"
 import { bestSurvivalWave, dueQueue } from "~/game/review"
 import { isComplete } from "~/game/progression"
+import { loadOpenShelves, saveOpenShelves } from "~/game/storage"
 import { SURVIVAL_REQUIRES } from "~/survival/engine"
 import { missingPrereqs } from "~/game/progression"
 import type { Progress } from "~/game/storage"
@@ -202,40 +204,41 @@ export function Home({
   const ops = LEVELS.filter((l) => l.track === "ops")
   const repair = LEVELS.filter((l) => l.mode === "repair")
   const total = LEVELS.reduce((s, l) => s + (progress[l.id]?.stars ?? 0), 0)
-  const section = (
+  const shelf = (
+    id: string,
     title: string,
     icon: React.ReactNode,
     blurb: string,
     levels: Level[],
     accent: string,
-  ) => (
-    <section className="mt-12">
-      <h2
-        className={clsx(
-          "font-display flex items-center gap-2 text-2xl font-bold",
-          accent,
-        )}
+  ) => {
+    const earned = levels.reduce((n, l) => n + (progress[l.id]?.stars ?? 0), 0)
+    return (
+      <Shelf
+        id={id}
+        title={title}
+        icon={icon}
+        blurb={blurb}
+        accent={accent}
+        summary={`★ ${earned} / ${levels.length * 3}`}
       >
-        {icon} {title}
-      </h2>
-      <p className="mt-1 mb-4 max-w-xl text-[14px] text-slate-400">{blurb}</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {levels.map((l, i) => (
-          <LevelCard
-            key={l.id}
-            level={l}
-            index={i}
-            stars={progress[l.id]?.stars ?? 0}
-            diagnosed={progress[l.id]?.diagnosedFirstTry}
-            onPlay={() => onPlay(l.id)}
-            onDeck={() => onDeck(l.id)}
-            lockedBy={missingPrereqs(l, progress)}
-          />
-        ))}
-      </div>
-    </section>
-  )
-
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {levels.map((l, i) => (
+            <LevelCard
+              key={l.id}
+              level={l}
+              index={i}
+              stars={progress[l.id]?.stars ?? 0}
+              diagnosed={progress[l.id]?.diagnosedFirstTry}
+              onPlay={() => onPlay(l.id)}
+              onDeck={() => onDeck(l.id)}
+              lockedBy={missingPrereqs(l, progress)}
+            />
+          ))}
+        </div>
+      </Shelf>
+    )
+  }
   return (
     <main className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
       <div className="grid items-center gap-6 md:grid-cols-[1.1fr_1fr]">
@@ -289,46 +292,131 @@ export function Home({
         </div>
       </div>
 
-      {section(
+      {shelf(
+        "build",
         "Build",
         <Hammer size={22} />,
         "You get a brief and a palette. Design something that meets the targets, then survive the chaos round.",
         build,
         "text-cyan-200",
       )}
-      {section(
-        "Interview classics",
-        <GraduationCap size={22} />,
-        "The questions interviewers ask most: a URL shortener, a chat app, a ticket sale and more. Each one hides the mistake that question is designed to catch.",
-        classics,
-        "text-violet-200",
-      )}
-      {section(
-        "CAP trade-offs",
-        <Split size={22} />,
-        "When a network split leaves copies of your data apart, do you refuse requests or let the copies disagree? Choose per store, then shard the data by a partition key that spreads the load.",
-        cap,
-        "text-indigo-200",
-      )}
-      {section(
-        "Production incidents",
-        <Siren size={22} />,
-        "The failures a load test never shows: a partner that slows to a crawl, a message that fails forever, a login flood, a bad migration, a worker that hangs without crashing. Only the production settings in each component's sidebar get you through.",
-        ops,
-        "text-orange-200",
-      )}
-      {section(
+      {shelf(
+        "repair",
         "Repair",
         <Wrench size={22} />,
         "You inherit somebody else's production system and it's on fire. Load test it, diagnose the root cause, then fix it.",
         repair,
         "text-rose-200",
       )}
+      {shelf(
+        "cap",
+        "CAP trade-offs",
+        <Split size={22} />,
+        "When a network split leaves copies of your data apart, do you refuse requests or let the copies disagree? Choose per store, then shard the data by a partition key that spreads the load.",
+        cap,
+        "text-indigo-200",
+      )}
+      {shelf(
+        "classics",
+        "Interview classics",
+        <GraduationCap size={22} />,
+        "The questions interviewers ask most: a URL shortener, a chat app, a ticket sale and more. Each one hides the mistake that question is designed to catch.",
+        classics,
+        "text-violet-200",
+      )}
+      {shelf(
+        "ops",
+        "Production incidents",
+        <Siren size={22} />,
+        "The failures a load test never shows: a partner that slows to a crawl, a message that fails forever, a login flood, a bad migration, a worker that hangs without crashing. Only the production settings in each component's sidebar get you through.",
+        ops,
+        "text-lime-200",
+      )}
       <FundamentalsSection onDeck={onDeck} />
       <SurvivalSection progress={progress} onOpen={onSurvival} />
       <RetentionSection onOpen={onRetention} />
       <TrophyRoom />
     </main>
+  )
+}
+
+/**
+ * A home-page section that opens and closes from its header. Closed by
+ * default, so the page starts as a short list; which ones are open is
+ * remembered on this device.
+ */
+function Shelf({
+  id,
+  title,
+  icon,
+  blurb,
+  accent,
+  summary,
+  children,
+}: {
+  id: string
+  title: string
+  icon: React.ReactNode
+  blurb: string
+  accent: string
+  /** A few words shown in the header either way: stars earned, cards due. */
+  summary?: string
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(() => loadOpenShelves().includes(id))
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    const others = loadOpenShelves().filter((x) => x !== id)
+    saveOpenShelves(next ? [...others, id] : others)
+  }
+  const panel = `shelf-${id}`
+  return (
+    <section className="mt-8">
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={open}
+        aria-controls={panel}
+        className="group flex w-full items-start gap-3 rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-4 text-left transition hover:border-white/20 hover:bg-white/[0.04] sm:px-5"
+      >
+        <span className="min-w-0 flex-1">
+          <span
+            className={clsx(
+              "font-display flex items-center gap-2 text-2xl font-bold",
+              accent,
+            )}
+          >
+            {icon} {title}
+          </span>
+          <span className="mt-1 block max-w-xl text-[14px] text-slate-400">
+            {blurb}
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2 pt-1.5">
+          {summary && (
+            <span className="hidden font-mono text-[12px] text-slate-400 sm:inline">
+              {summary}
+            </span>
+          )}
+          <ChevronDown
+            size={20}
+            className={clsx(
+              "text-slate-400 transition group-hover:text-white",
+              open && "rotate-180",
+            )}
+          />
+        </span>
+      </button>
+      {summary && (
+        <p className="mt-1.5 px-4 font-mono text-[12px] text-slate-500 sm:hidden">
+          {summary}
+        </p>
+      )}
+      <div id={panel} hidden={!open} className="mt-4">
+        {children}
+      </div>
+    </section>
   )
 }
 
@@ -347,15 +435,14 @@ function SurvivalSection({
   ).flatMap((id) => LEVELS.find((l) => l.id === id)?.title ?? [])
   const locked = missing.length > 0
   return (
-    <section className="mt-12">
-      <h2 className="font-display flex items-center gap-2 text-2xl font-bold text-orange-200">
-        <Swords size={22} /> Survival
-      </h2>
-      <p className="mt-1 mb-4 max-w-xl text-[14px] text-slate-400">
-        Keep one architecture alive while traffic grows every wave. Some waves
-        are all reads, some are checkout rushes, some are floods of slow jobs.
-        From wave 3, something breaks that you won't see coming. Three lives.
-      </p>
+    <Shelf
+      id="survival"
+      title="Survival"
+      icon={<Swords size={22} />}
+      accent="text-orange-200"
+      blurb="Keep one architecture alive while traffic grows every wave. Some waves are all reads, some are checkout rushes, some are floods of slow jobs. From wave 3, something breaks that you won't see coming. Three lives."
+      summary={best ? `Best: wave ${best}` : locked ? "Locked" : "No runs yet"}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -387,23 +474,21 @@ function SurvivalSection({
           {locked ? "Locked" : "Play"}
         </span>
       </button>
-    </section>
+    </Shelf>
   )
 }
 
-/** The third mode: revising what you've already met, on a schedule. */
-/** Discussion decks that aren't tied to a scenario. Always open. */
+/** Discussion decks that aren't tied to a scenario. Always unlocked. */
 function FundamentalsSection({ onDeck }: { onDeck: (id: string) => void }) {
   return (
-    <section className="mt-12">
-      <h2 className="font-display flex items-center gap-2 text-2xl font-bold text-sky-200">
-        <Library size={22} /> Fundamentals
-      </h2>
-      <p className="mt-1 mb-4 max-w-xl text-[14px] text-slate-400">
-        What interviews ask about beyond any one design: storage engines,
-        transactions, consensus, estimation, the interview itself. Answer out
-        loud, flip, and mark what you knew.
-      </p>
+    <Shelf
+      id="fundamentals"
+      title="Fundamentals"
+      icon={<Library size={22} />}
+      accent="text-sky-200"
+      blurb="What interviews ask about beyond any one design: storage engines, transactions, consensus, estimation, the interview itself. Answer out loud, flip, and mark what you knew."
+      summary={`${TOPICS.length} decks`}
+    >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {TOPICS.map((t) => (
           <button
@@ -424,10 +509,11 @@ function FundamentalsSection({ onDeck }: { onDeck: (id: string) => void }) {
           </button>
         ))}
       </div>
-    </section>
+    </Shelf>
   )
 }
 
+/** The third mode: revising what you've already met, on a schedule. */
 function RetentionSection({ onOpen }: { onOpen: () => void }) {
   const state = useReview()
   // "Now" is fixed for the visit; reopening the page refreshes it.
@@ -435,14 +521,14 @@ function RetentionSection({ onOpen }: { onOpen: () => void }) {
   const due = dueQueue(state, now, Infinity).length
   const tracked = Object.keys(state.items).length
   return (
-    <section className="mt-12">
-      <h2 className="font-display flex items-center gap-2 text-2xl font-bold text-emerald-200">
-        <Brain size={22} /> Retention
-      </h2>
-      <p className="mt-1 mb-4 max-w-xl text-[14px] text-slate-400">
-        Revise the cards, questions and scenarios you've already met. Ones you
-        know come back rarely; ones you missed come back tomorrow, worth double.
-      </p>
+    <Shelf
+      id="retention"
+      title="Retention"
+      icon={<Brain size={22} />}
+      accent="text-emerald-200"
+      blurb="Revise the cards, questions and scenarios you've already met. Ones you know come back rarely; ones you missed come back tomorrow, worth double."
+      summary={`${due} due`}
+    >
       <button
         type="button"
         onClick={onOpen}
@@ -465,6 +551,6 @@ function RetentionSection({ onOpen }: { onOpen: () => void }) {
           {due > 0 ? "Start revising" : "Open"}
         </span>
       </button>
-    </section>
+    </Shelf>
   )
 }

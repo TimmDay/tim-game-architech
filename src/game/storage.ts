@@ -31,6 +31,10 @@ export type Progress = Record<string, LevelProgress>
 export const loadProvider = () => read<Provider>("lb.provider", "aws")
 export const saveProvider = (p: Provider) => write("lb.provider", p)
 
+/** Which home-page shelves are open. Per device, never synced. */
+export const loadOpenShelves = () => read<string[]>("lb.shelves", [])
+export const saveOpenShelves = (ids: string[]) => write("lb.shelves", ids)
+
 export const loadProgress = () => read<Progress>("lb.progress", {})
 export const saveProgress = (p: Progress) => write("lb.progress", p)
 

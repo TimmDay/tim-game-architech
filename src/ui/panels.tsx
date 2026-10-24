@@ -805,10 +805,9 @@ export function InspectPanel({
           it.
         </p>
         <p>
-          To wire things up, select a component (start with{" "}
-          <b className="text-slate-200">Users</b>), press{" "}
-          <b className="text-slate-200">Connect</b>, then tap where its requests
-          should go.
+          To wire things up, tap the <b className="text-slate-200">+</b> next to
+          a component (start with <b className="text-slate-200">Users</b>), then
+          the <b className="text-slate-200">=</b> where its requests should go.
         </p>
         <p>
           Drag a component to move it. Pinch or scroll to zoom, drag the floor

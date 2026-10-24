@@ -35,7 +35,7 @@ export type BoardProps = {
   /** The level's traffic types, for the legend. */
   traffic?: TrafficType[]
   /**
-   * Phones, on the build tab: a + on each component starts a connection
+   * While building (on phones, the build tab): a + on each component starts a connection
    * from it, and an = on each valid target finishes it.
    */
   handles?: {

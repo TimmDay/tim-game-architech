@@ -334,7 +334,7 @@ export function Survival({
         onTapTile={editor.onTapTile}
         onMove={editor.onMove}
         handles={
-          !wide && tab === "build" && !running
+          (wide || tab === "build") && !running
             ? {
                 from:
                   editor.tool.t === "connect" ? editor.tool.from : undefined,

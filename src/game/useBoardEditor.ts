@@ -9,7 +9,7 @@ import { sfx } from "./sound"
 export type Tool =
   | { t: "select" }
   | { t: "place"; kind: ComponentKind }
-  /** `building`: started from a handle on the build tab, so it finishes there too. */
+  /** `building`: started from a + handle, so finishing it doesn't open the inspector. */
   | { t: "connect"; from: string; building?: boolean }
   | { t: "diagnose" }
 
@@ -119,7 +119,7 @@ export function useBoardEditor({
   /**
    * Finish the connection being drawn at this component. A connection begun
    * from the inspector selects the target and goes back to it; one begun from
-   * a build-tab handle stays on the build tab, however it's finished.
+   * a + handle leaves the player building, however it's finished.
    */
   const finishConnect = (id: string) => {
     if (tool.t !== "connect") return
@@ -136,7 +136,7 @@ export function useBoardEditor({
     if (inspect) onInspect?.()
   }
 
-  /** The build tab's receive handle: connect, and stay ready to build. */
+  /** The = handle: connect, and stay ready to build. */
   const receive = (id: string) => {
     if (!running) finishConnect(id)
   }

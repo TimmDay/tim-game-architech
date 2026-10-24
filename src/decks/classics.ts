@@ -2918,3 +2918,187 @@ export const CLICK_COUNTER = deck("click-counter", [
     ],
   ],
 ])
+
+export const SHARED_DOC = deck("shared-doc", [
+  [
+    "clarify",
+    "What would you ask about editing?",
+    [
+      "How many people edit one document at once? Google Docs allows up to 100 in a file.",
+      "Text only, or tables, images and comments too? Each needs its own merge rules.",
+      "Must people be able to edit offline, then sync later?",
+    ],
+    "How does offline editing change the merge strategy?",
+  ],
+  [
+    "clarify",
+    "What would you ask about latency?",
+    [
+      "How quickly must someone's typing appear for others? Well under a second feels live.",
+      "Must your own typing appear instantly, before the server confirms it? Yes, always.",
+      "Are editors spread across the world, or in one region?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about history?",
+    [
+      "Must every version be kept, so people can see and restore old ones?",
+      "Who made each change, and when?",
+      "How long is history kept, and does deleting a document delete it?",
+    ],
+  ],
+  [
+    "product",
+    "What does a good editing experience feel like?",
+    [
+      "Your own typing never waits on the network.",
+      "Others' cursors and changes appear smoothly, without jumping.",
+      "Nothing anyone typed is ever lost, even after a disconnection.",
+    ],
+  ],
+  [
+    "decision",
+    "Why store a document as a log of edits rather than as one blob?",
+    [
+      "Saving the whole document on every keystroke means huge, conflicting writes.",
+      "Small edits can be ordered, broadcast and merged, and they give you history for free.",
+      "Snapshots now and then keep opening a document fast.",
+    ],
+  ],
+  [
+    "decision",
+    "Why key the edit log by document?",
+    [
+      "Opening or catching up on a document reads one partition, in order.",
+      "With up to 100 editors per file, the busiest document is a small share: here 480 edits a second.",
+      "By who typed, opening a document becomes a scan; by time, every edit lands on one key.",
+    ],
+  ],
+  [
+    "decision",
+    "Why keep accepting edits during a split?",
+    [
+      "Refusing means people's typing is thrown away or blocked, which they notice at once.",
+      "Edits are built to merge, so the two sides can be combined when the network heals.",
+      "Here, refusing would fail 27% of requests.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Operational transforms or CRDTs?",
+    [
+      "Operational transforms rewrite each edit against the ones that came first. They need one place to order a document's edits.",
+      "CRDTs give every character an identity, so edits merge in any order. Offline editing and splits just work.",
+      "CRDTs carry more metadata per edit; transforms carry more server logic. Both are used in real editors.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Route every editor of a document to the same server?",
+    [
+      "Yes for transforms: one server orders the document's edits and broadcasts them.",
+      "That server is a hot spot for the busiest documents, and must hand over cleanly if it dies.",
+      "Route by document ID with consistent hashing, so adding servers moves few documents.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you lock the paragraph someone is typing in?",
+    [
+      "It's simple, and there's nothing to merge.",
+      "But people wait on each other, and a dropped connection leaves a lock behind.",
+      "Fine for forms, poor for documents.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the last save win?",
+    [
+      "It's the easiest thing to build.",
+      "It silently throws away everyone else's typing since your last save.",
+      "That's the one outcome a shared editor must never have.",
+    ],
+  ],
+  [
+    "scale",
+    "How do live updates reach every editor?",
+    [
+      "Each editor keeps a live connection (WebSockets) to the server holding the document.",
+      "That server broadcasts each edit to the document's other connections.",
+      "Millions of open connections need servers built to hold many idle ones cheaply.",
+    ],
+  ],
+  [
+    "scale",
+    "A document has ten years of edits. How does it still open fast?",
+    [
+      "Write a snapshot every so often: the document as it stood at some version.",
+      "Opening reads the latest snapshot and only the edits after it.",
+      "Old edits can move to cheaper storage, kept for history.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two people delete the same word at the same moment.",
+    [
+      "Both edits refer to the same characters, so the second finds them already gone.",
+      "Transforms or CRDTs turn the second delete into nothing, not into deleting the next word.",
+      "This is exactly the case naive merging gets wrong.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Someone edits for an hour on a train, offline.",
+    [
+      "Their edits queue locally, against the version they had.",
+      "On reconnect they merge with everything that happened meanwhile.",
+      "CRDTs handle this naturally; transforms need the whole hour transformed against the server's history.",
+    ],
+  ],
+  [
+    "resilience",
+    "The server holding a busy document dies.",
+    [
+      "Editors reconnect and are routed to a new server for that document.",
+      "It loads the latest snapshot and edits from the log, then carries on.",
+      "Clients resend any edits the log hadn't confirmed, so nothing typed is lost.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone is cut off during a meeting.",
+    [
+      "Here, the cut-off zone keeps taking about 2,000 edits a second, and nobody's typing is refused.",
+      "When it heals, both sides' edits merge.",
+      "Everyone sees the same document again within moments.",
+    ],
+  ],
+  [
+    "security",
+    "Who can see and change a document?",
+    [
+      "Check permissions when a connection opens, and again on every edit: access can be revoked mid-session.",
+      "A viewer's connection must never be able to send edits.",
+      "Shared links need their own expiry and permissions.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Time from an edit to it appearing for others: the number users feel.",
+      "Open connections per server, and the busiest documents.",
+      "Merge failures and client resyncs, which mean something went wrong.",
+    ],
+  ],
+  [
+    "observability",
+    "A user says their paragraph vanished. How do you check?",
+    [
+      "Replay the document's edit log to the time it happened.",
+      "See who deleted it, or whether a merge went wrong.",
+      "History lets you restore it, which is the first thing to offer them.",
+    ],
+  ],
+])

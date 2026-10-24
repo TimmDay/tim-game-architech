@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "shared-doc": q([
+    [
+      "Why store a document as a log of edits?",
+      "Small edits can be ordered, broadcast and merged",
+      [
+        "Logs take less space than documents",
+        "Databases can't store documents whole",
+        "It stops two people opening one file",
+      ],
+      "Saving the whole document per keystroke means huge, conflicting writes. The log gives history for free.",
+      4,
+    ],
+    [
+      "Why key the edit log by document ID?",
+      "Opening a document then reads one partition",
+      [
+        "Document IDs are shorter than user IDs",
+        "It keeps each user's edits together",
+        "It puts the newest edits on one key",
+      ],
+      "By who typed, opening becomes a scan; by time, every edit lands on one key.",
+      5,
+    ],
+    [
+      "Why keep accepting edits during a split?",
+      "Refusing throws away typing people notice at once",
+      [
+        "The store has no way to refuse writes",
+        "Edits during a split are never seen again",
+        "Splits only ever last a fraction of a second",
+      ],
+      "Edits are built to merge, so the two sides combine when it heals. Refusing here fails 27% of requests.",
+      6,
+    ],
+    [
+      "What's the main difference between operational transforms and CRDTs?",
+      "CRDT edits merge in any order; transforms need one orderer",
+      [
+        "CRDTs only work for numbers, not text",
+        "Transforms keep no history of edits",
+        "CRDTs need every editor online at once",
+      ],
+      "CRDTs carry more metadata per edit; transforms carry more server logic. Both are used in real editors.",
+      7,
+    ],
+    [
+      "Why route everyone editing a document to the same server?",
+      "So one place orders that document's edits",
+      [
+        "So the document is cached in one place",
+        "Because browsers can only connect to one server",
+        "To stop more than 100 people editing",
+      ],
+      "Route by document ID with consistent hashing, so adding servers moves few documents.",
+      8,
+    ],
+    [
+      "Why not let the last save win?",
+      "It silently discards everyone else's typing",
+      [
+        "Saves can't be timestamped reliably",
+        "It needs a lock on every paragraph",
+        "It would make documents open slowly",
+      ],
+      "That's the one outcome a shared editor must never have.",
+      10,
+    ],
+    [
+      "A document has ten years of edits. How does it still open quickly?",
+      "Snapshots, plus only the edits after the latest",
+      [
+        "Delete edits older than a year",
+        "Replay every edit, but on faster servers",
+        "Store the document only as a single blob",
+      ],
+      "Old edits can move to cheaper storage and still serve history.",
+      12,
+    ],
+    [
+      "Two people delete the same word at once. What should happen?",
+      "The second delete becomes nothing",
+      [
+        "The next word is deleted as well",
+        "Both deletes are rejected",
+        "The document locks until someone decides",
+      ],
+      "Both edits refer to the same characters. Naive merging deletes the next word instead.",
+      13,
+    ],
+    [
+      "Someone's access is removed while they're editing. What must happen?",
+      "Their next edit is refused",
+      [
+        "They keep access until they close the tab",
+        "Their earlier edits are all undone",
+        "Nothing, since they'd already opened it",
+      ],
+      "Check permissions on every edit, not only when the connection opens.",
+      17,
+    ],
+    [
+      "Which measure do users feel most?",
+      "Time from an edit to it appearing for others",
+      [
+        "The size of the edit log",
+        "How many documents exist",
+        "The snapshot interval",
+      ],
+      "Watch open connections per server, the busiest documents, and resyncs too.",
+      18,
+    ],
+  ]),
   "click-counter": q([
     [
       "Why publish clicks to an {event-stream} rather than count them in the request?",

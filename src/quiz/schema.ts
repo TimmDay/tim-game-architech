@@ -27,6 +27,38 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "shared-doc": s([
+    [
+      "What's the key of an edit in the log?",
+      "Document ID, then its sequence number",
+      [
+        "The editor's user ID, then the time",
+        "The time alone, across all documents",
+        "A random ID, with the document inside",
+      ],
+      "Opening reads one document's edits in order; the sequence number makes 'edits since N' a range read.",
+    ],
+    [
+      "What does each edit need to carry?",
+      "The version it was made against, and who made it",
+      [
+        "The whole document after the change",
+        "Only the new text, with nothing else",
+        "Every other editor's cursor position",
+      ],
+      "The base version lets the server transform or merge it; the author gives history and permissions.",
+    ],
+    [
+      "Where should cursor positions and 'who's here' live?",
+      "In memory, with a short expiry, never in the log",
+      [
+        "In the edit log, alongside every edit",
+        "In the snapshot, saved every few minutes",
+        "In a database row updated on each keystroke",
+      ],
+      "Presence changes constantly and is worthless seconds later: keep it ephemeral.",
+    ],
+  ]),
   "click-counter": s([
     [
       "What's the key of the counts table?",

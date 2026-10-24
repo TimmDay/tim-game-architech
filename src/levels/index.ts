@@ -2162,6 +2162,95 @@ const CLASSICS: Level[] = [
     concepts: ["queue-vs-log", "hot-keys", "idempotency"],
     hint: "Publish each click to an {event-stream} and redirect at once. Let {worker} instances count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
   },
+  {
+    id: "shared-doc",
+    mode: "build",
+    track: "classic",
+    requires: ["step-counter"],
+    title: "Shared Doc",
+    tagline: "Everyone types at once, and every copy ends up the same.",
+    scenario: {
+      product: "the document editor",
+      reads: "people opening documents and catching up on changes",
+      writes: "people typing: each batch of keystrokes is an edit",
+      hot: "recently opened documents and their latest changes",
+      records: "every document's edits, in order, and snapshots of each",
+    },
+    brief:
+      "A document editor where several people type in the same document at once and see each other's cursors. Google Docs lets up to 100 people work in one file at a time, so even the busiest document is a small share of the traffic. Peak is 10,000 requests a second: 6,000 batches of edits and 4,000 opens and catch-ups. An edit must appear for everyone in well under a second, and nobody's typing may be thrown away. Pick the key for the edit log, and what it does during a split, which is the chaos round.",
+    load: {
+      peakRps: 10_000,
+      readFraction: 0.4,
+      cacheableFraction: 0.5,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+      partitionKeys: [
+        {
+          id: "doc",
+          label: "Document ID",
+          // The busiest document: a company's all-hands notes.
+          hotShare: 0.08,
+          scatterReads: 0,
+        },
+        {
+          id: "user",
+          label: "Who typed it",
+          hotShare: 0.001,
+          scatterReads: 0.9,
+          // Opening a document means finding every editor's changes.
+          scatterFanout: 50,
+        },
+        { id: "time", label: "Time of the edit", hotShare: 1, scatterReads: 0 },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 10_200,
+      writesReach: ["nosql"],
+      noBacklog: false,
+      onSplit: "available",
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: { faults: SPLIT, label: SPLIT_LABEL },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+      "event-stream",
+      "worker",
+      "object-store",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 20, 2],
+        ["cache", "cache", 7, 3, 2, 2],
+        [
+          "edits",
+          "nosql",
+          9,
+          5,
+          8,
+          1,
+          { partitionKey: "doc", consistency: "eventual" },
+        ],
+      ],
+      [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>edits"],
+    ),
+    concepts: ["conflict-resolution", "partitioning", "cap-theorem"],
+    hint: "Key the edit log by document, so opening one reads one partition. Then decide: during a split, should people on the cut-off side keep typing?",
+  },
 ]
 
 /**

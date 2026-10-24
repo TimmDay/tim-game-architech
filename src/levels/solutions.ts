@@ -502,6 +502,35 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "shared-doc": {
+    overview:
+      "Each document is a log of small edits, kept in order per document and merged so every copy ends up the same. The {app-server} that holds a document's open connections orders its edits and appends them to a {nosql} log keyed by document; the {cache} holds recent snapshots for fast opens. During a split, both sides keep typing, and the edits merge when it heals.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. Everyone editing a document is routed to the same server, which keeps their live connections and orders their edits.",
+      "Each batch of keystrokes becomes an edit with the version it was made against. The server transforms it against edits that arrived first (or the edits are built to merge in any order), then broadcasts it to the other editors.",
+      "Edits are appended to the {nosql} log, partitioned by document ID, and a snapshot is written now and then so opening a document doesn't replay its whole history.",
+      "Opening a document reads its latest snapshot (usually from the {cache}) and the edits since.",
+    ],
+    numbers: [
+      "10,000 requests a second: 6,000 batches of edits and 4,000 opens and catch-ups.",
+      "Twenty {app-server} instances run at 50%.",
+      "The {cache} answers 1,900 opens a second from recent snapshots; 2,100 reach the store.",
+      "Keyed by document, eight {nosql} blocks take the edits at 75%. The busiest document writes 480 edits a second, under the 1,000 one key takes.",
+      "Keyed by who typed, opening a document scans for every editor's changes: 237% of read capacity. Keyed by time, every new edit lands on one key.",
+      "During the split, the cut-off zone keeps taking about 2,000 edits a second, merged when it heals. Refusing instead fails 27% of requests.",
+      "Cost: $1 + about $104 for the {load-balancer} + 20 × $70 + 2 × $150 + 8 × $950 = $9,405 of $10,200.",
+    ],
+    tradeoffs: [
+      "Operational transforms need one place to order each document's edits, which is simpler to reason about but ties a document to one server. CRDTs merge in any order, so offline editing and splits just work, at the cost of extra metadata in every edit.",
+      "Routing every editor of a document to one server makes ordering easy, but that server is a hot spot for the busiest documents, and it must hand over cleanly when it fails.",
+      "Snapshots trade storage for speed: more often means faster opens and more writes.",
+    ],
+    alternatives: [
+      "Locking a paragraph while someone types in it: simple, and no merging, but people wait on each other, and a lost connection leaves a lock behind.",
+      "Last writer wins on the whole document: easy, and it silently throws away everyone else's typing.",
+      "A {sql-primary} for the edit log: fine for a small product, but 6,000 edits a second is twice what one takes.",
+    ],
+  },
   "click-counter": {
     overview:
       "Record fast, count later, keep everything. The {app-server} publishes each click to an {event-stream} and redirects at once. {worker} instances count clicks per ad per minute and write one total a minute to the {nosql} store; the {data-warehouse} keeps every raw click, so finance can recount and settle disputes.",

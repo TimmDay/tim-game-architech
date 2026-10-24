@@ -433,6 +433,20 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toContain("latency")
   })
 
+  it("shared doc: keyed by who typed or by time, the edit log overloads", () => {
+    const l = level("shared-doc")
+    for (const partitionKey of ["user", "time"])
+      expect(
+        failed(l, patch(l.reference, "edits", { partitionKey })),
+      ).toContain("traffic")
+  })
+
+  it("shared doc: refusing edits during a split fails editors", () => {
+    const l = level("shared-doc")
+    const g = patch(l.reference, "edits", { consistency: "strong" })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

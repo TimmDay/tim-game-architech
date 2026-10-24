@@ -545,3 +545,49 @@ describe("the production incidents' traps", () => {
     expect(run(l, g).chaos.backlogGrowthRps).toBe(0)
   })
 })
+
+describe("step counter's traps", () => {
+  const l = LEVELS.find((x) => x.id === "step-counter")
+  if (!l) throw new Error("missing step-counter")
+  const swap = (p: Partial<PlacedComponent>): Graph => ({
+    ...l.reference,
+    components: l.reference.components.map((c) =>
+      c.id === "steps" ? { ...c, ...p } : c,
+    ),
+  })
+  const failed = (g: Graph) =>
+    grade(g, l.load, l.targets, l.chaos.faults)
+      .checks.filter((c) => !c.pass)
+      .map((c) => c.id)
+
+  it("one SQL primary can't take the syncs, standbys or not", () => {
+    expect(
+      failed(swap({ kind: "sql-primary", instances: 3, zones: 3 })),
+    ).toContain("traffic")
+  })
+
+  it("queueing the writes for SQL only builds a backlog", () => {
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter((c) => c.id !== "steps"),
+        { id: "q", kind: "queue", x: 6, y: 2, instances: 1, zones: 1 },
+        { id: "w", kind: "worker", x: 8, y: 2, instances: 20, zones: 2 },
+        { id: "db", kind: "sql-primary", x: 10, y: 4, instances: 2, zones: 2 },
+      ],
+      edges: [
+        ...l.reference.edges.filter((e) => e.to !== "steps"),
+        { id: "app>q", from: "app", to: "q" },
+        { id: "q>w", from: "q", to: "w" },
+        { id: "w>db", from: "w", to: "db" },
+        { id: "app>db", from: "app", to: "db" },
+      ],
+    }
+    expect(failed(g)).toEqual(expect.arrayContaining(["backlog"]))
+  })
+
+  it("one NoSQL instance runs too hot, and fails the January spike", () => {
+    expect(failed(swap({ instances: 1 }))).toEqual(
+      expect.arrayContaining(["latency", "chaos"]),
+    )
+  })
+})

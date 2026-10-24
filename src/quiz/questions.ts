@@ -36,6 +36,118 @@ const q = (rows: Row[]): Question[] =>
   }))
 
 export const QUIZZES: Record<string, Question[]> = {
+  "step-counter": q([
+    [
+      "Why can't one {sql-primary} take the syncs, however many standbys it has?",
+      "2,100 writes a second is four times its limit, and standbys add none",
+      [
+        "SQL databases can't store numbers as small as step counts",
+        "Standbys only accept reads from users in their own zone",
+        "SQL databases are only allowed one connection per wristband, and there are a million of them",
+      ],
+      "One primary takes every write. Standbys are for failover, not capacity.",
+      5,
+    ],
+    [
+      "What makes this data a good fit for a key-value store?",
+      "Every read is one user and a date range, with no joins",
+      [
+        "Step counts are always whole numbers",
+        "Key-value stores are faster for every kind of query",
+        "The data is too large to fit in any relational database, however it's split",
+      ],
+      "When you can list the queries and they all use the key, partitioning by that key scales writes cleanly.",
+      5,
+    ],
+    [
+      "What's a good key for each record?",
+      "User ID plus date",
+      [
+        "The date alone",
+        "The wristband's battery level",
+        "A random number chosen by the server for every single sample it receives",
+      ],
+      "It serves 'today' and 'this week' by key, and spreads users evenly. The date alone would put everyone's today on one partition.",
+      6,
+    ],
+    [
+      "Why two {nosql} instances rather than one?",
+      "At 84%, one runs too hot for the p99 target and fails the spike",
+      [
+        "Managed stores need at least two instances to start",
+        "Two instances halve the latency",
+        "Each instance can only hold half a million users' records at most",
+      ],
+      "One runs at 84% normally (p99 over target) and 126% on the spike, failing 14% of requests. Two run at 63% on the spike.",
+      7,
+    ],
+    [
+      "How do you stop a retried sync counting steps twice?",
+      "Store samples by timestamp, so writing one again changes nothing",
+      [
+        "Add the steps from every sync to the day's running total",
+        "Refuse any sync that arrives more than once a minute",
+        "Ask the user to confirm their step count at the end of each day",
+      ],
+      "Idempotent writes make retries safe. 'Add 500 steps' isn't; 'these are the samples for 9:00 to 9:05' is.",
+      8,
+    ],
+    [
+      "What's harder in a key-value store than in SQL?",
+      "Questions that don't use the key, like everyone over 20,000 steps",
+      [
+        "Reading one user's day",
+        "Storing timestamps",
+        "Writing data from more than one {app-server} instance at the same time",
+      ],
+      "You design around known questions. A new kind of question often needs a second copy of the data, shaped for it.",
+      9,
+    ],
+    [
+      "Would a {cache} in front of the store help much?",
+      "Not much: each user reads only their own data, so hits are rare",
+      [
+        "Yes: it would remove most writes",
+        "Yes: caches are required in front of key-value stores",
+        "No, because caches can't hold anything that changes more than once a day",
+      ],
+      "Caches help shared, popular data. Personal dashboards rarely get a second hit.",
+      11,
+    ],
+    [
+      "Could a {queue} in front of a {sql-primary} solve the write volume?",
+      "No: it drains at 500 a second, so it grows by 1,600 a second",
+      [
+        "Yes: queues make databases accept more writes",
+        "Yes, as long as there are enough workers",
+        "No, because a queue can't hold messages from wristbands",
+      ],
+      "A queue smooths bursts. A steady rate above the database's limit just becomes a backlog that never drains.",
+      12,
+    ],
+    [
+      "Heart rate is health data. What does that require?",
+      "Encryption, strict access limits, and consent before sharing",
+      [
+        "Nothing beyond what step counts need",
+        "Storing it only on the wristband",
+        "Deleting it every night once the day's total has been shown to the user",
+      ],
+      "Many countries have specific rules for health data. Treat it as the most sensitive thing you store.",
+      19,
+    ],
+    [
+      "Everyone syncs at 9pm when they charge their wristbands. What helps?",
+      "A random delay on each device, spreading syncs out",
+      [
+        "Blocking syncs after 8pm",
+        "A bigger {load-balancer}",
+        "Asking users to charge their wristbands at a different time of day",
+      ],
+      "The peak sets the size. Spreading it out on the device is the cheapest capacity there is.",
+      15,
+    ],
+  ]),
   "slow-partner": q([
     [
       "Why charge orders from workers behind a queue, rather than in the app server?",

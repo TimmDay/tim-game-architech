@@ -1704,3 +1704,211 @@ export const PLUG_FINDER = deck("plug-finder", [
     ],
   ],
 ])
+
+/**
+ * Step Counter. Same layout as the CAP decks: 0-2 clarify, 3-4 product,
+ * 5-8 decision, 9-11 trade-off, 12-13 alternative, 14-15 scale,
+ * 16 edge case, 17-18 failure and recovery, 19-20 security, 21 observability.
+ */
+export const STEP_COUNTER = deck("step-counter", [
+  [
+    "clarify",
+    "Before choosing a database, what would you ask about how the data is read?",
+    [
+      "Who reads it: only the wearer, or friends, coaches, researchers too?",
+      "What do they ask for: today, this week, a year of history?",
+      "Does anything compare users, such as leaderboards or averages across everyone?",
+    ],
+    "If a coach needs to see a whole team at once, does your key still work?",
+  ],
+  [
+    "clarify",
+    "What would you ask about the syncs?",
+    [
+      "How often does each wristband sync, and how many are active at peak?",
+      "How big is one sync: a few samples, or a whole day after being offline?",
+      "Can syncs be batched on the device to send fewer, larger writes?",
+    ],
+  ],
+  [
+    "clarify",
+    "How fresh and how exact must the numbers be?",
+    [
+      "Must today's step count update within seconds, or is a minute fine?",
+      "Can a sync arrive twice, and must it never be counted twice?",
+      "How long is history kept: forever, or summarised after a year?",
+    ],
+  ],
+  [
+    "product",
+    "A wristband was offline for a week. What happens when it syncs?",
+    [
+      "It sends a week of samples at once, which lands as one big write per day.",
+      "The app shows 'syncing your week' and fills in the days as they arrive.",
+      "The upload must be resumable, so a dropped connection doesn't start over.",
+    ],
+  ],
+  [
+    "product",
+    "Users want a friends leaderboard. How would you add it?",
+    [
+      "Not by scanning every user's data: keep a separate, small table of weekly totals per friend group.",
+      "Update it from each sync, or in batches every few minutes.",
+      "It's a second shape of the same data, built for a second question.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a {nosql} store rather than a {sql-primary}?",
+    [
+      "2,100 writes a second is four times one primary's limit, and standbys add no write capacity.",
+      "Every read is by one user and a date range, and nothing is ever joined.",
+      "A key-value store spreads users across partitions and grows by adding capacity.",
+    ],
+    "What would make you choose SQL anyway?",
+  ],
+  [
+    "decision",
+    "What's the key?",
+    [
+      "User ID plus date: one item per user per day.",
+      "'Today' is one lookup; 'this week' is seven, or a range query within one user.",
+      "Users spread evenly, so no single key is hot.",
+    ],
+  ],
+  [
+    "decision",
+    "How big is each instance's share, and why two?",
+    [
+      "One instance would run at 84% normally and 126% on the January spike.",
+      "Two run at 42%, and 63% on the spike.",
+      "Size for the busy day, not the average one.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you stop a retried sync counting steps twice?",
+    [
+      "Store samples by their own timestamp, so writing the same sample again changes nothing.",
+      "Or send a sync ID and ignore one that's already been applied.",
+      "Never 'add 500 steps' blindly: a retry would add them again.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What do you give up by choosing a key-value store?",
+    [
+      "Queries that don't use the key: 'everyone over 20,000 steps' needs a scan or a second copy.",
+      "Joins and transactions across many users.",
+      "You design the tables around the questions, so new questions can mean new tables.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "One item per day, or one per sync?",
+    [
+      "Per day: reads are one lookup, but each sync updates the same item.",
+      "Per sync: writes never collide, but reading a day means gathering many items.",
+      "Per day suits 'show me today' best, which is the most common read.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Should the dashboard read from a {cache}?",
+    [
+      "Each user reads only their own data, so a cache rarely gets a second hit.",
+      "The {nosql} store already answers in milliseconds.",
+      "A cache helps shared data; this isn't shared.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you queue the writes and keep SQL?",
+    [
+      "A queue smooths bursts, but drains at the database's speed: 500 a second.",
+      "With 2,100 arriving, the queue grows forever.",
+      "It helps short spikes, not a steady rate above the limit.",
+    ],
+  ],
+  [
+    "alternative",
+    "What about a time-series database?",
+    [
+      "It's built for exactly this shape: timestamped samples, rolled up by time.",
+      "It compresses samples well and answers 'average per hour' quickly.",
+      "It's another specialist system to run; a key-value store with daily items is simpler here.",
+    ],
+  ],
+  [
+    "scale",
+    "Users grow tenfold. What changes?",
+    [
+      "More {nosql} capacity; the key keeps spreading evenly.",
+      "More {app-server} instances, which become the bigger cost.",
+      "Batching syncs on the device starts to save real money.",
+    ],
+  ],
+  [
+    "scale",
+    "Everyone syncs at 9pm when they charge. What then?",
+    [
+      "The daily peak sets the size, so spread syncs with a random delay on the device.",
+      "Or let the store scale on demand for the evening.",
+      "The January spike is the same problem, once a year.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A user flies across time zones. Which day do their steps belong to?",
+    [
+      "Store samples in UTC with the user's local time zone at the moment.",
+      "Decide the 'day' from local time when showing it.",
+      "Otherwise a flight can split one day in two or merge two into one.",
+    ],
+  ],
+  [
+    "resilience",
+    "One {nosql} instance fails. What happens?",
+    [
+      "A managed store keeps copies across zones, so another serves its partitions.",
+      "Capacity drops until it's replaced, which is why the spare matters.",
+      "Wristbands retry syncs, so a few seconds of errors lose nothing.",
+    ],
+  ],
+  [
+    "resilience",
+    "A bug writes wrong step counts for a day. How do you recover?",
+    [
+      "Point-in-time recovery restores the table to before the bug.",
+      "Or re-sync from the wristbands if they keep recent samples.",
+      "Keep raw samples, not just totals, so totals can be rebuilt.",
+    ],
+  ],
+  [
+    "security",
+    "Heart rate is health data. What does that change?",
+    [
+      "Encrypt it at rest and in transit, and limit who can read it, staff included.",
+      "Some countries have specific rules for health data and where it's stored.",
+      "Ask for consent before sharing it with anyone, coaches and friends included.",
+    ],
+  ],
+  [
+    "security",
+    "How do you stop one user reading another's data?",
+    [
+      "The user ID in the key comes from the signed-in session, never from the request.",
+      "Check ownership on every read and write.",
+      "Shared views (friends, coaches) are explicit permissions, checked the same way.",
+    ],
+  ],
+  [
+    "observability",
+    "What would you watch?",
+    [
+      "Throttled or failed writes on the {nosql} store, which mean it needs capacity.",
+      "Sync error rate per app version, to catch a buggy release.",
+      "Time from a step to it appearing in the app.",
+    ],
+  ],
+])

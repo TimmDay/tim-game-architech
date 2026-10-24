@@ -27,6 +27,7 @@ export type ConceptId =
   | "competing-consumers"
   | "backpressure"
   | "availability-zones"
+  | "multi-region"
   | "availability-math"
   | "single-point-of-failure"
   | "queue-vs-log"
@@ -328,6 +329,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "A zone is one or more data centres with independent power and networking. Zones in a region fail independently, so spreading instances across two or three of them survives the loss of one. Instances in the same zone fail together.",
     interview:
       "Say that after losing a zone, the remaining instances must still carry peak. Two zones means each must handle 100%.",
+  },
+  "multi-region": {
+    title: "Running in several regions",
+    body: "A region is a cluster of zones in one part of the world. A second region does two things: it serves distant users without an ocean crossing on every request, and it survives a whole region going dark. It costs a full copy of every store, and a strongly consistent write then waits for the other region, tens to hundreds of milliseconds instead of a few.",
+    interview:
+      "Say which you need it for, latency or surviving a region, and what you give up: a single SQL leader means distant writes still cross the ocean; writing locally means copies can disagree, and an outage can lose the last few seconds of writes.",
   },
   "availability-math": {
     title: "Availability arithmetic",

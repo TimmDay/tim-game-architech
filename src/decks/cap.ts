@@ -1025,3 +1025,187 @@ export const CLAIM_YOUR_NAME = deck("claim-your-name", [
     ],
   ],
 ])
+
+export const WORLDWIDE = deck("worldwide", [
+  [
+    "clarify",
+    "What would you ask before going multi-region?",
+    [
+      "Where are the users, and how many are far from the home region?",
+      "Is the goal latency for distant users, surviving a region outage, or both?",
+      "Must any data stay in a particular country?",
+    ],
+    "How would data-residency rules change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about consistency across regions?",
+    [
+      "Can a like or a post take a second or two to appear on another continent?",
+      "Can two regions ever accept conflicting edits to the same thing? How should they merge?",
+      "Is there any data that must be exactly right everywhere, like usernames or balances?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about a region outage?",
+    [
+      "How much downtime is acceptable when a whole region fails?",
+      "How much recent data may be lost, if any?",
+      "Who decides to fail over, and how quickly?",
+    ],
+  ],
+  [
+    "product",
+    "What does a distant user notice in a single-region app?",
+    [
+      "Every request crosses an ocean: about 150ms more, every time.",
+      "Pages and feeds feel sluggish, scrolling stutters.",
+      "Here that alone takes p99 from 186ms to 336ms.",
+    ],
+  ],
+  [
+    "decision",
+    "What has to run in both regions for distant users to be fast?",
+    [
+      "Everything on their path: the load balancer, the app servers, the cache and the data.",
+      "One component left behind puts the ocean back on every request.",
+      "DNS and the edge are already global.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a store that writes locally in each region?",
+    [
+      "With one leader, every write from the far region crosses the ocean.",
+      "A multi-writer store accepts writes in each region and syncs them in the background.",
+      "That's the AP choice: fast and always available, with copies that briefly disagree.",
+    ],
+  ],
+  [
+    "decision",
+    "How are users sent to the right region?",
+    [
+      "DNS answers with the nearest region, by the user's location or by measured latency.",
+      "Health checks remove a dead region from the answers.",
+      "Keep DNS answers short-lived, so a failover takes effect in minutes, not hours.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Strong consistency across regions: what does it cost?",
+    [
+      "Every strong write waits for the other region: about 150ms instead of 5.",
+      "Here that alone pushes p99 to 336ms, past the target.",
+      "It's PACELC's 'else' at continental scale: latency for consistency, on every write.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What's lost when a region dies?",
+    [
+      "With asynchronous replication, the last second or two of writes that hadn't crossed yet.",
+      "Synchronous replication loses nothing, and costs the ocean on every write.",
+      "Choose per kind of data: likes can be lost, payments can't.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a {cdn} do the job instead?",
+    [
+      "For images and static pages, yes: they're served near users.",
+      "But feeds, profiles and every write still go to the home region.",
+      "A CDN is usually step one, and a second region step two.",
+    ],
+  ],
+  [
+    "alternative",
+    "What about giving each user a home region?",
+    [
+      "Each user's data lives in one region, and only that region writes it.",
+      "No cross-region conflicts, and it helps with data-residency rules.",
+      "The cost: slow access while travelling, and moving users between regions is work.",
+    ],
+  ],
+  [
+    "scale",
+    "A third continent takes off. What changes?",
+    [
+      "A third region: another full copy of every store, another app tier.",
+      "Replication fans out to more copies, and conflicts get more likely.",
+      "Each region must still be able to take a share of the others' traffic if one fails.",
+    ],
+  ],
+  [
+    "scale",
+    "How big must each region be?",
+    [
+      "Big enough to carry everyone if the other region fails.",
+      "Here thirty app servers per region run at 33% normally and 67% after losing one.",
+      "With forty in total they'd hit exactly 100%: no room for anything else.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Someone edits their profile in Europe and again in Asia a second later.",
+    [
+      "Both regions accept the edit before syncing.",
+      "When they sync, a version or timestamp decides, or the fields merge.",
+      "Pick a rule and apply it the same way everywhere, so both copies end up the same.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two people claim the same username in different regions at the same moment.",
+    [
+      "Local writes would give it to both.",
+      "Uniqueness needs one place to decide: route claims to a single region, or a strongly consistent store, and pay the ocean once per claim.",
+      "That's fine: people claim a username once.",
+    ],
+  ],
+  [
+    "resilience",
+    "A whole region goes dark.",
+    [
+      "DNS stops sending users there; the surviving region takes everyone.",
+      "Its app tier rises from 33% to 67%: the spare capacity is what makes this work.",
+      "Writes that hadn't replicated yet may be lost.",
+    ],
+  ],
+  [
+    "resilience",
+    "The link between the regions fails, but both regions are up.",
+    [
+      "Each region keeps serving its own users.",
+      "Writes queue up for replication, and copies drift apart.",
+      "When the link returns, they sync and merge.",
+    ],
+  ],
+  [
+    "security",
+    "What changes for security across regions?",
+    [
+      "Personal data may have to stay in its users' region by law.",
+      "Replication between regions must be encrypted, and access audited in both.",
+      "Keys and secrets are needed in both regions, without copying them carelessly.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Latency per region, measured from users in that region.",
+      "Replication lag between regions: how stale the other copy is.",
+      "Each region's spare capacity, so it can still take the other's traffic.",
+    ],
+  ],
+  [
+    "observability",
+    "Users in Asia say their posts take ages to appear for friends in Europe. Where do you look?",
+    [
+      "Replication lag between the regions.",
+      "Whether the link between them is degraded.",
+      "Whether the European copy is overloaded and applying changes slowly.",
+    ],
+  ],
+])

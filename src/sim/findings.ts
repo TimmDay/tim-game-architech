@@ -6,7 +6,9 @@ import {
   copies,
   doesHeavyWorkInline,
   failureDomains,
+  GLOBAL_KINDS,
   partitionKeyOf,
+  regionsOf,
 } from "./simulate"
 import type {
   Fault,
@@ -319,7 +321,38 @@ export function findings(
     }
 
   const consistent = targets?.onSplit === "consistent"
+  // Distant users cross an ocean unless everything they touch runs near them.
+  if (load.regions && load.regions.farShare >= 0.01) {
+    const alone = graph.components.filter(
+      (c) =>
+        !GLOBAL_KINDS.has(c.kind) &&
+        regionsOf(c) < 2 &&
+        !behindAsync(graph).has(c.id) &&
+        graph.edges.some((e) => e.to === c.id),
+    )
+    for (const c of alone)
+      out.push({
+        severity: "warn",
+        componentId: c.id,
+        concept: "multi-region",
+        text: `${name(c)} runs in one region, so the ${Math.round(load.regions.farShare * 100)}% of users on other continents wait about ${ms(load.regions.rttMs)} extra on every request.`,
+      })
+  }
+
   if (chaos && chaosLabel) {
+    if ((chaosFaults ?? []).some((f) => f.kind === "region-outage"))
+      for (const c of graph.components)
+        if (
+          !GLOBAL_KINDS.has(c.kind) &&
+          regionsOf(c) < 2 &&
+          graph.edges.some((e) => e.to === c.id)
+        )
+          out.push({
+            severity: "error",
+            componentId: c.id,
+            concept: "multi-region",
+            text: `${chaosLabel}: ${name(c)} runs in only one region, so it goes dark with it.`,
+          })
     for (const c of graph.components) {
       const m = chaos.perComponent[c.id]
       if (!m) continue

@@ -26,6 +26,8 @@ export type Settings = {
   shards?: number
   partitionKey?: string
   consistency?: Consistency
+  /** Regions it runs in, in levels that offer them. */
+  regions?: number
   practices?: Practices
 }
 
@@ -112,6 +114,8 @@ export function edit(g: Graph, a: Action): Graph {
             next.shards = Math.min(MAX_SHARDS, Math.max(1, a.shards))
           if (a.partitionKey !== undefined) next.partitionKey = a.partitionKey
           if (a.consistency !== undefined) next.consistency = a.consistency
+          if (a.regions !== undefined)
+            next.regions = Math.min(3, Math.max(1, a.regions))
           if (a.practices !== undefined) next.practices = a.practices
           return next
         }),

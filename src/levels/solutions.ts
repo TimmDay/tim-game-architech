@@ -208,6 +208,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Three copies cost 50% more than two, and the third exists only to break ties.",
     ],
     alternatives: [
+      "A second region: overkill here. The users are in one country, and with the ledger's copies in two regions every transfer would wait about 150ms for the other side to confirm, instead of 5. Zones already survive the chaos round; a second region pays off only when the business must survive a whole region going dark, and then it costs a full copy of the ledger.",
       "Reading balances from a replica would be cheaper, but it can show money that was just spent. Fine for a statement page, not for the check before a transfer.",
       "Five copies survive two zones failing, but cost more and add latency for a risk the business may not need to cover.",
       "A store that keeps serving, with a rule to undo overdrafts afterwards, is what some card networks do for small amounts: the business accepts a little risk to never decline a coffee.",
@@ -300,6 +301,34 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A single counter in memory is fastest, but it's lost on a restart unless something durable records the likes.",
     ],
   },
+  worldwide: {
+    overview:
+      "Run everything users touch in two regions, and use a store that writes locally in each. The {load-balancer}, {app-server} tier and {cache} run in both regions, and the {nosql} store keeps a full copy in each, accepting writes on both sides and syncing them across within a second or two. Distant users never cross the ocean, and either region can carry everyone if the other goes dark.",
+    walkthrough: [
+      "{dns} sends each user to the nearest region's {load-balancer}, and away from a region that's down.",
+      "Each region has its own {app-server} instances and {cache}, so a feed loads without leaving the continent.",
+      "The {nosql} store keeps a copy in each region. Writes land in the nearest copy and replicate to the other in the background; conflicting edits to the same item are merged, newest version winning.",
+      "When a region goes dark, {dns} stops sending users to it, and the surviving region takes everyone.",
+    ],
+    numbers: [
+      "20,000 requests a second: 18,000 reads and 2,000 writes. Half the users are on another continent.",
+      "Sixty {app-server} instances, thirty per region, run at 33%. When a region goes dark, the thirty left run at 67%. Forty would also pass, but at exactly 100% after losing a region: no headroom at all.",
+      "Three {nosql} blocks in each region take the writes at 67%.",
+      "Everything in one region instead adds the 150ms ocean crossing for half the users: p99 reaches 336ms, and the region outage takes everything down.",
+      "Strong consistency across regions makes every write wait for the other region: p99 336ms. A {sql-primary} has one leader for the world, so distant writes cross the ocean: p99 381ms.",
+      "Cost: $1 + about $208 for two {load-balancer}s + 60 × $70 + 2 × 2 × $150 + 2 × 3 × $950 = $10,709 of $11,600. Every store's cost doubles with the second copy.",
+    ],
+    tradeoffs: [
+      "Writing locally means two regions can briefly disagree: a like might appear in Europe a second before Asia. For photos and likes that's fine; for a bank balance it isn't.",
+      "Replication between regions is asynchronous, so a region that dies can take its last second or two of writes with it. Synchronous replication would cost 150ms on every write.",
+      "Two of everything is expensive: the second region's stores cost as much as the first. That's the price of serving distant users quickly and surviving a region.",
+    ],
+    alternatives: [
+      "One region with a {cdn}: images and static pages come from the edge near users, but every feed and every write still crosses the ocean.",
+      "Home regions: each user's data lives in one region, and only that region writes it. No conflicts, and data stays in its country, at the cost of slow access when someone travels.",
+      "A single {sql-primary} with read replicas abroad: reads are local, but every write still goes to one leader across the ocean.",
+    ],
+  },
   "claim-your-name": {
     overview:
       "Uniqueness is a consistency problem: a name can only be checked and claimed safely in one place. Sharding by username sends each name to exactly one shard, and each shard keeps three copies in three zones and refuses during a split unless it holds a majority. Two people can never both get the same name.",
@@ -382,6 +411,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "End-to-end encryption means the server stores ciphertext it can't read, which rules out server-side search.",
     ],
     alternatives: [
+      "A second region: overkill here, where the chaos round is a zone and the users aren't spread across continents. It would double the cost of every store. It earns its place once users are worldwide, so a message doesn't cross an ocean on its way to someone in the same city.",
       "Sharding the relational database by conversation works, but you'd be building a partitioned store by hand.",
       "Polling for new messages instead of open connections: simpler, but slower to deliver and far more requests.",
       "Delivering through a {queue}: each message would go to one consumer only, so either the connection servers or the push senders would miss it.",
@@ -758,6 +788,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Idempotency keys only protect while both sides remember them. One large provider deletes them after about 24 hours, so a retry days later must check the payment's own record first.",
     ],
     alternatives: [
+      "A second region for the ledger: tempting for payments, but a {sql-primary} has one leader, so the second region's writes would cross the ocean anyway, and failing over between regions can lose the last seconds of payments unless replication is synchronous, at about 150ms a write. Most payment systems run each market in its own region instead.",
       "Authorise the card while the shopper waits and take the money later in the background: an instant yes or no, at the cost of a slow request when the provider is slow. Many checkouts do this with a short timeout and fall back to 'processing'.",
       "A {nosql} ledger scales writes further, but double entry needs both sides of each movement written together, which relational transactions do best.",
       "Reconciling straight from the {sql-primary}: simple, but heavy queries compete with payments. Feeding the warehouse from the event stream keeps them apart.",

@@ -497,6 +497,39 @@ describe("the interview classics' traps", () => {
     ).toContain("writes")
   })
 
+  it("worldwide: one region fails distant users and goes dark with the outage", () => {
+    const l = level("worldwide")
+    const one: Graph = {
+      ...l.reference,
+      components: l.reference.components.map((c) => ({ ...c, regions: 1 })),
+    }
+    expect(failed(l, one)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("worldwide: strong consistency, or one SQL leader, puts the ocean on every write", () => {
+    const l = level("worldwide")
+    expect(
+      failed(l, patch(l.reference, "kv", { consistency: "strong" })),
+    ).toContain("latency")
+    expect(
+      failed(
+        l,
+        patch(l.reference, "kv", {
+          kind: "sql-primary",
+          instances: 2,
+          zones: 2,
+        }),
+      ),
+    ).toContain("latency")
+  })
+
+  it("offering regions where everyone is close changes nothing until you use them", () => {
+    for (const id of ["balance-sheet", "group-chat", "pay-button"]) {
+      const l = LEVELS.find((x) => x.id === id)
+      expect(l?.load.regions?.farShare).toBe(0)
+    }
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

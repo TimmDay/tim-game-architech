@@ -86,6 +86,16 @@ export function graph(rows: Row[], edges: string[]): Graph {
   }
 }
 
+/** Spread components over regions, by id: a level that offers regions. */
+export function regions(g: Graph, by: Record<string, number>): Graph {
+  return {
+    ...g,
+    components: g.components.map((c) =>
+      by[c.id] ? { ...c, regions: by[c.id] } : c,
+    ),
+  }
+}
+
 /** Set what one connection carries: a signed URL for a traffic type, say. */
 export function mark(g: Graph, edgeId: string, carries: string[]): Graph {
   return {
@@ -1180,6 +1190,8 @@ const CLASSICS: Level[] = [
       readFraction: 0.5,
       cacheableFraction: 0.1,
       heavyWriteFraction: 0,
+      // Offered, but everyone is close: a second region is overkill here.
+      regions: { farShare: 0, rttMs: 150 },
     },
     targets: {
       p99Ms: 300,
@@ -1774,6 +1786,8 @@ const CLASSICS: Level[] = [
       heavyWriteFraction: 1,
       // A charge is a call to the provider: about 300ms, nearly all waiting.
       job: { seconds: 0.3, cpuBound: false },
+      // Offered, but everyone is close: a second region is overkill here.
+      regions: { farShare: 0, rttMs: 150 },
     },
     targets: {
       p99Ms: 300,
@@ -2527,6 +2541,8 @@ const CAP: Level[] = [
       cacheableFraction: 0,
       heavyWriteFraction: 0,
       tunableConsistency: true,
+      // Offered, but everyone is close: a second region is overkill here.
+      regions: { farShare: 0, rttMs: 150 },
     },
     targets: {
       p99Ms: 300,
@@ -2835,6 +2851,75 @@ const CAP: Level[] = [
     ),
     concepts: ["quorum", "partitioning", "cap-theorem"],
     hint: "A uniqueness check is only safe if the name's shard can't be written on both sides of a split. And a key that sends every new sign-up to the same place doesn't spread anything.",
+  },
+  {
+    id: "worldwide",
+    mode: "build",
+    track: "cap",
+    requires: ["full-basket"],
+    title: "Worldwide",
+    tagline:
+      "Half your users are an ocean away, and a whole region can go dark.",
+    scenario: {
+      product: "the photo-sharing app",
+      reads: "people scrolling feeds and opening profiles",
+      writes: "people posting, liking and editing their profiles",
+      hot: "popular profiles and recent posts",
+      records: "every post, like and profile",
+    },
+    brief:
+      "A photo-sharing app that took off on three continents. Half your users are an ocean away from your home region, and a round trip across it takes about 150ms. Peak is 20,000 requests a second, nine in ten of them reads, and p99 must stay under 250ms for everyone. Posts and likes can take a second or two to show up elsewhere. In this level a component can run in more than one region: a store keeps a full copy in each, at full price. The chaos round is a whole region going dark.",
+    load: {
+      peakRps: 20_000,
+      readFraction: 0.9,
+      cacheableFraction: 0.8,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+      regions: { farShare: 0.5, rttMs: 150 },
+    },
+    targets: {
+      p99Ms: 250,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 11_600,
+      writesReach: ["durable"],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "region-outage" }],
+      label: "A whole region goes dark",
+    },
+    palette: [
+      "dns",
+      "cdn",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "sql-replica",
+      "nosql",
+    ],
+    reference: regions(
+      graph(
+        [
+          ["dns", "dns", 1, 4],
+          ["lb", "load-balancer", 3, 4],
+          ["app", "app-server", 5, 4, 60, 2],
+          ["cache", "cache", 7, 3, 2, 2],
+          ["kv", "nosql", 9, 5, 3, 1, { consistency: "eventual" }],
+        ],
+        [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>kv"],
+      ),
+      { lb: 2, app: 2, cache: 2, kv: 2 },
+    ),
+    concepts: ["multi-region", "pacelc", "conflict-resolution"],
+    hint: "Distant users wait an ocean crossing on every request unless everything they touch runs near them. Then think about writes: which kind of store can accept them in both regions?",
   },
 ]
 

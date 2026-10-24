@@ -4,7 +4,7 @@ import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
 import { simulate } from "../simulate"
 import { SOLUTIONS } from "~/levels/solutions"
-import type { Graph, PlacedComponent } from "../types"
+import type { Graph, PlacedComponent, Practices } from "../types"
 import { CLIENT_ID as C } from "../types"
 
 describe.each(LEVELS)("$id", (level) => {
@@ -445,6 +445,28 @@ describe("the interview classics' traps", () => {
     const l = level("shared-doc")
     const g = patch(l.reference, "edits", { consistency: "strong" })
     expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("on schedule: each missing setting fails the chaos round on its own", () => {
+    const l = level("on-schedule")
+    const without = (id: string, p: Partial<Practices>) => {
+      const c = l.reference.components.find((x) => x.id === id)
+      return patch(l.reference, id, { practices: { ...c?.practices, ...p } })
+    }
+    for (const g of [
+      without("due", { dlq: false }),
+      without("run", { timeouts: false }),
+      without("run", { idempotency: false }),
+    ])
+      expect(failed(l, g)).toContain("chaos")
+    // Hung workers are caught by an alert on either the workers or the queue.
+    const noAlerts = patch(without("run", { alerts: false }), "due", {
+      practices: {
+        ...l.reference.components.find((x) => x.id === "due")?.practices,
+        alerts: false,
+      },
+    })
+    expect(failed(l, noAlerts)).toContain("chaos")
   })
 
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {

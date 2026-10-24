@@ -3102,3 +3102,187 @@ export const SHARED_DOC = deck("shared-doc", [
     ],
   ],
 ])
+
+export const ON_SCHEDULE = deck("on-schedule", [
+  [
+    "clarify",
+    "What would you ask about the jobs?",
+    [
+      "One-off ('at 9am tomorrow') or recurring ('every hour')? Recurring needs a next run time computed each time.",
+      "How precise: to the second, or within a minute?",
+      "What does a job do: call a webhook, run code, send an email?",
+    ],
+    "How does 'to the second' change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about failures?",
+    [
+      "If a job fails, retry? How many times, and with what gaps?",
+      "If the scheduler was down at 9am, should the 9am job run late, or be skipped?",
+      "Must a job never run twice, or is twice acceptable if harmless?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about time?",
+    [
+      "Whose time zone is '9am'? The customer's, and it moves with daylight saving.",
+      "What happens to a 2:30am job on the night clocks skip from 2am to 3am?",
+      "How many jobs are due at the same moment, like midnight or the top of the hour?",
+    ],
+  ],
+  [
+    "product",
+    "What do customers care about most?",
+    [
+      "Their job ran, on time, once.",
+      "When it didn't, they can see why, and when it will be retried.",
+      "They're told when a job keeps failing, instead of finding out weeks later.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you find the jobs that are due?",
+    [
+      "Store each job's next run time, and index it.",
+      "Every few seconds, claim the jobs whose time has come: a range read on the index, not a scan.",
+      "Claim with a lease, so two schedulers can't both take the same job.",
+    ],
+  ],
+  [
+    "decision",
+    "Why queue jobs rather than run them in the scheduler?",
+    [
+      "Running a job means calling someone else's webhook, which can be slow or down.",
+      "The queue lets workers run jobs at their own pace, and survives worker restarts.",
+      "The scheduler only decides what's due; it never waits on a customer's server.",
+    ],
+  ],
+  [
+    "decision",
+    "What does each worker need for the chaos round?",
+    [
+      "Timeouts, so a slow webhook holds a slot for half a second, not five.",
+      "Backoff on retries, and a dead-letter queue, so a job that always fails stops coming back.",
+      "Alerts on the queue's oldest message, so hung workers are noticed and replaced.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Exactly once, or at least once?",
+    [
+      "A worker can call the webhook and crash before recording it, so the job runs again.",
+      "Exactly once isn't possible across someone else's server. At least once, with an idempotency key, is the honest promise.",
+      "The customer uses the key to ignore a repeat.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Poll a database table, or keep timers in memory?",
+    [
+      "Polling a time-indexed table is simple, durable and easy to scale out with leases.",
+      "A timer wheel in memory fires precisely and cheaply, but must be rebuilt from the table after every restart.",
+      "Many schedulers do both: the table is the truth, memory holds the next few minutes.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you use the queue's delayed delivery instead?",
+    [
+      "For one-off jobs a few minutes away, yes: enqueue with a delay.",
+      "Queues cap how long a delay can be, and recurring jobs still need their next time computed.",
+      "So the table stays the source of truth.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could one cron process run everything?",
+    [
+      "For a handful of internal jobs, it's the simplest answer.",
+      "For a service, it's a single point of failure, and it can't scale past one machine.",
+      "Leases on the job table let many schedulers share the work safely.",
+    ],
+  ],
+  [
+    "scale",
+    "Half the customers schedule their daily job for midnight.",
+    [
+      "A huge burst arrives at 00:00, and the queue absorbs it, so jobs run late rather than fail.",
+      "Spread it: add jitter to 'daily', or let customers choose a window.",
+      "Show customers the expected delay, so 'midnight' doesn't surprise them.",
+    ],
+  ],
+  [
+    "scale",
+    "A hundred million jobs. What changes?",
+    [
+      "Partition the job table by next run time and customer, so claiming due jobs spreads across shards.",
+      "Each scheduler owns a set of partitions, by lease.",
+      "Run history grows fastest: keep recent runs hot, archive the rest.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The scheduler was down from 8:55 to 9:05. What about the 9:00 jobs?",
+    [
+      "It's the misfire question, and customers should choose: run late, or skip.",
+      "By default most systems run them as soon as they can.",
+      "A recurring job shouldn't then run twice to 'catch up' unless asked to.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A job is set for 2:30am, and tonight the clocks jump from 2am to 3am.",
+    [
+      "2:30am doesn't exist tonight, so decide: run at 3am, or skip.",
+      "In autumn the hour repeats, and a 1:30am job could run twice.",
+      "Store schedules in the customer's time zone, and compute each run time in universal time.",
+    ],
+  ],
+  [
+    "resilience",
+    "A job fails every time it runs.",
+    [
+      "Retry a few times with backoff, then move it to the dead-letter queue.",
+      "Tell the customer, and pause the job's schedule.",
+      "Without that, it comes back forever and takes workers away from everyone else's jobs.",
+    ],
+  ],
+  [
+    "resilience",
+    "Workers hang without crashing.",
+    [
+      "Health checks pass, so nothing restarts them.",
+      "An alert on the age of the queue's oldest message notices the backlog building.",
+      "Leases on running jobs let another worker take over when one goes quiet.",
+    ],
+  ],
+  [
+    "security",
+    "What could go wrong with calling customers' webhooks?",
+    [
+      "A customer could point a webhook at your own internal addresses: block private networks.",
+      "Sign each call, so the customer can check it came from you.",
+      "Cap how many calls one customer's jobs make, so one can't swamp the workers.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "How late jobs run compared with their scheduled time: the measure customers feel.",
+      "The dead-letter queue's size, and failures by customer.",
+      "The age of the queue's oldest message.",
+    ],
+  ],
+  [
+    "observability",
+    "A customer says their 9am job didn't run. How do you check?",
+    [
+      "Look up the job's run history: claimed, queued, run, failed, retried?",
+      "Check whether it was paused, or set aside in the dead-letter queue.",
+      "Check their webhook's responses: often it ran, and their server refused it.",
+    ],
+  ],
+])

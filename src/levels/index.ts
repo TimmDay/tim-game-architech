@@ -2251,6 +2251,87 @@ const CLASSICS: Level[] = [
     concepts: ["conflict-resolution", "partitioning", "cap-theorem"],
     hint: "Key the edit log by document, so opening one reads one partition. Then decide: during a split, should people on the cut-off side keep typing?",
   },
+  {
+    id: "on-schedule",
+    mode: "build",
+    track: "classic",
+    requires: ["upload-rush"],
+    title: "On Schedule",
+    tagline: "A million jobs, each due at its moment, each run once.",
+    scenario: {
+      product: "the job scheduler",
+      reads: "customers checking their jobs' history and status",
+      writes: "jobs coming due to run",
+      hot: "jobs due in the next few minutes",
+      records: "every job: its schedule, next run time, and each run's result",
+      job: "running a job: calling the customer's webhook",
+    },
+    brief:
+      "A service that runs customers' scheduled jobs: 'call this webhook every hour', 'send this report at 9am'. Peak is 2,000 requests a second: 1,000 customers checking on their jobs and 1,000 jobs coming due, each of which calls the customer's webhook, a {third-party-api} that allows 100 calls a second per block. The chaos round is everything that goes wrong with background work at once: customers' webhooks slow by five seconds, one job fails every time it runs, and some workers hang without crashing. Every job must run, and run once.",
+    load: {
+      peakRps: 2_000,
+      readFraction: 0.5,
+      cacheableFraction: 0,
+      heavyWriteFraction: 1,
+      // A run is one webhook call: about 300ms, nearly all waiting.
+      job: { seconds: 0.3, cpuBound: false },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 3_800,
+      writesReach: ["sql-primary", "third-party-api"],
+      noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [
+        { kind: "slow-dependency", target: "third-party-api", extraMs: 5_000 },
+        { kind: "poison-message" },
+        { kind: "silent-stall", target: "worker" },
+      ],
+      label: "Slow webhooks, a job that always fails, and hung workers",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "sql-replica",
+      "queue",
+      "worker",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 4, 2],
+        ["jobs", "sql-primary", 7, 6, 2, 2],
+        ["due", "queue", 7, 2],
+        ["run", "worker", 9, 2, 12, 2, { practices: { idempotency: true } }],
+        ["hooks", "third-party-api", 11, 2, 15],
+      ],
+      [
+        `${C}>dns`,
+        "dns>lb",
+        "lb>app",
+        "app>jobs",
+        "app>due",
+        "due>run",
+        "run>hooks",
+      ],
+    ),
+    concepts: ["dead-letter-queue", "timeouts-and-retries", "alerting"],
+    hint: "Queue each due job and let {worker} instances run it. Then go through the chaos round: what does each worker need when a webhook is slow, a job always fails, or a worker hangs?",
+  },
 ]
 
 /**

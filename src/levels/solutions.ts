@@ -502,6 +502,35 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "on-schedule": {
+    overview:
+      "Jobs live in the {sql-primary} with their next run time. When one comes due, the scheduler puts it on a {queue}, and {worker} instances run it: one webhook call each, with a timeout, backoff and an idempotency key. A dead-letter queue sets aside jobs that always fail, and alerts catch workers that hang.",
+    walkthrough: [
+      "Customers create and check jobs through the {load-balancer} and {app-server}. Each job is a row in the {sql-primary} with its schedule and next run time, indexed by that time.",
+      "Every few seconds the scheduler claims the jobs now due, with a lease so two schedulers can't both take one, puts each on the {queue}, and sets its next run time.",
+      "{worker} instances run each job: one webhook call with a half-second timeout, retried with backoff, carrying an idempotency key so the customer can ignore repeats.",
+      "A job that keeps failing moves to the dead-letter queue and the customer is told. Alerts on the queue's oldest message catch workers that hang.",
+    ],
+    numbers: [
+      "2,000 requests a second: 1,000 customers checking on their jobs and 1,000 jobs coming due.",
+      "Four {app-server} instances run at 50%; the {sql-primary} at 33%.",
+      "A run is one webhook call of about 300ms, nearly all waiting, so each worker keeps 100 in flight. Twelve run at 25% normally.",
+      "In the chaos round, timeouts hold each slow call for half a second instead of five, backoff adds a fifth more calls, the dead-letter queue sets aside the job that always fails, and alerts replace hung workers: the twelve run at 82%.",
+      "Take away any one of those settings and the queue falls behind: by 511 jobs a second without the dead-letter queue, and by every job with no alert on either the workers or the queue. Without idempotency keys, retries deliver about 120 webhooks a second twice.",
+      "Calling webhooks inside the scheduler's requests instead puts their slowness on every customer request: p99 passes 12 seconds.",
+      "Cost: $1 + about $41 for the {load-balancer} + 4 × $70 + 2 × $400 + about $946 for the {queue} + 12 × $120 = $3,508 of $3,800.",
+    ],
+    tradeoffs: [
+      "Delivery is at least once: a worker can call a webhook and crash before recording it. The idempotency key is what lets the customer treat a repeat as harmless.",
+      "A job runs at its time plus the queue's wait. When everyone schedules for midnight, that wait grows: add jitter to 'daily' jobs, or let customers pick a window rather than a second.",
+      "Polling a time-indexed table is simple and durable. It's less precise than an in-memory timer wheel, which is faster but has to be rebuilt from the table after a restart.",
+    ],
+    alternatives: [
+      "A timer wheel in memory: jobs sorted into buckets by second, very cheap to fire, but every scheduler restart reloads the next stretch of jobs from the database.",
+      "The queue's own delayed delivery: enqueue each job with a delay. Simple for one-off jobs, but long delays and recurring schedules still need the table.",
+      "One cron process on one machine: fine for a handful of jobs, and a single point of failure for a service.",
+    ],
+  },
   "shared-doc": {
     overview:
       "Each document is a log of small edits, kept in order per document and merged so every copy ends up the same. The {app-server} that holds a document's open connections orders its edits and appends them to a {nosql} log keyed by document; the {cache} holds recent snapshots for fast opens. During a split, both sides keep typing, and the edits merge when it heals.",

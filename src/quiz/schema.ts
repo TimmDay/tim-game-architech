@@ -27,6 +27,38 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "on-schedule": s([
+    [
+      "What does the scheduler index to find due jobs?",
+      "Each job's next run time",
+      [
+        "Each job's creation time",
+        "The customer's ID alone",
+        "The webhook's address",
+      ],
+      "'Due now' becomes a range read on the index, not a scan of every job.",
+    ],
+    [
+      "How does a scheduler claim a job so no other scheduler takes it?",
+      "Set an owner and a lease expiry, only if unclaimed",
+      [
+        "Read it, then mark it if it looked free",
+        "Delete it from the table while it runs",
+        "Lock the whole table for each claim",
+      ],
+      "A conditional update makes the claim atomic; the expiry lets another scheduler take over if this one dies.",
+    ],
+    [
+      "How are a job's runs recorded?",
+      "One row per run, keyed by job and scheduled time",
+      [
+        "Only the latest run, overwritten each time",
+        "A counter of how many times it ran",
+        "Nothing: the webhook's response is enough",
+      ],
+      "The key doubles as the idempotency key, and history answers 'did my 9am job run?'.",
+    ],
+  ]),
   "shared-doc": s([
     [
       "What's the key of an edit in the log?",

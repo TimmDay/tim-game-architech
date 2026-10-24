@@ -1596,6 +1596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "on-schedule": q([
+    [
+      "How does the scheduler find the jobs that are due?",
+      "A range read on an index of next run times",
+      [
+        "A scan of every job, every second",
+        "Each job wakes itself up when it's due",
+        "The queue tells it which jobs are due",
+      ],
+      "Claim due jobs with a lease, so two schedulers can't both take one.",
+      4,
+    ],
+    [
+      "Why put due jobs on a queue rather than run them in the scheduler?",
+      "So the scheduler never waits on a customer's server",
+      [
+        "Queues run jobs faster than workers do",
+        "The database can't hold running jobs",
+        "It guarantees every job runs exactly once",
+      ],
+      "Workers run jobs at their own pace, and the queue survives worker restarts.",
+      5,
+    ],
+    [
+      "Why can't the scheduler promise to run each webhook exactly once?",
+      "A worker can call it and crash before recording it",
+      [
+        "Webhooks can only be called once per hour",
+        "Queues lose a share of messages",
+        "Time zones make the time ambiguous",
+      ],
+      "At least once, with an idempotency key the customer can use to ignore repeats, is the honest promise.",
+      7,
+    ],
+    [
+      "What stops a job that always fails from coming back forever?",
+      "Backoff, then a dead-letter queue",
+      [
+        "Retrying it immediately until it works",
+        "Deleting the customer's schedule",
+        "Running it on a bigger worker",
+      ],
+      "Without it, the failing job takes workers away from everyone else's. Here the queue falls 511 jobs a second behind.",
+      15,
+    ],
+    [
+      "Workers hang without crashing. What notices?",
+      "An alert on the queue's oldest message",
+      [
+        "The load balancer's health checks",
+        "The workers' own error logs",
+        "The customers, eventually",
+      ],
+      "Health checks still pass. Leases on running jobs let another worker take over.",
+      16,
+    ],
+    [
+      "Half your customers schedule their daily job for midnight. What helps?",
+      "Adding jitter, or letting them choose a window",
+      [
+        "Running every job at exactly midnight",
+        "Refusing jobs scheduled for midnight",
+        "Doubling the workers all day long",
+      ],
+      "The queue absorbs the burst, so jobs run late rather than fail. Spreading it keeps them on time.",
+      11,
+    ],
+    [
+      "The scheduler was down at 9:00. What happens to the 9:00 jobs?",
+      "Whatever the customer chose: run late, or skip",
+      [
+        "They're lost for good",
+        "They run twice to catch up",
+        "They wait until 9:00 tomorrow",
+      ],
+      "That's the misfire policy. Most systems run late by default, and never twice unless asked.",
+      13,
+    ],
+    [
+      "A job is set for 2:30am on the night the clocks skip from 2 to 3. What then?",
+      "Decide up front: run at 3am, or skip it",
+      [
+        "It runs at 2:30 as normal",
+        "It runs at 2:30 and again at 3:30",
+        "The job is deleted",
+      ],
+      "In autumn the hour repeats instead. Keep schedules in the customer's zone and compute runs in universal time.",
+      14,
+    ],
+    [
+      "A customer points their webhook at one of your internal addresses. What should happen?",
+      "Refuse it: block private network addresses",
+      [
+        "Call it, since the customer asked",
+        "Call it once, then warn them",
+        "Call it through the load balancer",
+      ],
+      "Otherwise your scheduler becomes a way into your own network. Sign each call, too.",
+      17,
+    ],
+    [
+      "Which measure do customers feel most?",
+      "How late jobs run against their scheduled time",
+      [
+        "The number of jobs stored",
+        "The database's CPU",
+        "The size of each webhook call",
+      ],
+      "Watch the dead-letter queue and the queue's oldest message too.",
+      18,
+    ],
+  ]),
   "shared-doc": q([
     [
       "Why store a document as a log of edits?",

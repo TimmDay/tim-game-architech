@@ -3,6 +3,8 @@ import {
   EMPTY,
   POINTS,
   answerQuestion,
+  awardStars,
+  computeTotal,
   dueQueue,
   mergeReview,
   normalize,
@@ -31,10 +33,20 @@ describe("points", () => {
     expect(s.total).toBe(POINTS.mcCorrect)
   })
 
-  it("gives 50 points for passing a scenario, once", () => {
+  it("gives 20 points for passing a scenario, once", () => {
     let s = passScenario(EMPTY, "front-page", t0)
     s = passScenario(s, "front-page", t0 + DAY)
-    expect(s.total).toBe(POINTS.scenarioPass)
+    expect(s.total).toBe(20)
+  })
+
+  it("gives 10 points a star, once each, as a level's best rises", () => {
+    let s = awardStars(EMPTY, { "front-page": 1 })
+    expect(s.total).toBe(10)
+    s = awardStars(s, { "front-page": 3 })
+    s = awardStars(s, { "front-page": 2 })
+    expect(s.total).toBe(30)
+    // Recomputed from the award keys, as a merge does.
+    expect(computeTotal(s)).toBe(30)
   })
 })
 

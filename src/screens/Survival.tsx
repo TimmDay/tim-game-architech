@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import { BoardActions } from "~/ui/BoardActions"
 import {
   Activity,
   ChevronLeft,
@@ -329,6 +330,28 @@ export function Survival({
         onTapTile={editor.onTapTile}
         onMove={editor.onMove}
       />
+      {!running && (
+        <BoardActions
+          node={editor.sel.node}
+          edge={editor.sel.edge}
+          connecting={editor.tool.t === "connect"}
+          onConnect={(id) =>
+            editor.setTool(
+              editor.tool.t === "connect"
+                ? { t: "select" }
+                : { t: "connect", from: id },
+            )
+          }
+          onRemove={(id) => {
+            editor.dispatch({ type: "remove", id })
+            editor.setSel({})
+          }}
+          onRemoveEdge={(id) => {
+            editor.dispatch({ type: "remove-edge", id })
+            editor.setSel({})
+          }}
+        />
+      )}
       {editor.banner && (
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
           <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-cyan-300/40 bg-slate-950/85 py-1.5 pr-1.5 pl-4 text-[13px] text-cyan-100 backdrop-blur">

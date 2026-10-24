@@ -785,7 +785,7 @@ export function InspectPanel({
         <button
           type="button"
           onClick={() => onRemoveEdge(e.id)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-400/10 py-2.5 text-[14px] text-rose-200"
+          className="hidden w-full items-center justify-center gap-2 rounded-xl border border-rose-400/30 bg-rose-400/10 py-2.5 text-[14px] text-rose-200 lg:flex"
         >
           <Trash2 size={15} /> Remove connection
           <kbd className="ml-1 hidden rounded border border-rose-300/30 px-1.5 font-mono text-[10px] text-rose-200/70 lg:inline">
@@ -823,7 +823,7 @@ export function InspectPanel({
       type="button"
       onClick={() => onConnect(selectedId)}
       className={clsx(
-        "flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[14px] font-semibold",
+        "hidden w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[14px] font-semibold lg:flex",
         connecting
           ? "border-cyan-300 bg-cyan-300 text-slate-950"
           : "border-cyan-300/40 bg-cyan-300/10 text-cyan-100",
@@ -986,7 +986,7 @@ export function InspectPanel({
       <button
         type="button"
         onClick={() => onRemove(c.id)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2 text-[13px] text-slate-400 hover:border-rose-400/40 hover:text-rose-200"
+        className="hidden w-full items-center justify-center gap-2 rounded-xl border border-white/10 py-2 text-[13px] text-slate-400 hover:border-rose-400/40 hover:text-rose-200 lg:flex"
       >
         <Trash2 size={14} /> Remove
         <kbd className="ml-1 hidden rounded border border-white/15 px-1.5 font-mono text-[10px] text-slate-500 lg:inline">

@@ -1,4 +1,5 @@
 import { deviceId } from "~/game/device"
+import { BoardActions } from "~/ui/BoardActions"
 import clsx from "clsx"
 import {
   BookOpen,
@@ -410,6 +411,18 @@ export function Play({
         </p>
       </div>
     )
+  const connectFrom = (id: string) => {
+    setTool(tool.t === "connect" ? { t: "select" } : { t: "connect", from: id })
+    if (!wide) setSheetOpen(false)
+  }
+  const removeNode = (id: string) => {
+    dispatch({ type: "remove", id })
+    setSel({})
+  }
+  const removeEdge = (id: string) => {
+    dispatch({ type: "remove-edge", id })
+    setSel({})
+  }
   const inspect = (
     <InspectPanel
       graph={graph}
@@ -421,21 +434,10 @@ export function Play({
       result={result}
       live={live}
       connecting={tool.t === "connect"}
-      onConnect={(id) => {
-        setTool(
-          tool.t === "connect" ? { t: "select" } : { t: "connect", from: id },
-        )
-        if (!wide) setSheetOpen(false)
-      }}
+      onConnect={connectFrom}
       onSet={(id, v) => dispatch({ type: "set", id, ...v })}
-      onRemove={(id) => {
-        dispatch({ type: "remove", id })
-        setSel({})
-      }}
-      onRemoveEdge={(id) => {
-        dispatch({ type: "remove-edge", id })
-        setSel({})
-      }}
+      onRemove={removeNode}
+      onRemoveEdge={removeEdge}
       onSetEdge={(id, carries) => dispatch({ type: "set-edge", id, carries })}
       onLearn={(kind) => setInfo({ kind })}
       onDiscuss={(id) => setInfo({ discuss: id })}
@@ -485,6 +487,16 @@ export function Play({
         onMove={onMove}
         traffic={level.load.traffic}
       />
+      {!running && (
+        <BoardActions
+          node={sel.node}
+          edge={sel.edge}
+          connecting={tool.t === "connect"}
+          onConnect={connectFrom}
+          onRemove={removeNode}
+          onRemoveEdge={removeEdge}
+        />
+      )}
       {banner && (
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
           <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-cyan-300/40 bg-slate-950/85 py-1.5 pr-1.5 pl-4 text-[13px] text-cyan-100 shadow-lg shadow-cyan-500/10 backdrop-blur">

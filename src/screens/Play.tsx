@@ -565,16 +565,15 @@ export function Play({
     </header>
   )
 
-  const modal = sandboxRun ? (
+  // A run's result stays open underneath; a concept card opened from it
+  // stacks on top, and closing the card returns to the result.
+  const resultModal = sandboxRun ? (
     <SandboxReport
       result={sandboxRun.result}
       report={sandboxRun.report}
       provider={provider}
       onClose={() => setSandboxRun(null)}
-      onConcept={(c) => {
-        setSandboxRun(null)
-        setInfo({ concept: c })
-      }}
+      onConcept={(c) => setInfo({ concept: c })}
     />
   ) : graded ? (
     <Results
@@ -597,7 +596,8 @@ export function Play({
       onConcept={(c) => setInfo({ concept: c })}
       onDeck={sandbox ? undefined : onDeck}
     />
-  ) : info ? (
+  ) : null
+  const infoModal = info ? (
     <Modal
       onClose={() => setInfo(null)}
       wide={"solution" in info ? "xl" : false}
@@ -634,6 +634,12 @@ export function Play({
       ) : null}
     </Modal>
   ) : null
+  const modal = (
+    <>
+      {resultModal}
+      {infoModal}
+    </>
+  )
 
   if (wide) {
     return (

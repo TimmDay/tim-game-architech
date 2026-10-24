@@ -1,6 +1,9 @@
 import { X } from "lucide-react"
 import { useEffect, useRef } from "react"
 
+/** Open modals, oldest first. */
+const open: symbol[] = []
+
 export function Modal({
   onClose,
   children,
@@ -18,11 +21,19 @@ export function Modal({
     close.current = onClose
   }, [onClose])
   useEffect(() => {
+    // Modals can stack (a concept card over a result). Escape closes only
+    // the one on top.
+    const token = Symbol("modal")
+    open.push(token)
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close.current()
+      if (e.key === "Escape" && open[open.length - 1] === token) close.current()
     }
     window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      const i = open.indexOf(token)
+      if (i >= 0) open.splice(i, 1)
+    }
   }, [])
   return (
     <div

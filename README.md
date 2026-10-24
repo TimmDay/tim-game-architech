@@ -11,7 +11,7 @@
 
 ## Modes
 
-**Build.** You get a brief (500 requests a second, p99 under 300ms, 99.9% available, $400 a month) and a palette. Place components on an isometric board, wire them together, size each tier, then run the load test. Traffic ramps to peak, then a chaos round fires: an instance crashes, a cache restarts cold, a whole availability zone goes dark.
+**Build.** You get a brief (1,500 requests a second, p99 under 300ms, 99.9% available, $1,200 a month) and a palette. Place components on an isometric board, wire them together, size each tier, then run the load test. Traffic ramps to peak, then a chaos round fires: an instance crashes, a cache restarts cold, a whole availability zone goes dark.
 
 **CAP trade-offs.** Five build levels where the chaos round is a network split: every machine stays up, but copies of the data can't reach each other. Each store gets a choice in the sidebar, refuse (consistent) or keep serving (available), and the right answer depends on the data: a payments ledger, a shopping basket, like counts, unique usernames. The same shelf adds sharding: set a SQL database's shard count and pick its partition key from the scenario's options, then watch for the key that piles every write onto one shard or sends every read to all of them. A sharded store is drawn sliced, with the busiest shard in its own colour.
 
@@ -23,7 +23,7 @@
 
 **Survival.** An arcade mode: keep one architecture alive through endless waves. Traffic grows about 30% a wave, the mix shifts between browsing surges, checkout rushes and floods of slow jobs, and from wave 3 a random disaster hits (a crash, a zone outage, a cold cache, a failed database, a traffic spike). Your budget grows each wave; you have three lives. Waves are seeded, and tests pin the balance: a sensible design reaches wave 10 or more, and a starter stack dies within a few waves.
 
-**Fundamentals.** Ten discussion decks that aren't tied to a scenario, always open: the interview itself, estimation and latency, storage engines and indexes, transactions and isolation, real-time and consensus, event logs and distributed transactions, observability, shipping safely, frontend and APIs, and architecture styles. They're brought across from the earlier architecture-simulator drill.
+**Fundamentals.** Eleven discussion decks that aren't tied to a scenario, always open: the interview itself, estimation and latency, storage engines and indexes, transactions and isolation, real-time and consensus, distributed systems internals (consistent hashing, load-balancing algorithms, gossip, Merkle trees, leader election), event logs and distributed transactions, observability, shipping safely, frontend and APIs, and architecture styles. They're brought across from the earlier architecture-simulator drill.
 
 **Retention.** A third mode for revision. Every deck card, quiz question and passed scenario you've met goes on a spaced schedule: things you know come back after 3, 7, 14, then 30 days; things you missed come back tomorrow. Passed scenarios come back after a week, to rebuild from an empty board.
 
@@ -39,17 +39,19 @@ The **AWS / Azure / GCP / None** switch renames every component everywhere: the 
 
 ## What it teaches
 
-Nine build levels, seven interview classics, five CAP trade-off levels, five production incidents and six repair levels. The classics are the questions interviewers ask most: a URL shortener, group chat, a home timeline, a ticket sale, video streaming, ride hailing and search autocomplete. Together they cover horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, OLTP vs OLAP, rate-limited OCR APIs behind a queue, micro-caching fast-changing data at the edge, partitioning write-heavy data, when a key-value store fits, fan-out on write, waiting rooms for contended inventory, ephemeral state kept in memory, latency budgets, the CAP theorem and PACELC, quorums, merging conflicting writes, partition keys, hot keys and scatter-gather reads. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
+Nine build levels, twelve interview classics, five CAP trade-off levels, five production incidents and six repair levels. The classics are the questions interviewers ask most: a URL shortener, group chat, a home timeline, a ticket sale, video streaming, ride hailing, search autocomplete, a notification system, a web crawler, payments, a rate limiter and a distributed key-value store. Together they cover horizontal scaling and N+1 capacity, cache-aside and cold-cache stampedes, read replicas and read/write splitting, CDNs and object storage, queues vs event logs, competing consumers and backlog, availability zones, standbys, OLTP vs OLAP, rate-limited OCR APIs behind a queue, micro-caching fast-changing data at the edge, partitioning write-heavy data, when a key-value store fits, fan-out on write, waiting rooms for contended inventory, ephemeral state kept in memory, latency budgets, the CAP theorem and PACELC, quorums, merging conflicting writes, partition keys, hot keys and scatter-gather reads, provider quotas and pacing, idempotency keys and reconciliation, per-key rate limits with shared counters, and quorum stores that keep accepting writes. The **Codex** has a card for every component and concept, each with what an interviewer is listening for.
 
 ## How the simulation works
 
 `simulate()` in `src/sim/simulate.ts` is a pure function from a graph and a load profile to per-component metrics. The model is adapted from [architecture-simulator](https://github.com/TimmDay/architecture-simulator):
 
-- **Routers divide, callers duplicate.** A load balancer splits 400 rps between its targets; an app server makes each of its calls per request.
+- **Real sizes and prices.** `src/sim/catalogue.ts` gives each component a realistic per-instance capacity and on-demand price: about 1,000 simple requests a second for a 2 vCPU app server at $70 a month, 3,000 writes a second for a SQL primary. Managed services billed per request (CDN, queue, object store, serverless, OCR) are costed from the level's traffic, and a worker's rate comes from the level's job: how long it takes, and whether it computes or waits.
+- **Routers divide, callers duplicate.** A load balancer splits 1,000 rps between its targets; an app server makes each of its calls per request.
 - **Caches pass only misses** (and all writes) to what's behind them. The hit rate comes from the scenario, never from the player.
 - **Reads and writes have separate capacity.** A replica serves reads and refuses writes; a SQL primary's extra instances are standbys, not capacity.
 - **Latency climbs with utilisation** as 1 / (1 - ρ), capped. The p99 is the slowest synchronous path carrying at least 1% of requests.
-- **Async hand-offs** take everything behind them off the critical path. Slow consumers grow a backlog instead of failing requests.
+- **Async hand-offs** take everything behind them off the critical path. Workers pass on only what they get through; the rest waits in the queue as backlog instead of failing requests.
+- **One key has a ceiling.** A NoSQL store scales by adding capacity, but any single key tops out around 1,000 writes a second, so a hot key fails however much you buy.
 - **Availability** multiplies along the path and composes as 1 - (1 - a)^n across independent failure domains.
 
 The canvas only displays this output: packet rate per edge, block colour by utilisation, red packets bursting at overloaded targets.

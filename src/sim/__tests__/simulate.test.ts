@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { graph } from "~/levels"
-import { CLIENT_ID as C, type LoadProfile } from "../types"
-import { simulate, topologyAvailability } from "../simulate"
+import { CLIENT_ID as C, type Fault, type LoadProfile } from "../types"
+import { QUORUM_P99_MS, simulate, topologyAvailability } from "../simulate"
 
 const load = (o: Partial<LoadProfile> = {}): LoadProfile => ({
   peakRps: 1_000,
@@ -154,9 +154,33 @@ describe("heavy work", () => {
       ],
       [`${C}>app`, "app>q", "q>w"],
     )
-    const l = load({ heavyWriteFraction: 1 })
-    expect(simulate(inline, l).p99Ms).toBeGreaterThan(1_800)
+    const l = load({
+      heavyWriteFraction: 1,
+      job: { seconds: 2, cpuBound: true },
+    })
+    expect(simulate(inline, l).p99Ms).toBeGreaterThan(2_000)
     expect(simulate(queued, l).p99Ms).toBeLessThan(300)
+  })
+
+  it("passes on only what its workers get through; the rest waits in the queue", () => {
+    const g = graph(
+      [
+        ["app", "app-server", 0, 0, 2],
+        ["q", "queue", 0, 0],
+        ["w", "worker", 0, 0, 1],
+        ["db", "sql-primary", 0, 0],
+      ],
+      [`${C}>app`, "app>q", "q>w", "w>db"],
+    )
+    // One worker, four cores, a second per job: four jobs a second.
+    const l = load({
+      readFraction: 0.99,
+      heavyWriteFraction: 1,
+      job: { seconds: 1, cpuBound: true },
+    })
+    const r = simulate(g, l)
+    expect(r.perComponent.db?.writeRps).toBeCloseTo(4)
+    expect(r.backlogGrowthRps).toBeCloseTo(6)
   })
 })
 
@@ -225,20 +249,20 @@ describe("sharding", () => {
       ],
       [`${C}>app`, "app>db"],
     )
-  const writes = load({ peakRps: 1_600, readFraction: 0.5, ...keys })
+  const writes = load({ peakRps: 8_000, readFraction: 0.5, ...keys })
 
   it("ignores shards in a level that offers no partition keys", () => {
     const r = simulate(
       db("even", 4),
-      load({ peakRps: 1_600, readFraction: 0.5 }),
+      load({ peakRps: 8_000, readFraction: 0.5 }),
     )
-    expect(r.perComponent.db?.utilization).toBeCloseTo(800 / 500)
+    expect(r.perComponent.db?.utilization).toBeCloseTo(4_000 / 3_000)
     expect(r.perComponent.db?.shards).toBeUndefined()
   })
 
   it("an even key spreads writes, so four shards take four primaries' writes", () => {
     const r = simulate(db("even", 4), writes)
-    expect(r.perComponent.db?.utilization).toBeCloseTo(200 / 500)
+    expect(r.perComponent.db?.utilization).toBeCloseTo(1_000 / 3_000)
     expect(r.errorRate).toBe(0)
   })
 
@@ -262,7 +286,7 @@ describe("sharding", () => {
 
   it("pays for every shard's primary and standbys", () => {
     expect(simulate(db("even", 4), writes).monthlyCostUsd).toBe(
-      30 * 10 + 120 * 4,
+      70 * 10 + 400 * 4,
     )
   })
 
@@ -270,7 +294,9 @@ describe("sharding", () => {
     const g = db("even", 4)
     const c = g.components[1]
     if (c) delete c.partitionKey
-    expect(simulate(g, writes).perComponent.db?.utilization).toBeCloseTo(0.4)
+    expect(simulate(g, writes).perComponent.db?.utilization).toBeCloseTo(
+      1_000 / 3_000,
+    )
   })
 })
 
@@ -286,6 +312,15 @@ describe("consistency during a network split", () => {
       [
         ["app", "app-server", 0, 0, 4, 2],
         ["db", "sql-primary", 0, 0, copies, copies, { consistency: mode }],
+      ],
+      [`${C}>app`, "app>db"],
+    )
+  // A managed {nosql} store keeps three copies, one per zone.
+  const kv = (mode: "strong" | "eventual") =>
+    graph(
+      [
+        ["app", "app-server", 0, 0, 4, 2],
+        ["db", "nosql", 0, 0, 1, 1, { consistency: mode }],
       ],
       [`${C}>app`, "app>db"],
     )
@@ -309,19 +344,66 @@ describe("consistency during a network split", () => {
   })
 
   it("eventual: nobody is refused, and the cut-off side's writes diverge", () => {
-    const r = simulate(db("eventual", 3), tunable, split)
+    const r = simulate(kv("eventual"), tunable, split)
     expect(r.errorRate).toBe(0)
     expect(r.divergentRps).toBeCloseTo(150 / 3)
   })
 
   it("strong costs a cross-zone round trip on every request, split or not", () => {
-    const strong = simulate(db("strong", 3), tunable)
-    const eventual = simulate(db("eventual", 3), tunable)
-    expect(strong.p99Ms - eventual.p99Ms).toBeCloseTo(25)
+    const strong = simulate(kv("strong"), tunable)
+    const eventual = simulate(kv("eventual"), tunable)
+    expect(strong.p99Ms - eventual.p99Ms).toBeCloseTo(QUORUM_P99_MS)
+  })
+
+  it("a single-leader SQL primary can't keep serving: it refuses whatever it's set to", () => {
+    const r = simulate(db("eventual", 3), tunable, split)
+    expect(r.errorRate).toBeCloseTo(1 / 3)
+    expect(r.divergentRps).toBe(0)
   })
 
   it("one copy has nowhere to fail over to, whichever mode it's in", () => {
     for (const mode of ["strong", "eventual"] as const)
       expect(simulate(db(mode, 1), tunable, split).errorRate).toBeCloseTo(1)
+  })
+})
+
+describe("floods and shared rate-limit counters", () => {
+  const flood: Fault[] = [{ kind: "credential-stuffing", multiplier: 4 }]
+  const perKey: Fault[] = [
+    { kind: "credential-stuffing", multiplier: 4, perKey: true },
+  ]
+  const stack = (
+    lb: boolean,
+    app: boolean,
+    counters: boolean,
+  ): ReturnType<typeof graph> =>
+    graph(
+      [
+        ["lb", "load-balancer", 0, 0, 1, 1, { practices: { rateLimit: lb } }],
+        ["app", "app-server", 0, 0, 10, 2, { practices: { rateLimit: app } }],
+        ...(counters ? [["counters", "cache", 0, 0] as const] : []),
+      ] as Parameters<typeof graph>[0],
+      [`${C}>lb`, "lb>app", ...(counters ? ["app>counters"] : [])],
+    )
+  const offered = (g: ReturnType<typeof graph>, f: Fault[]) =>
+    simulate(g, load(), f).offeredRps
+
+  it("stops an ordinary flood at a rate-limited edge", () => {
+    expect(offered(stack(true, false, false), flood)).toBeCloseTo(1_000)
+  })
+
+  it("lets a per-key flood past a limit that only sees addresses", () => {
+    expect(offered(stack(true, false, false), perKey)).toBeCloseTo(4_000)
+  })
+
+  it("leaks a per-key flood through servers that each count alone", () => {
+    // Ten instances: a caller spread across them gets about ten times its limit.
+    expect(offered(stack(true, true, false), perKey)).toBeCloseTo(
+      1_000 + 3_000 * 0.9,
+    )
+  })
+
+  it("holds the limit once the servers share counters in a cache", () => {
+    expect(offered(stack(true, true, true), perKey)).toBeCloseTo(1_000)
   })
 })

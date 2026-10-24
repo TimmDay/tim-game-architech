@@ -23,3 +23,20 @@ export const rps = (n: number) =>
     : n >= 1000
       ? `${(n / 1000).toFixed(1)}k/s`
       : `${Math.round(n)}/s`
+
+/**
+ * What one instance costs, for the palette and sidebar: a monthly fee, a
+ * price per million requests, or both.
+ */
+export function priceNote(spec: {
+  costPerInstanceMonthUsd: number
+  costPerMillion?: { reads: number; writes: number }
+}): string {
+  const per = spec.costPerMillion
+  const usage = per
+    ? `$${Math.max(per.reads, per.writes).toLocaleString("en-US")}/M req`
+    : ""
+  if (spec.costPerInstanceMonthUsd === 0) return usage || "free"
+  const fee = `${usd(spec.costPerInstanceMonthUsd)}/mo`
+  return usage ? `${fee} + ${usage}` : fee
+}

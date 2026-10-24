@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { LEVELS } from "~/levels"
 import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
-import { monthlyCost, simulate } from "../simulate"
+import { simulate } from "../simulate"
 import { SOLUTIONS } from "~/levels/solutions"
 import type { Graph, PlacedComponent } from "../types"
 
@@ -37,7 +37,7 @@ describe.each(LEVELS)("$id", (level) => {
   })
 
   it("quotes the reference's real monthly cost", () => {
-    const cost = monthlyCost(level.reference)
+    const cost = simulate(level.reference, level.load).monthlyCostUsd
     const text = SOLUTIONS[level.id]?.numbers.join(" ") ?? ""
     expect(
       text.includes(`$${cost}`) ||
@@ -169,7 +169,7 @@ describe("the new scenarios' traps", () => {
     expect(failed(l, g)).toEqual(["chaos"])
   })
 
-  it("plug finder: without the CDN it fails, and buying servers breaks the budget", () => {
+  it("plug finder: the same origin without the CDN can't take the road trip", () => {
     const l = level("plug-finder")
     const noCdn = {
       components: l.reference.components.filter((c) => c.id !== "cdn"),
@@ -181,13 +181,6 @@ describe("the new scenarios' traps", () => {
       ],
     }
     expect(failed(l, noCdn)).toContain("chaos")
-    const bigger = {
-      ...noCdn,
-      components: noCdn.components.map((c) =>
-        c.id === "app" ? { ...c, instances: 15 } : c,
-      ),
-    }
-    expect(failed(l, bigger)).toContain("budget")
   })
 })
 
@@ -262,23 +255,176 @@ describe("the interview classics' traps", () => {
     const g = patch(l.reference, "topk", { kind: "search-index", instances: 1 })
     expect(failed(l, g)).toEqual(["latency"])
   })
+
+  it("web crawler: fetchers with no timeout wait out slow sites and fall behind", () => {
+    const l = level("web-crawler")
+    const g = patch(l.reference, "fetch", {
+      practices: {
+        ...l.reference.components.find((c) => c.id === "fetch")?.practices,
+        timeouts: false,
+      },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("web crawler: fetching inside the frontier service fails users", () => {
+    const l = level("web-crawler")
+    const g = rewire(
+      l.reference,
+      ["frontier", "fetch"],
+      ["app>web", "app>pages"],
+    )
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("web crawler: a retried fetch that isn't keyed by URL is fetched twice", () => {
+    const l = level("web-crawler")
+    const g = patch(l.reference, "fetch", {
+      practices: {
+        ...l.reference.components.find((c) => c.id === "fetch")?.practices,
+        idempotency: false,
+      },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: retries without idempotency keys charge people twice", () => {
+    const l = level("pay-button")
+    const pay = l.reference.components.find((c) => c.id === "pay")
+    const g = patch(l.reference, "pay", {
+      practices: { ...pay?.practices, idempotency: false },
+    })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: charging inside the request fails once the provider slows", () => {
+    const l = level("pay-button")
+    const g = rewire(l.reference, ["charges", "pay"], ["app>provider"])
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("pay button: one ledger instance goes down with its zone", () => {
+    const l = level("pay-button")
+    const g = patch(l.reference, "ledger", { instances: 1, zones: 1 })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("fair share: with no limit in the app, the runaway script reaches every server", () => {
+    const l = level("fair-share")
+    const app = l.reference.components.find((c) => c.id === "app")
+    const g = patch(l.reference, "app", {
+      practices: { ...app?.practices, rateLimit: false },
+    })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("fair share: servers that count alone let the script through", () => {
+    const l = level("fair-share")
+    // A cache for map data that the app doesn't keep its counters in.
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter((c) => c.id !== "cache"),
+        { id: "tiles", kind: "cache", x: 7, y: 3, instances: 2, zones: 2 },
+      ],
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => e.from !== "cache" && e.to !== "cache",
+        ),
+        { id: "lb>tiles", from: "lb", to: "tiles" },
+        { id: "tiles>app", from: "tiles", to: "app" },
+        { id: "app>db", from: "app", to: "db" },
+      ],
+    }
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("fair share: a managed gateway limits by key, but breaks the budget", () => {
+    const l = level("fair-share")
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter((c) => c.id !== "lb"),
+        {
+          id: "gw",
+          kind: "api-gateway",
+          x: 3,
+          y: 4,
+          instances: 3,
+          zones: 1,
+          practices: { rateLimit: true, auth: true, alerts: true },
+        },
+      ],
+      edges: [
+        ...l.reference.edges.filter((e) => e.from !== "lb" && e.to !== "lb"),
+        { id: "dns>gw", from: "dns", to: "gw" },
+        { id: "gw>app", from: "gw", to: "app" },
+      ],
+    }
+    expect(failed(l, g)).toContain("budget")
+  })
+
+  it("save game: without a cache, the event key overloads at any capacity", () => {
+    const l = level("save-game")
+    for (const instances of [5, 10]) {
+      const g = patch(rewire(l.reference, ["cache"], ["app>saves"]), "saves", {
+        instances,
+      })
+      expect(failed(l, g)).toContain("traffic")
+    }
+  })
+
+  it("save game: keyed by region or by time of save, one partition takes the load", () => {
+    const l = level("save-game")
+    for (const partitionKey of ["region", "saved"])
+      expect(
+        failed(l, patch(l.reference, "saves", { partitionKey })),
+      ).toContain("traffic")
+  })
+
+  it("save game: refusing saves during a split fails players", () => {
+    const l = level("save-game")
+    const g = patch(l.reference, "saves", { consistency: "strong" })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
+    const l = level("push-alerts")
+    const r = grade(l.reference, l.load, l.targets, l.chaos.faults)
+    expect(r.chaos.backlogGrowthRps).toBeGreaterThan(0)
+    expect(r.stars).toBe(3)
+  })
+
+  it("push alerts: calling the provider inside the request fails users", () => {
+    const l = level("push-alerts")
+    const g = rewire(l.reference, ["sends", "push"], ["app>provider"])
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("push alerts: too little quota or too few workers fall behind at a normal peak", () => {
+    const l = level("push-alerts")
+    expect(
+      failed(l, patch(l.reference, "provider", { instances: 10 })),
+    ).toContain("backlog")
+    expect(failed(l, patch(l.reference, "push", { instances: 1 }))).toContain(
+      "backlog",
+    )
+  })
 })
 
 describe("existing levels keep their numbers", () => {
-  it("half the orders still splits 160/160 between queue consumers", () => {
+  it("half the orders still splits 25/25 between queue consumers", () => {
     const level = LEVELS.find((l) => l.id === "half-the-orders")
     const starter = level?.starter
     if (!level || !starter) throw new Error("missing level")
     const r = simulate(starter, level.load)
-    expect(r.perComponent.search?.writeRps).toBeCloseTo(160)
-    expect(r.perComponent.dw?.writeRps).toBeCloseTo(160)
+    expect(r.perComponent.search?.writeRps).toBeCloseTo(25)
+    expect(r.perComponent.dw?.writeRps).toBeCloseTo(25)
   })
 
   it("upload rush still queues every upload", () => {
     const level = LEVELS.find((l) => l.id === "upload-rush")
     if (!level) throw new Error("missing level")
     const r = simulate(level.reference, level.load)
-    expect(r.perComponent.q?.writeRps).toBeCloseTo(300)
+    expect(r.perComponent.q?.writeRps).toBeCloseTo(100)
   })
 })
 
@@ -312,9 +458,13 @@ describe("the CAP shelf's traps", () => {
     expect(concepts(l, two)).toContain("quorum")
   })
 
-  it("balance sheet: keep-serving lets both sides accept transfers", () => {
+  it("balance sheet: a NoSQL ledger that keeps serving lets both sides accept transfers", () => {
     const l = level("balance-sheet")
-    const ap = patch(l.reference, "db", { consistency: "eventual" })
+    const ap = patch(l.reference, "db", {
+      kind: "nosql",
+      instances: 1,
+      consistency: "eventual",
+    })
     expect(failed(l, ap)).toEqual(["chaos"])
     expect(concepts(l, ap)).toContain("cap-theorem")
   })
@@ -375,31 +525,49 @@ describe("the CAP shelf's traps", () => {
     expect(concepts(l, g)).toContain("scatter-gather")
   })
 
-  it("like storm: keyed by post, the celebrity's shard is overloaded at any shard count", () => {
+  it("like storm: keyed by post, the celebrity's key is overloaded at any capacity", () => {
     const l = level("like-storm")
-    for (const shards of [5, 8]) {
-      const g = patch(l.reference, "db", { shards, partitionKey: "post" })
+    for (const instances of [4, 8]) {
+      const g = patch(l.reference, "db", { instances, partitionKey: "post" })
       expect(failed(l, g)).toContain("traffic")
       expect(concepts(l, g)).toContain("hot-keys")
     }
   })
 
-  it("like storm: refusing likes during a split fails people", () => {
+  it("like storm: without the cache, count reads overwhelm the store", () => {
     const l = level("like-storm")
-    for (const copies of [2, 3]) {
-      const g = patch(l.reference, "db", {
-        consistency: "strong",
-        instances: copies,
-        zones: copies,
-      })
-      expect(failed(l, g)).toContain("chaos")
+    const g: Graph = {
+      components: l.reference.components.filter((c) => c.id !== "cache"),
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => e.to !== "cache" && e.from !== "cache",
+        ),
+        { id: "app>db", from: "app", to: "db" },
+      ],
     }
+    expect(failed(l, g)).toContain("traffic")
   })
 
-  it("claim your name: keep-serving hands one name to two people", () => {
+  it("like storm: keyed by who liked, every count is a scan", () => {
+    const l = level("like-storm")
+    const g = patch(l.reference, "db", { partitionKey: "user" })
+    expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("like storm: refusing likes during a split fails people", () => {
+    const l = level("like-storm")
+    const g = patch(l.reference, "db", { consistency: "strong" })
+    expect(failed(l, g)).toContain("chaos")
+  })
+
+  it("claim your name: a NoSQL store that keeps serving hands one name to two people", () => {
     const l = level("claim-your-name")
-    const ap = patch(l.reference, "db", { consistency: "eventual" })
-    expect(failed(l, ap)).toEqual(["chaos"])
+    const ap = patch(l.reference, "db", {
+      kind: "nosql",
+      instances: 8,
+      consistency: "eventual",
+    })
+    expect(failed(l, ap)).toContain("chaos")
   })
 
   it("claim your name: two copies per shard is cheaper, and refuses everything", () => {
@@ -463,10 +631,8 @@ describe("the production incidents' traps", () => {
     const g = set(l.reference, "pay", { timeouts: false })
     expect(failed(l, g)).toContain("chaos")
     expect(concepts(l, g)).toContain("timeouts-and-retries")
-    // And twenty of them still can't, on this budget.
-    expect(failed(l, size(g, "pay", 20))).toEqual(
-      expect.arrayContaining(["budget", "chaos"]),
-    )
+    // Twenty of them would wait it out, at more than twice the budget.
+    expect(failed(l, size(g, "pay", 20))).toContain("budget")
   })
 
   it("slow partner: immediate retries pile onto the provider", () => {
@@ -504,7 +670,7 @@ describe("the production incidents' traps", () => {
     const g = set(l.reference, "jobs", { dlq: false })
     expect(failed(l, g)).toContain("chaos")
     expect(concepts(l, g)).toContain("dead-letter-queue")
-    expect(failed(l, size(g, "convert", 9))).toContain("budget")
+    expect(failed(l, size(g, "convert", 13))).toContain("budget")
   })
 
   it("login flood: with no rate limit, the attack reaches the servers", () => {
@@ -585,9 +751,7 @@ describe("step counter's traps", () => {
     expect(failed(g)).toEqual(expect.arrayContaining(["backlog"]))
   })
 
-  it("one NoSQL instance runs too hot, and fails the January spike", () => {
-    expect(failed(swap({ instances: 1 }))).toEqual(
-      expect.arrayContaining(["latency", "chaos"]),
-    )
+  it("five NoSQL blocks handle a normal day, but not the January spike", () => {
+    expect(failed(swap({ instances: 5 }))).toEqual(["chaos"])
   })
 })

@@ -194,6 +194,36 @@ export const authPoints = (graph: Graph) =>
     (c) => c.kind === "api-gateway" || REQUEST_TIERS.includes(c.kind),
   )
 
+/**
+ * A rate limit on servers you run yourself only holds if they share their
+ * counters. Each instance otherwise counts only the requests it sees, so a
+ * caller spread across them all gets that many times its limit.
+ */
+export function sharesCounters(graph: Graph, c: PlacedComponent): boolean {
+  if (CATALOGUE[c.kind].managed || c.instances <= 1) return true
+  return graph.edges.some(
+    (e) =>
+      e.from === c.id &&
+      graph.components.find((x) => x.id === e.to)?.kind === "cache",
+  )
+}
+
+/** Where a flood must be limited: per address at the edge, or per API key. */
+export const floodLimitPoints = (graph: Graph, perKey = false) =>
+  perKey ? authPoints(graph) : rateLimitPoints(graph)
+
+/** How much of a flood gets through the rate limits, from 0 to 1. */
+export function floodLeak(graph: Graph, perKey = false): number {
+  const points = floodLimitPoints(graph, perKey)
+  if (points.length === 0) return 1
+  let leak = 0
+  for (const c of points) {
+    if (!c.practices?.rateLimit) return 1
+    if (!sharesCounters(graph, c)) leak = Math.max(leak, 1 - 1 / c.instances)
+  }
+  return leak
+}
+
 /** Does this component have the practice it's expected to have? */
 export function has(c: PlacedComponent, practice: PracticeId): boolean {
   const p = c.practices ?? {}

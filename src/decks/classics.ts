@@ -77,7 +77,7 @@ export const SHORT_LINKS = deck("short-links", [
     "Why put a cache in front of the database?",
     [
       "Clicks outnumber creates fifty to one, and a few links take most of the clicks.",
-      "The cache answers 3,352 of 3,920 clicks a second here, leaving the database 568.",
+      "The cache answers about 16,760 of 19,600 clicks a second here, leaving the database about 2,840.",
       "Links rarely change, so cached copies can live a long time.",
     ],
   ],
@@ -85,9 +85,9 @@ export const SHORT_LINKS = deck("short-links", [
     "decision",
     "Why does the cache need two nodes when the database has room to spare?",
     [
-      "The database is at 28% because the cache is there. Without it, it would face all 3,920 clicks: 196% of capacity.",
+      "The database is at 28% because the cache is there. Without it, it would face all 19,600 clicks: 196% of capacity.",
       "So the cache is no longer optional: losing it takes the site down.",
-      "A second node in another zone costs $25. Replicas big enough to survive without any cache cost $240.",
+      "A second node in another zone costs $150. Replicas big enough to survive without any cache cost $800.",
     ],
   ],
   [
@@ -288,7 +288,7 @@ export const GROUP_CHAT = deck("group-chat", [
     "decision",
     "Why not a relational database for messages?",
     [
-      "2,000 messages a second is four times what one {sql-primary} can write.",
+      "5,000 messages a second is well past the 3,000 or so one {sql-primary} can write.",
       "More instances are standbys: they add availability, not write capacity.",
       "A partitioned store adds write capacity with each partition.",
     ],
@@ -510,7 +510,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     "Why does fan-out happen in workers, not in the request?",
     [
       "A post with thousands of followers means thousands of timeline writes.",
-      "Done inline, the app tier runs at 98% and p99 reaches 3.4 seconds.",
+      "Done inline, the app tier runs at 136% and p99 reaches 1.7 seconds.",
       "Workers do it off the critical path; the author's request returns at once.",
     ],
   ],
@@ -528,7 +528,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     "Why keep timelines in a cache?",
     [
       "Active users open the app many times a day; their timeline should be in memory.",
-      "The cache answers 4,147 of 4,850 loads a second here.",
+      "The cache answers 20,734 of 24,250 loads a second here.",
       "Inactive users' timelines can be rebuilt from storage when they return.",
     ],
   ],
@@ -574,7 +574,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     [
       "Yes, for small apps, or where reads and posts are similar in number.",
       "It's simpler: no fan-out pipeline, no stored timelines.",
-      "Here it overloads the store: 97% busy, p99 528ms, and 30% of requests fail on the spike.",
+      "Here it overloads the store: 162% busy, p99 533ms, and 37% of requests fail before any spike.",
     ],
   ],
   [
@@ -644,7 +644,7 @@ export const HOME_TIMELINE = deck("home-timeline", [
     "resilience",
     "The timeline {cache} is wiped overnight. What happens at the morning peak?",
     [
-      "Every load misses and goes to the {nosql} store, which here runs at 97% without the cache: a stampede.",
+      "Every load misses and goes to the {nosql} store, which here runs at 162% without the cache: a stampede.",
       "Warm the cache for the most active users before traffic arrives.",
       "Let one request rebuild a timeline while others wait for it, rather than all rebuilding it at once.",
     ],
@@ -729,8 +729,8 @@ export const TICKET_DROP = deck("ticket-drop", [
     "decision",
     "Why a waiting room in front of the database?",
     [
-      "The on-sale minute brings 1,200 holds a second; the {sql-primary} takes 500.",
-      "Sent straight there, 58% fail, and failing fans retry, making it worse.",
+      "The on-sale minute brings 6,000 holds a second; the {sql-primary} takes 3,000.",
+      "Sent straight there, half fail, and failing fans retry, making it worse.",
       "In a line, everyone is served in turn at the rate the database can take.",
     ],
   ],
@@ -738,7 +738,7 @@ export const TICKET_DROP = deck("ticket-drop", [
     "decision",
     "How fast should the waiting room admit people?",
     [
-      "At the rate the system of record can take: here 500 a second, from ten workers at 50 each.",
+      "At the rate the system of record can take: here 3,000 a second, from six workers at 500 each.",
       "Admitting faster just moves the failure downstream.",
       "Measure it and adjust it on the day, rather than guessing.",
     ],
@@ -959,9 +959,9 @@ export const VIDEO_NIGHT = deck("video-night", [
     "decision",
     "Why is the CDN essential here?",
     [
-      "19,900 segment requests a second, and most are for popular videos.",
-      "The edge serves 17,960 of them; only 1,940 reach the origin.",
-      "Without it, even twenty app servers are swamped and the object store hits 398%.",
+      "20,000 segment requests a second, and most are for popular videos.",
+      "The edge serves 18,050 of them; only 1,950 reach the origin.",
+      "Without it, even twenty app servers are swamped and the object store hits 364%.",
     ],
   ],
   [
@@ -1024,7 +1024,7 @@ export const VIDEO_NIGHT = deck("video-night", [
     [
       "The {cdn} absorbs most of it if the segments are already at the edge.",
       "Warm the edge by pre-fetching the first segments before the premiere starts.",
-      "The origin and app tier see the misses: here they reach 85%.",
+      "The origin and app tier see the misses: here they reach about 70%.",
     ],
   ],
   [
@@ -1152,9 +1152,9 @@ export const RIDE_HAILING = deck("ride-hailing", [
     "decision",
     "Why not write every ping to a database?",
     [
-      "4,250 pings a second is more than eight times what one {sql-primary} can write.",
+      "21,250 pings a second is about seven times what one {sql-primary} can write.",
       "A durable write pays for safety a ping doesn't need: it's replaced in four seconds.",
-      "Memory is built for this: the {cache} takes every ping at 4% busy.",
+      "Memory is built for this: the {cache} takes every ping at 11% busy.",
     ],
   ],
   [
@@ -1242,7 +1242,7 @@ export const RIDE_HAILING = deck("ride-hailing", [
     "scale",
     "Rush hour in one city doubles its pings. What strains?",
     [
-      "The app tier, which here runs at 63% normally.",
+      "The app tier, which here runs at 56% normally.",
       "That city's cells, if they're partitioned by area: a hot spot.",
       "The cache barely notices; memory is rarely the bottleneck here.",
     ],
@@ -1252,7 +1252,7 @@ export const RIDE_HAILING = deck("ride-hailing", [
     "A zone goes dark at rush hour.",
     [
       "Drivers connected through it reconnect to servers in other zones and ping again.",
-      "The servers left must carry the load: here thirteen of twenty, at 96%.",
+      "The servers left must carry the load: here thirty of forty-five, at 83%.",
       "Trips in progress continue, because trip state is durable.",
     ],
   ],
@@ -1363,7 +1363,7 @@ export const TYPEAHEAD = deck("typeahead", [
     "decision",
     "Why precompute suggestions rather than search on every keystroke?",
     [
-      "A search per keystroke adds about 70ms here; p99 reaches 238ms against a 200ms target.",
+      "A search per keystroke adds about 75ms here; p99 reaches 232ms against a 200ms target.",
       "The top ten for a prefix barely changes from minute to minute.",
       "So work it out once, in the background, and look it up in memory.",
     ],
@@ -1382,8 +1382,8 @@ export const TYPEAHEAD = deck("typeahead", [
     "Why can the CDN cache suggestions?",
     [
       "They aren't personalised here, so everyone typing 'pizz' gets the same answer.",
-      "Popular prefixes are asked thousands of times a minute.",
-      "The edge serves 7,220 of 7,600 keystrokes a second.",
+      "Popular prefixes are asked thousands of times a minute, and the edge answers them close to the user, which matters on a 200ms budget.",
+      "The edge serves 9,025 of 9,500 keystrokes a second. It's billed per request, so it's the biggest line on the bill.",
     ],
   ],
   [
@@ -1410,7 +1410,7 @@ export const TYPEAHEAD = deck("typeahead", [
     [
       "Longer: more hits and less load.",
       "Shorter: trending topics appear faster, and removed suggestions disappear sooner.",
-      "Minutes is a common compromise, with explicit purges for removals.",
+      "Minutes is a common compromise, with explicit purges for removals. Browsers can't be purged, so keep their lifetime shorter.",
     ],
   ],
   [
@@ -1454,7 +1454,7 @@ export const TYPEAHEAD = deck("typeahead", [
     "Breaking news doubles traffic, and everyone types the same thing.",
     [
       "Good news: identical prefixes are exactly what the edge caches best.",
-      "The app tier sees the misses: here 65% busy at double traffic.",
+      "The app tier sees the misses: here 49% busy at double traffic.",
       "But the news itself isn't in yesterday's suggestions: that's the freshness problem.",
     ],
   ],
@@ -1519,6 +1519,1016 @@ export const TYPEAHEAD = deck("typeahead", [
       "Common prefixes keep coming from the {cdn}.",
       "Reload the node from the last build; nothing is lost, because suggestions are rebuilt from the search log.",
       "Until then, return no suggestions for its prefixes: search itself still works.",
+    ],
+  ],
+])
+
+export const PUSH_ALERTS = deck("push-alerts", [
+  [
+    "clarify",
+    "What would you ask about the notifications themselves?",
+    [
+      "Which channels: push only, or email and text messages too? Each has its own provider and limits.",
+      "Which are urgent (a sign-in code, a driver arriving) and which can wait (a weekly digest)?",
+      "Can users choose what they get, and when, with quiet hours?",
+    ],
+    "How does 'urgent or bulk' change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about volume?",
+    [
+      "How many a day, and how spiky? Sports alerts arrive in bursts, when something happens.",
+      "How many devices per user? A phone and a tablet are two sends.",
+      "What's the provider's quota, and can it be raised? One major push service's default is 600,000 messages a minute per project.",
+    ],
+  ],
+  [
+    "clarify",
+    "What does 'delivered' mean here?",
+    [
+      "Accepted by the provider, shown on the phone, or opened? You only control the first.",
+      "Must every notification arrive, or is dropping a stale one fine?",
+      "Should a notification an hour late still be sent? A goal alert from an hour ago is noise.",
+    ],
+  ],
+  [
+    "product",
+    "Why does the app keep an inbox as well as sending pushes?",
+    [
+      "Pushes are best-effort: phones are off, notifications get swiped away or collapsed.",
+      "An inbox kept on the server means nothing is truly missed.",
+      "It's also where unread counts come from.",
+    ],
+  ],
+  [
+    "product",
+    "How do you stop users turning notifications off?",
+    [
+      "Send fewer, better ones, and respect preferences and quiet hours.",
+      "Cap how many one user gets in an hour, and bundle several into one: '3 goals in your matches'.",
+      "Track the opt-out rate per kind of notification, and treat a rise as a bug.",
+    ],
+  ],
+  [
+    "decision",
+    "Why put a queue between the app and the provider?",
+    [
+      "The provider is slow (hundreds of milliseconds) and refuses anything over quota. Neither should reach the user's request.",
+      "The queue absorbs a burst, and workers send at the rate the provider accepts.",
+      "If the provider is down for a while, notifications wait instead of failing.",
+    ],
+  ],
+  [
+    "decision",
+    "How many workers, and why that number?",
+    [
+      "A call is mostly waiting, so one worker keeps about 100 in flight: roughly 667 sends a second.",
+      "Size the pool to the provider's quota, not to the incoming rate. Here three workers send exactly 2,000 a second.",
+      "Workers beyond the quota only collect more 'too many requests' refusals.",
+    ],
+  ],
+  [
+    "decision",
+    "What's stored before the push goes out?",
+    [
+      "The notification, who it's for and its status, so the inbox can show it and a lost one can be found.",
+      "Each user's preferences and device tokens, to decide whether and where to send.",
+      "Writing it before enqueueing means a crash in between can't lose the record.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "A queue or an event stream for outgoing notifications?",
+    [
+      "A queue gives per-message retries and a dead-letter queue: right for 'send this, once'.",
+      "A stream keeps history and lets several consumers read it, such as analytics and email digests.",
+      "A common shape: services publish events to a stream, and the notification service turns them into sends on a queue.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Urgent and bulk notifications in the same queue?",
+    [
+      "A million goal alerts would sit in front of someone's sign-in code.",
+      "Separate queues or priorities, with workers and quota kept back for the urgent ones.",
+      "Bulk sends can be spread out on purpose. Urgent ones can't wait.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the provider's topics replace your own fan-out?",
+    [
+      "Some push services let a device subscribe to a topic, and one call reaches every subscriber.",
+      "That's far fewer calls for 'everyone following this match'.",
+      "You lose per-user control: preferences, quiet hours and language then have to be handled on the device, or with finer topics.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you keep a connection open to every phone instead of using a provider?",
+    [
+      "Phones close background connections to save battery. The operating system's push service is the only reliable way to wake an app.",
+      "While the app is open, a live connection (WebSockets) is fine for instant updates.",
+      "Most apps do both: live updates in the app, pushes when it's closed.",
+    ],
+  ],
+  [
+    "scale",
+    "A goal doubles traffic. What happens, minute by minute?",
+    [
+      "2,400 notifications a second arrive. 2,000 go out, and the line grows by 400 a second.",
+      "When the burst passes, the 40% spare capacity drains the line.",
+      "Each notification is late by however long it waited, and none is lost.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the users. What changes first?",
+    [
+      "The provider quota: ask for more early, since increases are usually granted on usage you've already shown.",
+      "Topic sends for broadcasts, so a goal is one call per match rather than one per fan.",
+      "Partition the notification log by user once one primary can't take the writes.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A worker sends a push, then crashes before marking it sent.",
+    [
+      "The queue hands it to another worker, which sends it again: at-least-once delivery.",
+      "Check a notification ID before sending, and give the push a collapse key so the phone shows one.",
+      "Exactly once isn't possible through a provider you don't control. Aim for duplicates that are rare and harmless.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The provider says a device token is no longer valid.",
+    [
+      "The app was uninstalled, or the token was replaced.",
+      "Delete it, so you stop spending quota on a dead device.",
+      "Dead tokens pile up over time. Cleaning them out is part of staying within quota.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A notification has waited ten minutes in the queue. Should it still go out?",
+    [
+      "Give each one an expiry. A goal alert ten minutes late is noise; a delivery update may still matter.",
+      "Workers drop expired ones and record that in the log.",
+      "Providers take an expiry too, for phones that are offline.",
+    ],
+  ],
+  [
+    "resilience",
+    "The provider refuses calls with 'too many requests'. What do the workers do?",
+    [
+      "Back off, with jitter, and retry. Hammering it makes the refusals last longer.",
+      "Leave the message on the queue: it isn't lost.",
+      "Treat refusals as a signal to slow the whole pool, not just one worker.",
+    ],
+  ],
+  [
+    "resilience",
+    "The provider is down for twenty minutes.",
+    [
+      "Notifications wait in the queue. Check it keeps messages that long.",
+      "Expire the ones that won't matter by the time it's back.",
+      "When it recovers, drain at the quota rate, not all at once, or you'll be refused again.",
+    ],
+  ],
+  [
+    "security",
+    "What needs protecting in a notification service?",
+    [
+      "Device tokens and phone numbers are personal data: encrypt them at rest and limit who can read them.",
+      "Only your own services may ask for a send. Authenticate them, so nobody can spam your users through you.",
+      "Keep sensitive content (a balance, a test result) off the lock screen: say 'you have a new message' and show the detail in the app.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "The age of the oldest message in the queue: how late notifications are running.",
+      "Provider refusals and errors per minute, against the quota.",
+      "Sent, delivered and opened counts per kind of notification, and opt-outs.",
+    ],
+  ],
+  [
+    "observability",
+    "A user says they never got an alert. How do you find out why?",
+    [
+      "Look the notification up by user and time: created, skipped by a preference, queued, sent or refused?",
+      "A status on every notification makes this a lookup, not an investigation.",
+      "Check when that device token last worked. Often it's dead.",
+    ],
+  ],
+])
+
+export const WEB_CRAWLER = deck("web-crawler", [
+  [
+    "clarify",
+    "What would you ask about the crawl?",
+    [
+      "What's it for: a search index, an archive, price monitoring? That decides what to fetch and how fresh it must be.",
+      "How many pages, and how often must each be revisited? News pages change hourly; most pages hardly ever.",
+      "Which content: pages only, or images and documents too?",
+    ],
+    "How does 'how fresh' change the frontier?",
+  ],
+  [
+    "clarify",
+    "What would you ask about politeness?",
+    [
+      "How fast may you fetch from one site? A common rule is one request at a time per site, with a pause between.",
+      "Do you obey each site's robots rules? Yes: they say what you may crawl, and sometimes how slowly.",
+      "Who do site owners contact if the crawler causes trouble? Name it, with a contact address, in every request.",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about duplicates?",
+    [
+      "How many links point at pages you already have? On the real web, most of them.",
+      "Do the same pages turn up under many URLs: tracking parameters, session IDs, with and without 'www'?",
+      "Do copied or mirrored pages count as duplicates?",
+    ],
+  ],
+  [
+    "product",
+    "What makes a crawl good, from the product's point of view?",
+    [
+      "Covering the pages people actually search for, not the raw page count.",
+      "Freshness where it matters: the news front page, not a forum post from 2009.",
+      "Not getting the company blocked by site owners.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a queue between finding links and fetching them?",
+    [
+      "Finding links is fast; fetching is slow and limited by politeness. The queue lets each run at its own pace.",
+      "Fetchers take work when they're free, so a slow site holds up one fetch, not the frontier.",
+      "The queue outlives fetcher restarts, so no discovered URL is lost.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you know a URL has been seen before?",
+    [
+      "Normalise it first (lowercase the host, drop fragments and tracking parameters), then look up its hash.",
+      "The seen set grows by 1,500 keys a second here, about 130 million a day: a partitioned key-value store keyed by that hash fits it.",
+      "A Bloom filter in memory can answer 'definitely not seen' before the lookup, which saves most of the reads.",
+    ],
+  ],
+  [
+    "decision",
+    "Why do fetchers need a timeout?",
+    [
+      "A fetch is mostly waiting. A site taking ten seconds holds a fetcher's slot ten times longer than normal.",
+      "With a half-second cap, slow pages are abandoned and retried later, and the rest of the crawl carries on.",
+      "Without it, the fetchers here fall 1,269 pages a second behind.",
+    ],
+  ],
+  [
+    "decision",
+    "Where do fetched pages go?",
+    [
+      "The {object-store}: cheap, durable and effectively unlimited.",
+      "Not a database: pages are large blobs nobody queries by column.",
+      "Keep a small record per URL (when it was fetched, its status, a hash of its content) next to the seen set.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "One object per page, or many pages per file?",
+    [
+      "One object per page is simple, but writes are billed per request: about $5,900 a month here, the biggest line on the bill.",
+      "Appending pages into large archive files cuts the request count a thousandfold or more.",
+      "The cost: reading one page means finding where it sits in a file, so you keep an index of offsets.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Crawl breadth-first, or by priority?",
+    [
+      "Breadth-first is simple, but spends fetches on low-value pages.",
+      "Prioritise by importance (how many pages link to it) and by how often it changes.",
+      "Keep several queues by priority, and have fetchers draw from them in proportion.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the frontier service just fetch pages itself?",
+    [
+      "Then every link waits on a site: here p99 passes 13 seconds and most requests fail.",
+      "Slow sites would tie up the service, and politeness would be impossible to enforce.",
+      "Keep finding links and fetching pages apart.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you skip re-downloading pages that haven't changed?",
+    [
+      "Ask with a conditional request ('only if changed since this date'): an unchanged page answers 'not modified', with no body.",
+      "Track how often each page changes, and revisit it about that often.",
+      "Sitemaps list pages with their last change, so you needn't fetch a page to find out.",
+    ],
+  ],
+  [
+    "scale",
+    "How do 30 fetchers stay polite to every site?",
+    [
+      "Group the frontier by site, so all of one site's URLs pass through one place.",
+      "That place hands out one URL at a time per site, with a pause between.",
+      "Many sites at once give the throughput; each site sees a gentle trickle.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the pages. What changes first?",
+    [
+      "Politeness: you can't fetch one site faster, so you need far more sites in flight, not faster fetchers.",
+      "The seen set: tens of billions of keys, so more partitions, and Bloom filters to save lookups.",
+      "Storage cost: archive files instead of one object per page.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A site generates pages forever, like a calendar with an endless 'next month' link.",
+    [
+      "A crawler trap: the crawler follows it for ever and the frontier fills with junk.",
+      "Limit depth and pages per site, and ignore URL patterns that never end.",
+      "Watch for sites whose URL count keeps growing while their content doesn't.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The same article appears under many URLs. How do you store it once?",
+    [
+      "Normalise URLs, and follow the page's own 'canonical' link when it gives one.",
+      "Hash the content: matching hashes mean a duplicate, whatever the URL.",
+      "Near-duplicates (the same article with different adverts) need fuzzier fingerprints.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A fetch is retried after a timeout, and both attempts finish.",
+    [
+      "The page is stored twice, and the site was asked twice.",
+      "Key storage by URL, so the second copy overwrites the first and the retry is harmless.",
+      "Without that, about 180 pages a second are fetched twice here during the slowdown.",
+    ],
+  ],
+  [
+    "resilience",
+    "A fetcher crashes mid-crawl.",
+    [
+      "Its URLs return to the queue when their time runs out, and another fetcher takes them.",
+      "Fetches are idempotent by URL, so a repeat does no harm.",
+      "Nothing that was discovered is lost.",
+    ],
+  ],
+  [
+    "resilience",
+    "Some big sites slow to ten seconds a page.",
+    [
+      "Timeouts cut each attempt at half a second, and the page goes back for later, with backoff.",
+      "Back off that site in particular: a slow site may be struggling, and politeness means asking less.",
+      "Here the fetchers rise from 50% to 80% busy and keep up.",
+    ],
+  ],
+  [
+    "security",
+    "What risks does a crawler bring?",
+    [
+      "It downloads untrusted content: never run it, parse it in a sandbox, and cap sizes.",
+      "Links and redirects can point inside your own network. Block private addresses, or the crawler becomes a way in.",
+      "Ignore robots rules or politeness and site owners will block your whole address range.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Pages fetched per second, and the frontier's backlog and oldest URL.",
+      "Errors and timeouts per site, to spot sites that are struggling or blocking you.",
+      "How many fetches were duplicates, and how many came back 'not modified'.",
+    ],
+  ],
+  [
+    "observability",
+    "A site owner complains about the crawler. How do you check?",
+    [
+      "Requests to their site per minute, against your politeness rules.",
+      "Which URLs you fetched, and whether their robots rules allowed it.",
+      "A contact address in every request means complaints come to you first, not to your hosting provider.",
+    ],
+  ],
+])
+
+export const PAY_BUTTON = deck("pay-button", [
+  [
+    "clarify",
+    "What would you ask about the payments?",
+    [
+      "Which methods: cards, bank transfers, wallets? Each has its own provider and timing.",
+      "One-off payments, subscriptions, or payouts to sellers as well?",
+      "Which currencies and countries? Rules and providers differ.",
+    ],
+    "How do payouts to sellers change the ledger?",
+  ],
+  [
+    "clarify",
+    "What does 'done' mean for a payment?",
+    [
+      "Authorised (the bank has agreed), captured (the money is taken) or settled (it has actually moved)? They can be days apart.",
+      "Can a payment be partly refunded, or disputed weeks later?",
+      "What must the shopper see at each step?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about failures?",
+    [
+      "What's worse for the business: a lost payment, a double charge or a wrongly declined one?",
+      "How long may a payment stay 'processing' before you tell the shopper?",
+      "Who carries the loss if money goes missing in flight?",
+    ],
+  ],
+  [
+    "product",
+    "Why show 'processing' rather than 'paid' straight away?",
+    [
+      "Saying 'paid' before the provider confirms risks telling people money moved when it didn't.",
+      "Most charges confirm in under a second, so the wait is usually invisible.",
+      "On a bad day, 'processing, we'll email you' is honest. A spinning button that times out makes people pay again.",
+    ],
+  ],
+  [
+    "decision",
+    "Why record the payment before charging it?",
+    [
+      "If the charge goes through and you crash before writing it down, you've taken money you can't account for.",
+      "Write 'pending', charge, then mark the result: every state is on record.",
+      "A sweeper finds payments stuck in pending and asks the provider what happened.",
+    ],
+  ],
+  [
+    "decision",
+    "Why charge in the background rather than in the request?",
+    [
+      "The provider can slow to seconds. In the request, that wait, and every failure, lands on the shopper.",
+      "Here, charging inline fails every payment once the provider slows.",
+      "Behind a queue, a slow provider means slower confirmations, not errors.",
+    ],
+  ],
+  [
+    "decision",
+    "What's double-entry bookkeeping, and why use it?",
+    [
+      "Every movement is written as entries that sum to zero: the shopper's account down, the seller's up.",
+      "Balances are derived from the entries, so they can always be checked by adding up.",
+      "Money can't appear or vanish without a matching entry, which makes mistakes visible.",
+    ],
+  ],
+  [
+    "decision",
+    "How do idempotency keys stop double charges?",
+    [
+      "The client makes one key per payment and sends it with every attempt.",
+      "Your service and the provider store the key with the result, and a repeat gets the stored result instead of a new charge.",
+      "Without them, retries here charge about 72 payments a second twice.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Authorise while the shopper waits, or do everything in the background?",
+    [
+      "Authorising inline gives an instant yes or no, which helps checkout.",
+      "But the request is then only as fast as the provider: give it a short timeout, and fall back to 'processing'.",
+      "Taking the money, refunds and payouts belong in the background either way.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Why a {sql-primary} for the ledger rather than {nosql}?",
+    [
+      "Double entry writes both sides of a movement together, which a relational transaction does well.",
+      "Consistency matters more than write scale: 600 payments a second is well within one primary.",
+      "Partition by merchant later, if writes outgrow it.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you skip the queue and let the provider call you back?",
+    [
+      "Providers do send webhooks when a payment changes, and you should handle them.",
+      "But you still need to make the charge request reliably, and webhooks can arrive late, twice or out of order.",
+      "Treat webhooks as events to check against, not as your only record.",
+    ],
+  ],
+  [
+    "alternative",
+    "How is reconciliation done?",
+    [
+      "Every day, match each ledger entry against the provider's settlement report, by payment ID and amount.",
+      "Anything unmatched (charged but not recorded, or recorded but not charged) is investigated.",
+      "It catches bugs no single request would reveal.",
+    ],
+  ],
+  [
+    "scale",
+    "Payments grow tenfold. What changes?",
+    [
+      "The provider quota first: negotiate more, or spread payments across providers.",
+      "Partition the ledger by merchant, so writes spread over several primaries.",
+      "Keep each payment's entries on one partition, so a payment is still one transaction.",
+    ],
+  ],
+  [
+    "scale",
+    "Why twelve workers when two would cover a normal day?",
+    [
+      "On a bad afternoon each call is held longer, retries add a fifth, and a lost zone takes a third of the workers.",
+      "Here the eight that survive run at 67%.",
+      "Size for the worst day you've promised to survive, not the average one.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The provider times out. Did the charge happen?",
+    [
+      "You can't tell: it may have succeeded just after you gave up.",
+      "Retry with the same idempotency key, and the provider returns the original result if it did.",
+      "If retries run out, keep the payment pending and ask the provider later. Never assume it failed.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A webhook says a payment succeeded, but your ledger says it failed.",
+    [
+      "Trust neither blindly: ask the provider's API for the payment's current state.",
+      "Webhooks can arrive out of order, so check a timestamp or version before applying one.",
+      "Write a correcting entry, with the reason, rather than editing history.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A shopper double-clicks Pay.",
+    [
+      "Both requests carry the same idempotency key, made when the checkout page loaded.",
+      "The second finds the first one's record and returns its result.",
+      "Disable the button too, but never rely on the button alone.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone loses power in the middle of the afternoon.",
+    [
+      "The ledger's standby in another zone is promoted, after a short pause in writes.",
+      "Payments already on the queue wait; nothing is lost.",
+      "The surviving workers carry on: here eight of twelve, at 67%.",
+    ],
+  ],
+  [
+    "resilience",
+    "The provider is down for an hour.",
+    [
+      "Payments wait as pending, and shoppers are told they're processing.",
+      "Workers back off, so the provider isn't flooded when it returns.",
+      "Some businesses switch to a second provider, which needs its own idempotency and reconciliation.",
+    ],
+  ],
+  [
+    "security",
+    "What has to be protected?",
+    [
+      "Never store card numbers yourself. The provider gives you a token that stands in for the card, which keeps most of your system out of card-data rules.",
+      "Encrypt the ledger at rest, and log every access to it.",
+      "Rate-limit payment attempts per account and per card, to stop people testing stolen cards.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Payments stuck in pending, by how long they've waited.",
+      "Provider errors and latency, and the share of payments declined.",
+      "Unmatched entries from reconciliation. The number should be zero.",
+    ],
+  ],
+  [
+    "observability",
+    "Finance says yesterday's totals are $2,000 out. How do you find it?",
+    [
+      "Reconciliation lists the payments that don't match, by ID.",
+      "Look up each one's history in the ledger and in the provider's records.",
+      "Fix it with correcting entries, and add a check so the same bug is caught on the day.",
+    ],
+  ],
+])
+
+export const FAIR_SHARE = deck("fair-share", [
+  [
+    "clarify",
+    "What would you ask about the limits?",
+    [
+      "Limited by what: API key, user, address, or endpoint? An address search costs far more than a map tile.",
+      "What limit, over what window: 100 a second, or 5,000 an hour?",
+      "Do paying tiers get more?",
+    ],
+    "How would you limit an expensive endpoint differently?",
+  ],
+  [
+    "clarify",
+    "What should a caller see when they hit the limit?",
+    [
+      "A clear '429 Too Many Requests', saying how long to wait before trying again.",
+      "Headers on every response saying how much is left, so clients slow down before they're refused.",
+      "Never a timeout or a 500: an error that looks like an outage makes clients retry harder.",
+    ],
+  ],
+  [
+    "clarify",
+    "How exact must the limit be?",
+    [
+      "Is letting a caller through at 105 instead of 100 a problem? Usually not.",
+      "Is it protecting the system, where approximate is fine, or billing, which must be exact and is better counted afterwards?",
+      "That decides whether every request must touch a shared counter.",
+    ],
+  ],
+  [
+    "product",
+    "Why does a paid API limit its customers at all?",
+    [
+      "To protect everyone else from one customer's bug or spike.",
+      "To make capacity planning possible: limits bound the worst case.",
+      "Limits are part of the product: higher tiers are something you can sell.",
+    ],
+  ],
+  [
+    "decision",
+    "Where should the limit be enforced?",
+    [
+      "Where the API key is known: here, in the {app-server}, before any real work.",
+      "A limit by address at the {load-balancer} still helps against simple floods, but this script uses hundreds of machines.",
+      "Refuse as early as you can: a refused request should cost almost nothing.",
+    ],
+  ],
+  [
+    "decision",
+    "Why must the counters be shared?",
+    [
+      "Each server sees only its share of a caller's requests: here, a 36th.",
+      "Counting in each server's memory lets a caller spread across them all through 36 times over.",
+      "A shared in-memory store, such as a {cache}, gives every server the same count.",
+    ],
+  ],
+  [
+    "decision",
+    "How does a token bucket work?",
+    [
+      "Each key has a bucket that refills at its rate (100 tokens a second) up to a size (say 200).",
+      "A request takes a token. With none left, it's refused.",
+      "Short bursts up to the bucket's size get through, while the average is held to the rate.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Fixed window, sliding window or token bucket?",
+    [
+      "Fixed window: count per clock second or minute. Cheapest, but a caller can send double across a boundary.",
+      "Sliding window: weight the previous window's count by how much of it overlaps. Smoother, for a little more work.",
+      "Token bucket: smooth as well, and kind to bursts. The usual choice for APIs.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "The counter store goes down. Let requests through, or refuse them?",
+    [
+      "Let them through (fail open) for a paid API: the limiter failing shouldn't take the product down with it.",
+      "Refuse (fail closed) where abuse is the bigger risk, such as sign-ins.",
+      "Either way, alert: running with no limit should be brief.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a managed {api-gateway} do this for you?",
+    [
+      "Yes: per-key limits and usage tiers, with nothing to run.",
+      "But it's billed per call: about $15,800 a month at this traffic, four times this budget.",
+      "Good at low volume, or when you'd rather pay than build.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could each server count locally and sync now and then?",
+    [
+      "Yes: count in memory, and push totals to the shared store every second.",
+      "Far fewer calls to the store, at the price of overshooting the limit briefly.",
+      "Fine when the limit protects capacity; not when it's billing.",
+    ],
+  ],
+  [
+    "scale",
+    "Every request now updates a counter. Can the cache take it?",
+    [
+      "Here that's 20,000 updates a second, a tenth of what two nodes can do.",
+      "One key's counter lives on one node, so a single huge customer is a hot key. Split its counter across several keys if needed.",
+      "Counters expire with their window, so the memory they need stays small.",
+    ],
+  ],
+  [
+    "scale",
+    "The API runs in three regions. Is the limit global?",
+    [
+      "Sharing counters across regions puts a long round trip on every request.",
+      "The usual answer: split the limit between regions, or sync counts every few seconds and accept a little overshoot.",
+      "Choose by how exact the limit needs to be.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A customer's traffic is genuinely spiky: quiet for a minute, then 500 requests at once.",
+    [
+      "A token bucket with room for bursts lets that through while holding the average.",
+      "A fixed per-second limit would refuse most of the burst.",
+      "Ask whether it's their rate or their burst size that needs raising.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two servers check the same counter at the same moment.",
+    [
+      "Read-then-write lets both through on the last token.",
+      "Use the store's atomic increment, or a small script that checks and takes in one step.",
+      "Then the count is right whichever server gets there first.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A refused client retries straight away, in a loop.",
+    [
+      "Tell it when to come back, and expect it not to listen.",
+      "Refusing must stay cheap: no database work for a refused call.",
+      "Repeat offenders can be blocked for longer, or at the edge.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {cache} holding the counters loses a node.",
+    [
+      "Counts on that node are gone, so some callers get a fresh allowance: harmless for a limit.",
+      "Requests still flow if the limiter fails open.",
+      "Two nodes in two zones keep it from being a single point of failure.",
+    ],
+  ],
+  [
+    "resilience",
+    "The runaway script hits. What happens, step by step?",
+    [
+      "60,000 extra requests a second arrive, spread over every server.",
+      "Each server checks the shared counter, sees the key is over its limit, and answers 429 at once.",
+      "The servers stay at 56%, and every other customer carries on unaffected.",
+    ],
+  ],
+  [
+    "security",
+    "Can a per-key limit be dodged?",
+    [
+      "By making many keys: limit sign-ups too, and tie keys to verified accounts.",
+      "By stealing someone's key: let customers rotate keys, and watch for one key used from everywhere at once.",
+      "Anonymous calls should get a much lower limit, by address.",
+    ],
+  ],
+  [
+    "security",
+    "What should never count against a customer's limit?",
+    [
+      "Your own health checks and internal traffic.",
+      "Requests you reject as malformed or unauthenticated, if they're cheap to reject.",
+      "Be explicit about it: customers will compare your counts with theirs.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Refused requests per key: a sudden jump is a runaway client or an attack.",
+      "The counter store's latency, since it's on every request.",
+      "The busiest keys, to spot hot keys and customers who need a higher tier.",
+    ],
+  ],
+  [
+    "observability",
+    "A customer says they're refused below their limit. How do you check?",
+    [
+      "Look at their counter's history, and which servers answered them.",
+      "Check the window: a per-second limit can refuse a burst that the per-minute average hides.",
+      "Point them at the remaining-quota headers you send, so they can see it too.",
+    ],
+  ],
+])
+
+export const SAVE_GAME = deck("save-game", [
+  [
+    "clarify",
+    "What would you ask about the data?",
+    [
+      "What's the key and what's the value: one blob per player, or many small items?",
+      "How big is a save, and how fast does it grow?",
+      "Is it ever looked up other than by player? A leaderboard belongs in a different store.",
+    ],
+    "How would a leaderboard change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about consistency?",
+    [
+      "If a player loads straight after saving, must they see that save? On the same device, usually yes.",
+      "Can two devices save the same player at once? That's where conflicts come from.",
+      "Is losing a few seconds of progress ever acceptable?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about traffic?",
+    [
+      "Reads to writes: here, nine loads for every save.",
+      "Is anything read by everyone? One shared key behaves very differently from millions of private ones.",
+      "How spiky is it? A new event at 6pm brings everyone at once.",
+    ],
+  ],
+  [
+    "product",
+    "What does a player notice when this goes wrong?",
+    [
+      "A failed save is the worst: lost progress makes people quit.",
+      "An old save for a few seconds is mildly annoying, and usually goes unnoticed.",
+      "Slow loading at launch is what reviews complain about.",
+    ],
+  ],
+  [
+    "decision",
+    "Why partition by player ID?",
+    [
+      "Every load and save names the player, so each request goes to one partition.",
+      "Millions of players spread evenly, so no partition is much busier than another.",
+      "By region, the biggest region's partition overloads; by time, every new save lands on the newest one.",
+    ],
+  ],
+  [
+    "decision",
+    "Why does today's event key need a cache?",
+    [
+      "Every player reads it: 15% of all reads, 4,050 a second, on one key.",
+      "One key lives on one partition, which tops out around 3,000 reads a second however many blocks you buy.",
+      "Cached, it's answered from memory, and the store hardly sees it.",
+    ],
+  ],
+  [
+    "decision",
+    "Why keep accepting saves during a split?",
+    [
+      "A refused save loses progress, which players notice far more than a briefly stale load.",
+      "Saves belong to one player, so conflicts are rare: only the same player saving on both sides at once.",
+      "When it heals, keep the save with the higher version, or merge by the game's rules.",
+    ],
+  ],
+  [
+    "decision",
+    "What do N, R and W mean in a quorum store?",
+    [
+      "Each key has N copies. A write waits for W of them to confirm; a read asks R of them.",
+      "If R + W > N, every read overlaps the latest write: with N = 3, that's R = 2 and W = 2.",
+      "Lower R or W for speed and availability; raise them for consistency.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "With three copies: R = 1 and W = 1, or R = 2 and W = 2?",
+    [
+      "R = 1, W = 1: fastest, and works with one copy reachable, but a read may miss the latest write.",
+      "R = 2, W = 2: reads see the latest write, but two copies must be reachable.",
+      "Many stores let you choose per request: strong for 'load my save', weak for 'show a friend's level'.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Provisioned capacity, or pay per request?",
+    [
+      "Provisioned blocks are cheaper per request under steady load, but cost the same at 3am.",
+      "Paying per request follows the traffic, at a higher price per request.",
+      "Spiky games often provision for the base and let the peaks go on demand.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could today's event avoid the store entirely?",
+    [
+      "Ship it with the app update, or serve it from a {cdn}: it's the same for everyone.",
+      "Then no player's read touches the store for it.",
+      "The price is how quickly a change reaches players.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you split the hot key instead of caching it?",
+    [
+      "Store copies under ten keys (event#1 to event#10) and read one at random.",
+      "Reads spread over ten partitions, each well under the limit.",
+      "Every write must update all ten, which is fine for something that changes once a day.",
+    ],
+  ],
+  [
+    "scale",
+    "Players grow tenfold. What changes?",
+    [
+      "More blocks: data keyed by player spreads evenly, so capacity grows with them.",
+      "The hot key doesn't grow with blocks. The cache, or copies of the key, must carry it.",
+      "Saves grow too: cap their size, or split big ones into parts.",
+    ],
+  ],
+  [
+    "scale",
+    "How does the store add capacity without moving everything?",
+    [
+      "Keys are placed by consistent hashing, so a new node takes a slice from its neighbours.",
+      "That slice is copied across in the background, then requests switch over.",
+      "Managed stores split busy partitions for you, but a single key never splits.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A copy is unreachable when a write arrives. What does a sloppy quorum do?",
+    [
+      "It writes to another healthy node instead, with a hint saying where the data really belongs.",
+      "When the missing copy returns, the hint is handed back to it: hinted handoff.",
+      "Writes stay available, at the cost that the key's real copies may not all have the write yet.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A read finds two copies disagreeing.",
+    [
+      "Return the newer one, by version, and write it back to the stale copy: read repair.",
+      "Background anti-entropy compares copies with Merkle trees and fixes what reads don't touch.",
+      "If neither version follows the other, they conflict: keep both and merge.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A player deletes their save. Why might it come back?",
+    [
+      "A copy that missed the delete still holds the old value, and could repair the others with it.",
+      "So a delete writes a tombstone: a marker saying 'deleted' that beats older values.",
+      "Tombstones are cleared by compaction once every copy has seen them.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone is cut off. What happens to saves?",
+    [
+      "Here the cut-off zone keeps saving, about 1,000 a second, and nobody's save fails.",
+      "When it heals, copies exchange what they missed, and conflicts are merged.",
+      "Refusing instead would fail 16% of requests.",
+    ],
+  ],
+  [
+    "resilience",
+    "One partition's node fails outright.",
+    [
+      "Its keys are served by the other copies while a replacement is built.",
+      "The replacement is filled from those copies in the background.",
+      "With three copies, losing one node loses neither data nor availability.",
+    ],
+  ],
+  [
+    "security",
+    "Players try to cheat by sending fake saves.",
+    [
+      "Never trust the client's numbers: check each save on the server against what's possible.",
+      "Tie saves to the signed-in player, so one player can't write another's save.",
+      "Keep a history of saves, so a hacked account can be rolled back.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Throttled requests per partition: the first sign of a hot key.",
+      "The cache's hit rate on the hot keys.",
+      "How long copies take to agree after a write, and how many conflicts are merged.",
+    ],
+  ],
+  [
+    "observability",
+    "Loading is slow for some players and fine for others. Where do you look?",
+    [
+      "Latency per partition: one hot or overloaded partition explains a subset of players.",
+      "Save sizes: a few huge saves are slow to load and to copy.",
+      "Which zone those players are in, during or after a split.",
     ],
   ],
 ])

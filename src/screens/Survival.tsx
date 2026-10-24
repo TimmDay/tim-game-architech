@@ -22,12 +22,13 @@ import { useWide } from "~/game/useWide"
 import { COMPONENT_CARDS } from "~/levels/concepts"
 import type { Provider } from "~/providers/names"
 import { findings } from "~/sim/findings"
-import { monthlyCost, simulate } from "~/sim/simulate"
+import { simulate } from "~/sim/simulate"
 import type { ComponentKind } from "~/sim/types"
 import {
   LIVES,
   MIX,
   SURVIVAL_PALETTE,
+  waveCost,
   canLaunch,
   playWave,
   wave as makeWave,
@@ -86,7 +87,7 @@ export function Survival({
   const { graph } = editor
 
   const w = useMemo(() => makeWave(seed, n), [seed, n])
-  const cost = monthlyCost(graph)
+  const cost = waveCost(graph, w)
   const affordable = canLaunch(graph, w)
   const live = phase !== "build" && phase !== "over"
   const incidentFaults = useMemo(

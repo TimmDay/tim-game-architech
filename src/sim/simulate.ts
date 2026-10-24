@@ -19,6 +19,7 @@ import type {
   PartitionKey,
   PlacedComponent,
   SimResult,
+  TrafficType,
 } from "./types"
 import { CLIENT_ID } from "./types"
 import { authPoints, floodLeak } from "./practices"
@@ -31,7 +32,7 @@ const P99_PATH_SHARE = 0.01
 type Flow = { reads: number; writes: number; cacheable: number }
 const ZERO: Flow = { reads: 0, writes: 0, cacheable: 0 }
 
-export type Carries = "all" | "reads" | "writes"
+export type Carries = "all" | "reads" | "writes" | "none"
 
 /**
  * What half of the workload an edge carries, derived from its endpoints so the
@@ -43,6 +44,13 @@ export type Carries = "all" | "reads" | "writes"
  * shows up, because a component's own writes have nowhere to go.
  */
 export function carries(graph: Graph, edge: Edge): Carries {
+  // The player's choice wins. A line marked only with traffic types carries
+  // none of the ordinary reads and writes.
+  if (edge.carries?.length) {
+    const r = edge.carries.includes("reads")
+    const w = edge.carries.includes("writes")
+    return r && w ? "all" : r ? "reads" : w ? "writes" : "none"
+  }
   const from = graph.components.find((c) => c.id === edge.from)
   const to = graph.components.find((c) => c.id === edge.to)
   if (from && CATALOGUE[from.kind].async) return "writes"
@@ -62,6 +70,24 @@ export function carries(graph: Graph, edge: Edge): Carries {
   )
     return "writes"
   return "all"
+}
+
+/**
+ * The level's traffic types that users send straight to a store, with the
+ * connections they use. A type marked on a line to anything it can't go to
+ * directly is ignored there.
+ */
+export function directTraffic(graph: Graph, load: LoadProfile) {
+  const out: { type: TrafficType; edges: Edge[] }[] = []
+  for (const type of load.traffic ?? []) {
+    const edges = graph.edges.filter((e) => {
+      if (e.from !== CLIENT_ID || !e.carries?.includes(type.id)) return false
+      const to = graph.components.find((c) => c.id === e.to)
+      return to !== undefined && type.to.includes(to.kind)
+    })
+    if (edges.length) out.push({ type, edges })
+  }
+  return out
 }
 
 /** Instances still standing after a round's faults. */
@@ -266,6 +292,13 @@ export function simulate(
   const offered = load.peakRps * multiplier * attack
   const split = faults.some((f) => f.kind === "network-split")
   const edgeCarries = new Map(graph.edges.map((e) => [e.id, carries(graph, e)]))
+  const direct = directTraffic(graph, load)
+  // What the request tier pays to relay the traffic types users don't send
+  // directly, on top of one ordinary request each.
+  const relay = { reads: 0, writes: 0 }
+  for (const t of load.traffic ?? [])
+    if (!direct.some((d) => d.type.id === t.id))
+      relay[t.of] += t.share * (t.relayCost - 1)
 
   const nodeFlow = new Map<string, Flow>()
   const edgeFlow = new Map<string, number>()
@@ -284,8 +317,16 @@ export function simulate(
       const healthy = outgoing.filter((e) => (alive.get(e.to) ?? 0) > 0)
       if (healthy.length > 0) outgoing = healthy
     }
-    const readers = outgoing.filter((e) => edgeCarries.get(e.id) !== "writes")
-    const writers = outgoing.filter((e) => edgeCarries.get(e.id) !== "reads")
+    const carriesReads = (e: Edge) => {
+      const c = edgeCarries.get(e.id)
+      return c === "all" || c === "reads" || c === undefined
+    }
+    const carriesWrites = (e: Edge) => {
+      const c = edgeCarries.get(e.id)
+      return c === "all" || c === "writes" || c === undefined
+    }
+    const readers = outgoing.filter(carriesReads)
+    const writers = outgoing.filter(carriesWrites)
     // A caller spreads its reads across its replicas, the way a reader
     // endpoint does, rather than reading everything from each one.
     const isReplica = (e: Edge) => byId.get(e.to)?.kind === "sql-replica"
@@ -295,7 +336,7 @@ export function simulate(
     for (const e of outgoing) {
       const c = edgeCarries.get(e.id) ?? "all"
       const readShare =
-        c === "writes"
+        c === "writes" || c === "none"
           ? 0
           : routes
             ? 1 / Math.max(1, readers.length)
@@ -303,7 +344,11 @@ export function simulate(
               ? 1 / replicas
               : 1
       const writeShare =
-        c === "reads" ? 0 : routes ? 1 / Math.max(1, writers.length) : 1
+        c === "reads" || c === "none"
+          ? 0
+          : routes
+            ? 1 / Math.max(1, writers.length)
+            : 1
       // When only some writes are slow jobs (receipt photos among typed-in
       // receipts), a request tier queues just those and does the rest itself.
       // Only queues: an event stream carries every write as an event.
@@ -330,12 +375,34 @@ export function simulate(
     return out
   }
 
-  const reads = offered * load.readFraction
-  const queue = distribute(CLIENT_ID, {
-    reads,
-    writes: offered - reads,
-    cacheable: reads * load.cacheableFraction,
-  })
+  let reads = offered * load.readFraction
+  let writes = offered - reads
+  const queue: { id: string; flow: Flow }[] = []
+  // Traffic types the users send straight to a store skip everything else.
+  for (const t of direct) {
+    const amount = (t.type.of === "reads" ? reads : writes) * t.type.share
+    if (t.type.of === "reads") reads -= amount
+    else writes -= amount
+    for (const e of t.edges) {
+      const f = amount / t.edges.length
+      edgeFlow.set(e.id, (edgeFlow.get(e.id) ?? 0) + f)
+      queue.push({
+        id: e.to,
+        flow: {
+          reads: t.type.of === "reads" ? f : 0,
+          writes: t.type.of === "writes" ? f : 0,
+          cacheable: 0,
+        },
+      })
+    }
+  }
+  queue.push(
+    ...distribute(CLIENT_ID, {
+      reads,
+      writes,
+      cacheable: reads * load.cacheableFraction,
+    }),
+  )
   const visits = new Map<string, number>()
   // Workers pace what's behind them: anything beyond their throughput waits
   // in the queue in front, rather than reaching the next component.
@@ -392,9 +459,11 @@ export function simulate(
     const isAsync = asyncSet.has(c.id)
     const inline = load.heavyWriteFraction > 0 && doesHeavyWorkInline(graph, c)
     const units = spec.scalesOut ? up : Math.min(up, 1)
-    const writeCost = inline
-      ? 1 + load.heavyWriteFraction * (inlineJobCost(load) - 1)
-      : 1
+    const relays = REQUEST_TIERS.has(c.kind)
+    const writeCost =
+      (inline ? 1 + load.heavyWriteFraction * (inlineJobCost(load) - 1) : 1) +
+      (relays ? relay.writes : 0)
+    const readCost = 1 + (relays ? relay.reads : 0)
     // A worker's throughput depends on the job this level gives it.
     const perUnit =
       c.kind === "worker"
@@ -403,7 +472,7 @@ export function simulate(
             writeRps: workerJobsPerSecond(load),
           }
         : spec.capacity
-    const readCap = perUnit.readRps * units
+    const readCap = (perUnit.readRps * units) / readCost
     const writeCap = (perUnit.writeRps * units) / writeCost
     const rho = (load: number, cap: number) =>
       load <= 0 ? 0 : cap <= 0 ? Infinity : load / cap

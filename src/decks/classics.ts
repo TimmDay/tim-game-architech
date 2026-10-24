@@ -2532,3 +2532,205 @@ export const SAVE_GAME = deck("save-game", [
     ],
   ],
 ])
+
+export const SYNC_FOLDER = deck("sync-folder", [
+  [
+    "clarify",
+    "What would you ask about the files?",
+    [
+      "How big: mostly small documents, or videos and disk images? It decides the chunk size.",
+      "How many devices per user, and how quickly must a change appear on the others?",
+      "Are folders shared between people, and with what permissions?",
+    ],
+    "How does sharing change the metadata?",
+  ],
+  [
+    "clarify",
+    "What would you ask about edits?",
+    [
+      "Do people edit big files in small places (a line in a spreadsheet), or replace them whole?",
+      "Can two devices edit the same file while offline?",
+      "Must old versions be kept, and for how long?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about scale?",
+    [
+      "How many users, files and bytes? Storage cost grows with all three.",
+      "How many changes a second at peak, and when? Here, Monday at 9am.",
+      "How much is duplicated across users? The same installer or photo is often stored by thousands.",
+    ],
+  ],
+  [
+    "product",
+    "What does a user notice when sync is working well?",
+    [
+      "A change on the laptop appears on the phone within seconds.",
+      "A small edit to a big file syncs almost instantly.",
+      "Nothing is ever lost, even when two devices disagree.",
+    ],
+  ],
+  [
+    "decision",
+    "Why split files into chunks?",
+    [
+      "A small edit re-uploads only the chunks that changed, not the whole file.",
+      "Chunks named by their hash are stored once, however many files or users contain them.",
+      "A failed upload resumes from the last chunk, not from the start.",
+    ],
+  ],
+  [
+    "decision",
+    "Why do chunks go straight to the {object-store}?",
+    [
+      "Relaying a 4 MB chunk costs an {app-server} about 25 ordinary requests' worth of its network.",
+      "Here that would run the app tier at 883%, and even 60 servers can't take it.",
+      "With signed URLs, the app only signs links and records versions: a few small requests per file.",
+    ],
+  ],
+  [
+    "decision",
+    "What's stored in the database, and what in the {object-store}?",
+    [
+      "Database: each file's versions, the list of chunk hashes for each, folders and permissions.",
+      "{object-store}: the chunks themselves, named by hash.",
+      "Metadata is small and queried constantly; chunks are big and fetched by key. Each goes where it fits.",
+    ],
+  ],
+  [
+    "decision",
+    "How does a device learn that something changed?",
+    [
+      "It asks the app 'what changed since version N?', and gets the list.",
+      "Long polling or a live connection lets the app answer the moment a change lands, instead of on a timer.",
+      "The answer is metadata only. The device then fetches just the chunks it lacks.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Fixed-size chunks or content-defined chunks?",
+    [
+      "Fixed 4 MB chunks are simple and predictable.",
+      "But inserting a byte at the start shifts every boundary, so every chunk looks new.",
+      "Content-defined chunking finds boundaries in the data itself, so an edit only changes the chunks around it.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Big chunks or small ones?",
+    [
+      "Big chunks mean fewer requests, which matters when each one is billed.",
+      "Small chunks re-upload less after a small edit, and deduplicate better.",
+      "Many services pick a few megabytes, and bundle tiny files together.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a {cdn} serve the downloads?",
+    [
+      "For popular shared files, yes: the edge serves them close to users.",
+      "Most chunks are private and read once or twice, so the hit rate would be low.",
+      "Signed links work through a CDN too, if it checks the signature.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the app tier just relay everything?",
+    [
+      "It's simpler: one place to check permissions, no signed links.",
+      "But every byte crosses your servers twice, and here no number of servers is enough.",
+      "It's reasonable only for small files and low volume.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the users. What changes?",
+    [
+      "Storage cost first: deduplication and cheaper storage tiers for old versions matter more than servers.",
+      "The metadata database needs partitioning, by user or folder.",
+      "Change notifications need many long-lived connections: a dedicated tier that holds them.",
+    ],
+  ],
+  [
+    "scale",
+    "Why name chunks by their hash?",
+    [
+      "Identical chunks get the same name, so each is stored once.",
+      "Hash-like names spread evenly across the store's key prefixes, so no prefix runs out of capacity.",
+      "A downloaded chunk can be checked against its name, which catches corruption.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two devices edit the same file while offline.",
+    [
+      "Each commits a new version based on the same old one; the second commit finds it's no longer the latest.",
+      "Don't merge silently: keep both, as 'report (Sam's laptop conflicted copy)'.",
+      "Version numbers on each commit are what make the conflict visible.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A device uploads chunks, then loses its connection before committing.",
+    [
+      "The chunks are in the store, but no version points to them, so nobody sees a half-uploaded file.",
+      "When the device reconnects, it commits; chunks already uploaded aren't sent again.",
+      "Chunks no version refers to are cleaned up after a while.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A user deletes a file that shares chunks with other files.",
+    [
+      "Deleting the file removes its metadata, not its chunks.",
+      "A chunk is deleted only when nothing refers to it any more, which means counting references or sweeping periodically.",
+      "Keep deleted versions for a while, so 'undo' and 'restore' work.",
+    ],
+  ],
+  [
+    "resilience",
+    "The metadata database fails over to its standby.",
+    [
+      "Devices can't commit for a minute or two; their changes wait locally and retry.",
+      "Chunks keep uploading to the store, which doesn't depend on the database.",
+      "Nothing is lost, because a version only exists once it's committed.",
+    ],
+  ],
+  [
+    "resilience",
+    "Monday at 9am: everyone's laptop syncs at once.",
+    [
+      "The app tier rises to 75% and the store to 86%: the spare capacity is for exactly this.",
+      "Devices back off and spread their retries, so a burst doesn't become a stampede.",
+      "Large uploads can wait a few minutes; small changes go first.",
+    ],
+  ],
+  [
+    "security",
+    "What can go wrong with signed URLs?",
+    [
+      "Anyone holding a link can use it until it expires: keep them short-lived and limited to one key and one action.",
+      "Sign only after checking the user may read or write that file.",
+      "Never sign a link to a key the client chose freely, or one user could overwrite another's data.",
+    ],
+  ],
+  [
+    "security",
+    "How do you protect files at rest?",
+    [
+      "Encrypt the store and the database, with keys you can rotate.",
+      "Deduplicating across users leaks a little: someone can tell whether a file already exists. Some services only deduplicate within one account.",
+      "Log every access to shared files.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "How long a change takes to reach a user's other devices.",
+      "Upload and download failures by device and region, since networks fail far more than servers.",
+      "Bytes stored per user, and the deduplication rate: the drivers of cost.",
+    ],
+  ],
+])

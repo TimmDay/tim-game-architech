@@ -502,6 +502,35 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "sync-folder": {
+    overview:
+      "Split the bytes from the bookkeeping. File contents travel as 4 MB chunks straight between devices and the {object-store}, through short-lived signed URLs; the {app-server} only answers what changed, signs those links, and records each new version in the {sql-primary}. Relaying the chunks instead would need more servers than you can buy.",
+    walkthrough: [
+      "A device splits a changed file into 4 MB chunks and hashes each one. It asks the {app-server} which hashes the store doesn't have yet.",
+      "The app answers with a signed upload link for each missing chunk. The device sends them straight to the {object-store}: the bytes never reach your servers.",
+      "The device then commits the new version: the file's list of chunk hashes. The app checks the chunks arrived and writes the version to the {sql-primary}.",
+      "Other devices ask the app what changed since their last version, get signed download links for the chunks they lack, and fetch them from the {object-store}.",
+    ],
+    numbers: [
+      "10,000 requests a second. Through the app tier: 5,000 checks for changes and 1,000 commits. Straight to the store: 2,000 chunk uploads and 2,000 chunk downloads.",
+      "Twelve {app-server} instances run at 50%, and 75% on Monday morning.",
+      "The {sql-primary} holds the metadata at 50% busy, 75% on Monday.",
+      "The {object-store} takes 2,000 chunk uploads a second, 57% of what one key prefix accepts. Chunks are named by their hash, so they spread across prefixes as the service grows.",
+      "Relaying the chunks through the app tier instead runs it at 883%. Even 60 servers, the most you can run, would be at 177%.",
+      "A connection from the users that isn't set to carry chunks just becomes a second entrance, and half the ordinary traffic arrives at the store by mistake.",
+      "Cost: $1 + about $72 for the {load-balancer} + 12 × $70 + 2 × $400 + about $8,540 for the {object-store} = $10,253 of $11,000. Most of it is per-request charges for chunks, so skipping chunks the store already has is the biggest saving.",
+    ],
+    tradeoffs: [
+      "A signed URL is a bearer token: anyone holding it can use it until it expires. Keep links to one key, one action and a few minutes.",
+      "The device must report the upload before the version is committed, so a half-uploaded file never appears. The app checks every chunk exists first.",
+      "Fixed 4 MB chunks are simple, but inserting a byte at the start of a file shifts every chunk. Content-defined chunking finds boundaries in the data itself, so an edit changes only the chunks around it.",
+    ],
+    alternatives: [
+      "A {cdn} in front of chunk downloads: popular shared files come from the edge. Most chunks are private and read once or twice, so the hit rate would be low.",
+      "Relaying everything through the app tier: simpler permissions, but it pays for every byte twice and can't scale here.",
+      "Storing small files inline with their metadata in the database: fewer requests for tiny files, at the cost of a bigger database.",
+    ],
+  },
   "save-game": {
     overview:
       "A key-value store keyed by player ID spreads millions of saves evenly, and keeps taking them during a split, because a lost save is the one thing players won't forgive. The catch is the single key everyone reads: no partition can serve 4,050 reads a second of one key, so the {cache} answers it.",

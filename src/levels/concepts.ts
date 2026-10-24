@@ -22,6 +22,7 @@ export type ConceptId =
   | "cdn"
   | "static-vs-dynamic"
   | "object-storage"
+  | "signed-urls"
   | "async-processing"
   | "competing-consumers"
   | "backpressure"
@@ -297,6 +298,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "An {object-store} keeps blobs by key with very high durability and practically unlimited capacity. It's slower than a disk per request but it scales without you running anything.",
     interview:
       "Store the file in object storage and its metadata in a database. Use pre-signed URLs so uploads skip your servers.",
+  },
+  "signed-urls": {
+    title: "Signed URLs",
+    body: "A short-lived link your server signs, which lets a client upload or download one object straight from the {object-store}. The bytes never pass through your servers: they only check who's asking, sign the link, and record what happened. The link names one key and one action, and expires in minutes.",
+    interview:
+      "Say who signs it, what it grants (one key, one action, a few minutes) and what happens after an upload: the client tells the app, which checks the object arrived before committing the metadata.",
   },
   "async-processing": {
     title: "Asynchronous processing",

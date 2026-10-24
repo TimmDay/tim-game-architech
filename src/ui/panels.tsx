@@ -61,9 +61,12 @@ export const H = ({ children }: { children: React.ReactNode }) => (
 export function TargetList({
   targets,
   provider,
+  traffic,
 }: {
   targets: Targets
   provider: Provider
+  /** The level's traffic types: writes among them have their own stores. */
+  traffic?: TrafficType[]
 }) {
   const rows: [string, React.ReactNode][] = [
     ["p99 latency", `≤ ${ms(targets.p99Ms)}`],
@@ -73,7 +76,9 @@ export function TargetList({
   ]
   if (targets.writesReach.length > 0)
     rows.push([
-      "Every write reaches",
+      traffic?.some((t) => t.of === "writes")
+        ? "Other writes reach"
+        : "Every write reaches",
       <span className="flex flex-col items-end">
         {targets.writesReach.map((s) => (
           <span key={s}>
@@ -86,6 +91,16 @@ export function TargetList({
         ))}
       </span>,
     ])
+  for (const t of traffic ?? [])
+    if (t.of === "writes")
+      rows.push([
+        `${t.label} reach`,
+        <span className="flex flex-col items-end">
+          {t.to.map((k) => (
+            <Rich key={k} text={`{${k}}`} provider={provider} />
+          ))}
+        </span>,
+      ])
   if (targets.noBacklog)
     rows.push([
       "Async backlog",
@@ -149,7 +164,11 @@ export function BriefPanel({
       {diagnose}
       <div>
         <H>Targets</H>
-        <TargetList targets={level.targets} provider={provider} />
+        <TargetList
+          targets={level.targets}
+          provider={provider}
+          traffic={level.load.traffic}
+        />
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-amber-300/90">
           <TriangleAlert size={13} /> Chaos round: {level.chaos.label}
         </p>

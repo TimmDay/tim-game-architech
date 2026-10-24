@@ -504,9 +504,15 @@ export function Board(p: BoardProps) {
             ["Everything", ALL_COLOR, undefined],
             ["Reads", READS_COLOR, undefined],
             ["Writes and messages", WRITES_COLOR, "7 6"],
-            ...(p.traffic ?? []).map(
-              (t) => [t.label, TYPED_COLOR, "2 5"] as const,
-            ),
+            ...(p.traffic?.length
+              ? [
+                  [
+                    p.traffic.map((t) => t.label).join(", "),
+                    TYPED_COLOR,
+                    "2 5",
+                  ] as const,
+                ]
+              : []),
           ]}
         />
       )}

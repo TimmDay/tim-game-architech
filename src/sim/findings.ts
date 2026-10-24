@@ -1,6 +1,12 @@
 import type { ConceptId } from "~/levels/concepts"
 import { CATALOGUE, inlineJobMs, SATURATION_WARN } from "./catalogue"
-import { DURABLE_KINDS, MAJORITY_SERVES, type Targets, writesAt } from "./grade"
+import {
+  DURABLE_KINDS,
+  MAJORITY_SERVES,
+  overkillUsed,
+  type Targets,
+  writesAt,
+} from "./grade"
 import {
   behindAsync,
   copies,
@@ -321,6 +327,18 @@ export function findings(
     }
 
   const consistent = targets?.onSplit === "consistent"
+  // More than the level needs: it works, and it's more to run.
+  for (const o of overkillUsed(graph, targets?.overkill)) {
+    const c = graph.components.find((x) =>
+      o.regions ? (x.regions ?? 1) >= 2 : x.kind === o.kind,
+    )
+    out.push({
+      severity: "warn",
+      componentId: c?.id,
+      text: `${o.why} It costs the third star.`,
+    })
+  }
+
   // Distant users cross an ocean unless everything they touch runs near them.
   if (load.regions && load.regions.farShare >= 0.01) {
     const alone = graph.components.filter(

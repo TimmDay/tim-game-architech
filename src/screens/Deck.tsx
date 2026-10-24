@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  ChevronDown,
   ChevronLeft,
   MessageCircleQuestion,
   RotateCcw,
@@ -83,6 +84,8 @@ export function Deck({
   const [filter, setFilter] = useState<Filter>(
     startOnSchema && SCHEMA[source.id]?.length ? "schema" : "all",
   )
+  // The filter tags take a lot of room on a phone, so they start folded away.
+  const [tagsOpen, setTagsOpen] = useState(filter !== "all")
   const [seed, setSeed] = useState(0)
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
@@ -216,6 +219,37 @@ export function Deck({
               <span className="text-emerald-300">{got} got it</span> ·{" "}
               <span className="text-amber-300">{revisit} to revisit</span> ·{" "}
               {all.length} cards
+              <button
+                type="button"
+                onClick={() => setTagsOpen((o) => !o)}
+                aria-expanded={tagsOpen}
+                aria-controls="deck-tags"
+                className={clsx(
+                  "ml-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 align-middle font-sans text-[11px]",
+                  tagsOpen
+                    ? "border-white/40 text-white"
+                    : "border-white/10 text-slate-400 hover:text-white",
+                )}
+              >
+                Tags
+                {filter !== "all" && (
+                  <span className="text-slate-300">
+                    ·{" "}
+                    {filter === "revisit"
+                      ? "To revisit"
+                      : filter === "schema"
+                        ? "Schema & API"
+                        : CATEGORY_LABEL[filter]}
+                  </span>
+                )}
+                <ChevronDown
+                  size={11}
+                  className={clsx(
+                    "transition-transform",
+                    tagsOpen && "rotate-180",
+                  )}
+                />
+              </button>
             </span>
             {(got > 0 || revisit > 0) && (
               <button
@@ -232,8 +266,12 @@ export function Deck({
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        {/* Filters, folded away until the Tags button opens them */}
+        <div
+          id="deck-tags"
+          hidden={!tagsOpen}
+          className="mt-3 flex flex-wrap gap-1.5"
+        >
           {(["all", ...CATEGORY_ORDER, "revisit"] as const).map((f) => {
             const n =
               f === "all"

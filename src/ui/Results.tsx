@@ -53,6 +53,10 @@ function checkLabel(
       return `Backlog growth ${rps(g.peak.backlogGrowthRps)} (must be 0)`
     case "availability":
       return `Availability ${nines(g.peak.availability)} (≥ ${nines(t.availability)})`
+    case "lean":
+      return g.overkill.length
+        ? `More than it needs: ${g.overkill.length} thing${g.overkill.length === 1 ? "" : "s"} to run and maintain for nothing this level asks`
+        : "Nothing it doesn't need"
     case "practices":
       return `Production settings: ${g.practices.expected - g.practices.missing} of ${g.practices.expected} in place`
     case "chaos":

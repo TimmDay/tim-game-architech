@@ -104,7 +104,7 @@ export const SHORT_LINKS = deck("short-links", [
     "Relational database or key-value store for the mapping?",
     [
       "The access pattern is a pure key lookup, which a key-value store does very well and scales easily.",
-      "At this size a relational database copes, and it's simpler for things like per-customer listings.",
+      "At this size a relational database copes, and the extras are easy there: listing a customer's links, unique custom aliases, ad-hoc reports. In a key-value store each new kind of query means designing a new index or table.",
       "Either way, the cache does most of the work.",
     ],
   ],

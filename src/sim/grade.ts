@@ -46,6 +46,30 @@ export type Targets = {
    * chaos round is a bad migration.
    */
   rpoMinutes?: number
+  /**
+   * What this level doesn't need. Using it still works, but costs the third
+   * star: it's more to run, pay for and keep in sync, for nothing the level
+   * asks of it.
+   */
+  overkill?: Overkill[]
+}
+
+/** Something a level doesn't need: a kind of component, or a second region. */
+export type Overkill = {
+  kind?: ComponentKind
+  regions?: true
+  /** Why, in a sentence, including what it adds to run and maintain. */
+  why: string
+}
+
+/** The overkill this design uses. */
+export function overkillUsed(graph: Graph, list: Overkill[] = []): Overkill[] {
+  const wired = (id: string) => graph.edges.some((e) => e.to === id)
+  return list.filter((o) =>
+    o.regions
+      ? graph.components.some((c) => (c.regions ?? 1) >= 2 && wired(c.id))
+      : graph.components.some((c) => c.kind === o.kind && wired(c.id)),
+  )
 }
 
 /** A consistent design may refuse the minority side, never the majority. */
@@ -61,6 +85,7 @@ export type Check = {
     | "availability"
     | "chaos"
     | "practices"
+    | "lean"
   pass: boolean
   /** Which star this check belongs to. */
   star: 1 | 2 | 3
@@ -73,6 +98,8 @@ export type Grade = {
   chaos: SimResult
   /** Production settings the stakes call for, and how many are missing. */
   practices: { expected: number; missing: number }
+  /** Things the level doesn't need that this design uses anyway. */
+  overkill: Overkill[]
 }
 
 /** Writes arriving at the best-fed component of a given sink. */
@@ -179,9 +206,12 @@ export function grade(
     : { expected: 0, missing: 0 }
   if (targets.stakes)
     checks.push({ id: "practices", pass: practices.missing === 0, star: 3 })
+  const overkill = overkillUsed(graph, targets.overkill)
+  if (targets.overkill?.length)
+    checks.push({ id: "lean", pass: overkill.length === 0, star: 3 })
 
   const passed = (star: number) =>
     checks.filter((c) => c.star <= star).every((c) => c.pass)
   const stars = passed(3) ? 3 : passed(2) ? 2 : passed(1) ? 1 : 0
-  return { checks, stars, peak, chaos, practices }
+  return { checks, stars, peak, chaos, practices, overkill }
 }

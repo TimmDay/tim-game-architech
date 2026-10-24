@@ -382,7 +382,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Counter-based codes are unique without a lookup, but sequential codes are guessable. Shuffle or encrypt the counter if links must not be enumerable.",
     ],
     alternatives: [
-      "A {nosql} key-value store suits this data perfectly and scales reads without replicas. A relational database is fine at this size and simpler to run.",
+      "A {nosql} key-value store in place of the {sql-primary}: it suits the lookup, and scales reads by adding capacity rather than replicas. One block costs $950 a month against $800 for the primary and its standby. The relational database wins on everything around the lookup: listing a customer's links is just a query, a unique constraint protects custom aliases, and the team almost certainly runs one already.",
       "Hashing the long URL gives the same code for the same URL, but needs a collision check on every create.",
       "Redirecting from the {cdn}: fast and cheap, but every edge-served redirect is a click you don't count.",
     ],

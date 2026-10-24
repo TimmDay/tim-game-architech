@@ -104,7 +104,7 @@ export const SHORT_LINKS = deck("short-links", [
     "Relational database or key-value store for the mapping?",
     [
       "The access pattern is a pure key lookup, which a key-value store does very well and scales easily.",
-      "At this size a relational database copes, and it's simpler for things like per-customer listings.",
+      "At this size a relational database copes, and the extras are easy there: listing a customer's links, unique custom aliases, ad-hoc reports. In a key-value store each new kind of query means designing a new index or table.",
       "Either way, the cache does most of the work.",
     ],
   ],
@@ -1721,6 +1721,15 @@ export const PUSH_ALERTS = deck("push-alerts", [
       "Look the notification up by user and time: created, skipped by a preference, queued, sent or refused?",
       "A status on every notification makes this a lookup, not an investigation.",
       "Check when that device token last worked. Often it's dead.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could serverless functions send the pushes instead of workers?",
+    [
+      "Yes: one function per message, with nothing to size or keep running.",
+      "Every invocation still counts against the provider's quota, so you still need the queue to pace them.",
+      "At 1,200 sends a second, per-invocation pricing and cold starts add up. A small pool of workers is often cheaper.",
     ],
   ],
 ])

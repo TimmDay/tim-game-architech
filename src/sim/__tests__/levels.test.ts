@@ -530,6 +530,42 @@ describe("the interview classics' traps", () => {
     }
   })
 
+  it("short links: a NoSQL store for the links earns three stars too", () => {
+    const l = level("short-links")
+    const g = patch(l.reference, "db", {
+      kind: "nosql",
+      instances: 1,
+      zones: 1,
+    })
+    expect(failed(l, g)).toEqual([])
+  })
+
+  it("overkill works, but costs the third star", () => {
+    const first = level("first-customers")
+    const cached: Graph = {
+      components: [
+        ...first.reference.components,
+        { id: "cache", kind: "cache", x: 5, y: 2, instances: 1, zones: 1 },
+      ],
+      edges: [
+        ...first.reference.edges.filter((e) => e.id !== "app>db"),
+        { id: "app>cache", from: "app", to: "cache" },
+        { id: "cache>db", from: "cache", to: "db" },
+      ],
+    }
+    const g = grade(cached, first.load, first.targets, first.chaos.faults)
+    expect(g.checks.filter((c) => !c.pass).map((c) => c.id)).toEqual(["lean"])
+    expect(g.stars).toBe(2)
+    for (const id of ["balance-sheet", "group-chat", "pay-button"]) {
+      const l = level(id)
+      const db = l.reference.components.find((c) =>
+        ["sql-primary", "nosql"].includes(c.kind),
+      )
+      const two = patch(l.reference, db?.id ?? "", { regions: 2 })
+      expect(failed(l, two), id).toContain("lean")
+    }
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

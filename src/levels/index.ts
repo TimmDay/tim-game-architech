@@ -136,6 +136,16 @@ const BUILD: Level[] = [
       budgetUsd: 1_200,
       writesReach: ["durable"],
       noBacklog: false,
+      overkill: [
+        {
+          kind: "cache",
+          why: "A {cache} is overkill here: the database runs at 12%, so it adds a second system to run, keep in sync and invalidate, for a problem this system doesn't have yet.",
+        },
+        {
+          kind: "sql-replica",
+          why: "Read replicas are overkill here: the database has plenty of read capacity, so each adds $400 a month, replication lag to reason about, and one more server to patch and watch.",
+        },
+      ],
       stakes: {
         signedIn: true,
         personalData: true,
@@ -147,7 +157,14 @@ const BUILD: Level[] = [
       faults: [{ kind: "kill-instance", target: "app-server" }],
       label: "An app instance crashes",
     },
-    palette: ["dns", "load-balancer", "app-server", "sql-primary"],
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "sql-replica",
+    ],
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
@@ -1133,7 +1150,7 @@ const CLASSICS: Level[] = [
       maxErrorRate: 0.001,
       availability: 0.999,
       budgetUsd: 3_800,
-      writesReach: ["sql-primary"],
+      writesReach: ["durable"],
       noBacklog: false,
       stakes: {
         signedIn: false,
@@ -1153,6 +1170,7 @@ const CLASSICS: Level[] = [
       "cache",
       "sql-primary",
       "sql-replica",
+      "nosql",
     ],
     reference: graph(
       [
@@ -1200,6 +1218,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 10_500,
       writesReach: ["nosql", "event-stream"],
       noBacklog: true,
+      overkill: [
+        {
+          regions: true,
+          why: "A second region is overkill here: it doubles every store's cost and adds replication between regions to run and watch, while these users and this chaos round need only zones.",
+        },
+      ],
       stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
     chaos: {
@@ -1796,6 +1820,12 @@ const CLASSICS: Level[] = [
       budgetUsd: 4_700,
       writesReach: ["sql-primary", "third-party-api", "data-warehouse"],
       noBacklog: true,
+      overkill: [
+        {
+          regions: true,
+          why: "A second region is overkill here: the ledger's single leader means the second region's writes cross the ocean anyway, every store costs double, and failing over between regions risks the last seconds of payments.",
+        },
+      ],
       stakes: {
         signedIn: true,
         personalData: true,
@@ -2551,6 +2581,12 @@ const CAP: Level[] = [
       budgetUsd: 1_550,
       writesReach: ["durable"],
       noBacklog: false,
+      overkill: [
+        {
+          regions: true,
+          why: "A second region is overkill here: every transfer waits about 150ms for the other side to confirm, every store costs double, and failing over between regions is one more procedure to run and rehearse, for users in one country.",
+        },
+      ],
       stakes: { signedIn: true, personalData: true, money: true, abuse: true },
       onSplit: "consistent",
     },

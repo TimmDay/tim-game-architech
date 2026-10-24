@@ -124,6 +124,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Checking sessions on every request costs a little CPU, which a cache of valid sessions mostly removes.",
     ],
     alternatives: [
+      "A managed edge with attack protection, a {cdn} or a web firewall in front of the {load-balancer}: it absorbs floods before they reach you, and recognises attacks it has seen on other sites. It costs per request, and you still need per-account limits behind it, because a slow attack spread over many addresses can look like normal traffic.",
       "A CAPTCHA after a few failed sign-ins stops automated guessing without blocking people outright.",
       "Checking new passwords against lists of leaked ones, and offering passkeys, makes stolen passwords far less useful.",
       "An {api-gateway} can do both the limit and the sign-in check in one place, in front of every service.",
@@ -382,7 +383,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Counter-based codes are unique without a lookup, but sequential codes are guessable. Shuffle or encrypt the counter if links must not be enumerable.",
     ],
     alternatives: [
-      "A {nosql} key-value store suits this data perfectly and scales reads without replicas. A relational database is fine at this size and simpler to run.",
+      "A {nosql} key-value store in place of the {sql-primary}: it suits the lookup, and scales reads by adding capacity rather than replicas. One block costs $950 a month against $800 for the primary and its standby. The relational database wins on everything around the lookup: listing a customer's links is just a query, a unique constraint protects custom aliases, and the team almost certainly runs one already.",
       "Hashing the long URL gives the same code for the same URL, but needs a collision check on every create.",
       "Redirecting from the {cdn}: fast and cheap, but every edge-served redirect is a click you don't count.",
     ],

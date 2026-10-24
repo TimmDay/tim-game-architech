@@ -330,6 +330,11 @@ export function Play({
       level={level}
       provider={provider}
       onDeck={onDeck}
+      quiz={
+        sandbox || !SOLUTIONS[level.id]
+          ? undefined
+          : { passed: quiz.passed, open: () => setInfo({ quiz: true }) }
+      }
       onConcept={(c) => setInfo({ concept: c })}
       diagnose={
         level.mode === "repair" ? (

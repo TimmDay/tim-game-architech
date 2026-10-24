@@ -4,6 +4,7 @@ import {
   BookOpen,
   Check,
   CircleAlert,
+  ClipboardCheck,
   Database,
   Lightbulb,
   Info,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
+import { PASS_MARK, QUIZZES } from "~/quiz/questions"
 import { SCHEMA } from "~/quiz/schema"
 import { CONCEPTS, type ConceptId } from "~/levels/concepts"
 import type { Level } from "~/levels"
@@ -114,6 +116,7 @@ export function TargetList({
         : "must not grow",
     ])
   if (targets.stakes) rows.push(["Production settings", "in place for ★3"])
+  if (targets.overkill?.length) rows.push(["Nothing it doesn't need", "for ★3"])
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[13px]">
       {rows.map(([k, v], i) => (
@@ -132,12 +135,15 @@ export function BriefPanel({
   onConcept,
   diagnose,
   onDeck,
+  quiz,
 }: {
   level: Level
   provider: Provider
   onConcept: (id: ConceptId) => void
   diagnose?: React.ReactNode
   onDeck?: (schema?: boolean) => void
+  /** The check that unlocks the suggested solution. */
+  quiz?: { passed: boolean; open: () => void }
 }) {
   const [hint, setHint] = useState(false)
   return (
@@ -239,6 +245,25 @@ export function BriefPanel({
             </span>
           </span>
           <ArrowRight size={16} className="text-green-200/70" />
+        </button>
+      )}
+      {quiz && (QUIZZES[level.id]?.length ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={quiz.open}
+          className="flex w-full items-center justify-between rounded-xl border border-amber-300/25 bg-amber-300/[0.05] px-3 py-2.5 text-left hover:border-amber-300/50"
+        >
+          <span>
+            <span className="flex items-center gap-1.5 text-[14px] font-semibold text-amber-100">
+              <ClipboardCheck size={15} /> Quiz me
+            </span>
+            <span className="text-[12px] text-slate-400">
+              {quiz.passed
+                ? "Passed: the suggested solution is unlocked"
+                : `${QUIZZES[level.id]?.length} questions; pass ${PASS_MARK} to unlock the solution`}
+            </span>
+          </span>
+          <ArrowRight size={16} className="text-amber-200/70" />
         </button>
       )}
     </div>

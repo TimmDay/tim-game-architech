@@ -502,6 +502,36 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],
   },
+  "save-game": {
+    overview:
+      "A key-value store keyed by player ID spreads millions of saves evenly, and keeps taking them during a split, because a lost save is the one thing players won't forgive. The catch is the single key everyone reads: no partition can serve 4,050 reads a second of one key, so the {cache} answers it.",
+    walkthrough: [
+      "{dns} → {load-balancer} → {app-server}. Every request names the player.",
+      "Loads go to the {cache} first. Today's event settings, read by every player, are nearly always there, and so are active players' saves.",
+      "Misses and saves go to the {nosql} store, partitioned by player ID, with three copies across zones.",
+      "During a split, every copy keeps accepting saves. When it heals, copies exchange what they missed, and a per-player version decides which save wins.",
+    ],
+    numbers: [
+      "30,000 requests a second: 27,000 loads and 3,000 saves.",
+      "Fifty {app-server} instances run at 60%.",
+      "The {cache} answers 15,390 loads a second, including almost every read of the event key. 11,610 reach the store.",
+      "Keyed by player, saves spread across five {nosql} blocks at 60%. The event key gets 1,741 reads a second, under the 3,000 one key can take.",
+      "Without the cache, that one key gets 4,050 reads a second, 135% of its limit. Ten blocks don't help: one key lives in one place.",
+      "Keyed by region, the biggest region's partition takes 40% of the traffic and overloads. Keyed by time of save, every new save lands on the newest partition, and loading a player means a scan.",
+      "During the split, the cut-off zone keeps taking about 1,000 saves a second, merged when it heals. Refusing instead fails 16% of requests.",
+      "Cost: $1 + about $262 for the {load-balancer} + 50 × $70 + 2 × $150 + 5 × $950 = $8,813 of $9,500.",
+    ],
+    tradeoffs: [
+      "A player who saves on one side of a split and loads on the other can see an older save for a moment. A version on each save means the newest wins when copies meet.",
+      "Two devices saving the same player at once is a real conflict. Merge by the game's rules (most progress, the union of items) rather than letting the last write silently win.",
+      "The cached event settings can be a minute stale after a change. Version the key, or push changes, if an event must start on the second.",
+    ],
+    alternatives: [
+      "Ship today's event with the app, or serve it from a {cdn}: it's the same for everyone, so it needn't touch the store at all.",
+      "Store the hot key as ten copies and read one at random: reads spread over ten partitions without a cache, and the daily write updates all ten.",
+      "A {sql-primary} with replicas takes the loads, but 3,000 saves a second is its entire write capacity, so growth means sharding by hand.",
+    ],
+  },
   "fair-share": {
     overview:
       "The limit has to live where the API key is known, and its counters have to be shared. Each {app-server} checks the caller's key against a counter in the {cache} before doing any work, and refuses with '429 Too Many Requests' once the key is over its limit. The same cache holds popular map data, so the {sql-primary} sees only the misses.",

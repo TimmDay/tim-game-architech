@@ -362,6 +362,30 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toContain("budget")
   })
 
+  it("save game: without a cache, the event key overloads at any capacity", () => {
+    const l = level("save-game")
+    for (const instances of [5, 10]) {
+      const g = patch(rewire(l.reference, ["cache"], ["app>saves"]), "saves", {
+        instances,
+      })
+      expect(failed(l, g)).toContain("traffic")
+    }
+  })
+
+  it("save game: keyed by region or by time of save, one partition takes the load", () => {
+    const l = level("save-game")
+    for (const partitionKey of ["region", "saved"])
+      expect(
+        failed(l, patch(l.reference, "saves", { partitionKey })),
+      ).toContain("traffic")
+  })
+
+  it("save game: refusing saves during a split fails players", () => {
+    const l = level("save-game")
+    const g = patch(l.reference, "saves", { consistency: "strong" })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
   it("push alerts: a goal's burst queues up and drains, and nothing fails", () => {
     const l = level("push-alerts")
     const r = grade(l.reference, l.load, l.targets, l.chaos.faults)

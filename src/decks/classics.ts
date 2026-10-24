@@ -2330,3 +2330,205 @@ export const FAIR_SHARE = deck("fair-share", [
     ],
   ],
 ])
+
+export const SAVE_GAME = deck("save-game", [
+  [
+    "clarify",
+    "What would you ask about the data?",
+    [
+      "What's the key and what's the value: one blob per player, or many small items?",
+      "How big is a save, and how fast does it grow?",
+      "Is it ever looked up other than by player? A leaderboard belongs in a different store.",
+    ],
+    "How would a leaderboard change the design?",
+  ],
+  [
+    "clarify",
+    "What would you ask about consistency?",
+    [
+      "If a player loads straight after saving, must they see that save? On the same device, usually yes.",
+      "Can two devices save the same player at once? That's where conflicts come from.",
+      "Is losing a few seconds of progress ever acceptable?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about traffic?",
+    [
+      "Reads to writes: here, nine loads for every save.",
+      "Is anything read by everyone? One shared key behaves very differently from millions of private ones.",
+      "How spiky is it? A new event at 6pm brings everyone at once.",
+    ],
+  ],
+  [
+    "product",
+    "What does a player notice when this goes wrong?",
+    [
+      "A failed save is the worst: lost progress makes people quit.",
+      "An old save for a few seconds is mildly annoying, and usually goes unnoticed.",
+      "Slow loading at launch is what reviews complain about.",
+    ],
+  ],
+  [
+    "decision",
+    "Why partition by player ID?",
+    [
+      "Every load and save names the player, so each request goes to one partition.",
+      "Millions of players spread evenly, so no partition is much busier than another.",
+      "By region, the biggest region's partition overloads; by time, every new save lands on the newest one.",
+    ],
+  ],
+  [
+    "decision",
+    "Why does today's event key need a cache?",
+    [
+      "Every player reads it: 15% of all reads, 4,050 a second, on one key.",
+      "One key lives on one partition, which tops out around 3,000 reads a second however many blocks you buy.",
+      "Cached, it's answered from memory, and the store hardly sees it.",
+    ],
+  ],
+  [
+    "decision",
+    "Why keep accepting saves during a split?",
+    [
+      "A refused save loses progress, which players notice far more than a briefly stale load.",
+      "Saves belong to one player, so conflicts are rare: only the same player saving on both sides at once.",
+      "When it heals, keep the save with the higher version, or merge by the game's rules.",
+    ],
+  ],
+  [
+    "decision",
+    "What do N, R and W mean in a quorum store?",
+    [
+      "Each key has N copies. A write waits for W of them to confirm; a read asks R of them.",
+      "If R + W > N, every read overlaps the latest write: with N = 3, that's R = 2 and W = 2.",
+      "Lower R or W for speed and availability; raise them for consistency.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "With three copies: R = 1 and W = 1, or R = 2 and W = 2?",
+    [
+      "R = 1, W = 1: fastest, and works with one copy reachable, but a read may miss the latest write.",
+      "R = 2, W = 2: reads see the latest write, but two copies must be reachable.",
+      "Many stores let you choose per request: strong for 'load my save', weak for 'show a friend's level'.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Provisioned capacity, or pay per request?",
+    [
+      "Provisioned blocks are cheaper per request under steady load, but cost the same at 3am.",
+      "Paying per request follows the traffic, at a higher price per request.",
+      "Spiky games often provision for the base and let the peaks go on demand.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could today's event avoid the store entirely?",
+    [
+      "Ship it with the app update, or serve it from a {cdn}: it's the same for everyone.",
+      "Then no player's read touches the store for it.",
+      "The price is how quickly a change reaches players.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you split the hot key instead of caching it?",
+    [
+      "Store copies under ten keys (event#1 to event#10) and read one at random.",
+      "Reads spread over ten partitions, each well under the limit.",
+      "Every write must update all ten, which is fine for something that changes once a day.",
+    ],
+  ],
+  [
+    "scale",
+    "Players grow tenfold. What changes?",
+    [
+      "More blocks: data keyed by player spreads evenly, so capacity grows with them.",
+      "The hot key doesn't grow with blocks. The cache, or copies of the key, must carry it.",
+      "Saves grow too: cap their size, or split big ones into parts.",
+    ],
+  ],
+  [
+    "scale",
+    "How does the store add capacity without moving everything?",
+    [
+      "Keys are placed by consistent hashing, so a new node takes a slice from its neighbours.",
+      "That slice is copied across in the background, then requests switch over.",
+      "Managed stores split busy partitions for you, but a single key never splits.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A copy is unreachable when a write arrives. What does a sloppy quorum do?",
+    [
+      "It writes to another healthy node instead, with a hint saying where the data really belongs.",
+      "When the missing copy returns, the hint is handed back to it: hinted handoff.",
+      "Writes stay available, at the cost that the key's real copies may not all have the write yet.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A read finds two copies disagreeing.",
+    [
+      "Return the newer one, by version, and write it back to the stale copy: read repair.",
+      "Background anti-entropy compares copies with Merkle trees and fixes what reads don't touch.",
+      "If neither version follows the other, they conflict: keep both and merge.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A player deletes their save. Why might it come back?",
+    [
+      "A copy that missed the delete still holds the old value, and could repair the others with it.",
+      "So a delete writes a tombstone: a marker saying 'deleted' that beats older values.",
+      "Tombstones are cleared by compaction once every copy has seen them.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone is cut off. What happens to saves?",
+    [
+      "Here the cut-off zone keeps saving, about 1,000 a second, and nobody's save fails.",
+      "When it heals, copies exchange what they missed, and conflicts are merged.",
+      "Refusing instead would fail 16% of requests.",
+    ],
+  ],
+  [
+    "resilience",
+    "One partition's node fails outright.",
+    [
+      "Its keys are served by the other copies while a replacement is built.",
+      "The replacement is filled from those copies in the background.",
+      "With three copies, losing one node loses neither data nor availability.",
+    ],
+  ],
+  [
+    "security",
+    "Players try to cheat by sending fake saves.",
+    [
+      "Never trust the client's numbers: check each save on the server against what's possible.",
+      "Tie saves to the signed-in player, so one player can't write another's save.",
+      "Keep a history of saves, so a hacked account can be rolled back.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch?",
+    [
+      "Throttled requests per partition: the first sign of a hot key.",
+      "The cache's hit rate on the hot keys.",
+      "How long copies take to agree after a write, and how many conflicts are merged.",
+    ],
+  ],
+  [
+    "observability",
+    "Loading is slow for some players and fine for others. Where do you look?",
+    [
+      "Latency per partition: one hot or overloaded partition explains a subset of players.",
+      "Save sizes: a few huge saves are slow to load and to copy.",
+      "Which zone those players are in, during or after a split.",
+    ],
+  ],
+])

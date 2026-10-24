@@ -1596,6 +1596,114 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "save-game": q([
+    [
+      "Why partition saves by player ID?",
+      "Every request names one player, and players spread evenly",
+      [
+        "Player IDs are shorter than other keys",
+        "It keeps each region's players together",
+        "It puts the newest saves together on one partition",
+      ],
+      "By region, the biggest partition overloads; by time, every new save lands on one.",
+      4,
+    ],
+    [
+      "Why does the event key need a cache, however many blocks you buy?",
+      "One key lives on one partition, with its own limit",
+      [
+        "Blocks can't hold settings, only saves",
+        "The event key changes every second",
+        "A cache is cheaper than any other fix",
+      ],
+      "It gets 4,050 reads a second against about 3,000 for one key. Cached, the store hardly sees it.",
+      5,
+    ],
+    [
+      "With three copies, which settings make every read see the latest write?",
+      "R = 2 and W = 2",
+      ["R = 1 and W = 1", "R = 1 and W = 2", "R = 2 and W = 1"],
+      "R + W > N means every read overlaps the latest write.",
+      7,
+    ],
+    [
+      "Why keep accepting saves during a split?",
+      "A refused save loses progress players care about",
+      [
+        "Saves can never conflict",
+        "The store has no way to refuse writes",
+        "A split only ever lasts a second",
+      ],
+      "Conflicts are rare and per player. When it heals, keep the higher version, or merge by the game's rules.",
+      6,
+    ],
+    [
+      "What does a sloppy quorum do when one copy is unreachable?",
+      "Writes to another node, with a hint to hand it back",
+      [
+        "Refuses the write until the copy returns",
+        "Writes to the copies it can reach and forgets the rest",
+        "Waits for the missing copy until it times out",
+      ],
+      "Hinted handoff keeps writes available; the real copy catches up when it's back.",
+      14,
+    ],
+    [
+      "A read finds two copies disagreeing. What does read repair do?",
+      "Returns the newer one and fixes the stale copy",
+      [
+        "Returns both and lets the player choose",
+        "Deletes both and restores from a backup",
+        "Returns the older one, to be safe",
+      ],
+      "Background anti-entropy with Merkle trees fixes what reads don't touch.",
+      15,
+    ],
+    [
+      "Why does a delete write a tombstone?",
+      "So a copy that missed it can't bring the value back",
+      [
+        "So the data can be restored later",
+        "Because stores can't delete in place",
+        "To make the next read faster",
+      ],
+      "Tombstones beat older values, and compaction clears them once every copy has seen them.",
+      16,
+    ],
+    [
+      "Without a cache, how else can you spread one hot key's reads?",
+      "Store copies under several keys and read one at random",
+      [
+        "Give the key a longer name",
+        "Write the key more often",
+        "Move it to the newest partition",
+      ],
+      "Ten copies spread reads over ten partitions. Writes update all of them, which is fine for daily data.",
+      11,
+    ],
+    [
+      "A player sends a save claiming a million coins. What protects you?",
+      "Checking saves on the server",
+      [
+        "Encrypting the save on the phone",
+        "Caching the save for an hour",
+        "Trusting it if the app is up to date",
+      ],
+      "Never trust the client's numbers. Keep a history of saves so a hacked account can be rolled back.",
+      19,
+    ],
+    [
+      "Which signal shows a hot key first?",
+      "Throttled requests on one partition",
+      [
+        "Total disk space used",
+        "The number of players",
+        "The average save size",
+      ],
+      "Watch the cache's hit rate on hot keys too.",
+      20,
+    ],
+  ]),
   "fair-share": q([
     [
       "Where should this API's per-key limit be enforced?",

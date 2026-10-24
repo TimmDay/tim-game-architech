@@ -1080,6 +1080,9 @@ const REPAIR: Level[] = [
   },
 ]
 
+const SPLIT: Fault[] = [{ kind: "network-split" }]
+const SPLIT_LABEL = "A network split cuts one zone off"
+
 /**
  * The questions interviewers ask most, as build levels. Each one's graded
  * trap is the mistake that question is designed to catch.
@@ -1888,10 +1891,99 @@ const CLASSICS: Level[] = [
     concepts: ["rate-limiting", "cache-aside", "horizontal-scaling"],
     hint: "Limit each API key in the {app-server}, where the key is known, and keep the counters in a shared {cache}: each server only sees a thirtieth of the traffic.",
   },
+  {
+    id: "save-game",
+    mode: "build",
+    track: "classic",
+    requires: ["step-counter"],
+    title: "Save Game",
+    tagline:
+      "Millions of players' progress, one hot key, and saves that never fail.",
+    scenario: {
+      product: "the game's save service",
+      reads: "players loading their progress and today's event",
+      writes: "players saving their progress",
+      hot: "today's event settings, and active players' saves",
+      records: "every player's save, by player ID",
+    },
+    brief:
+      "A mobile game keeps every player's progress in a key-value store. Amazon's Dynamo paper describes a store built so the shopping cart always accepts writes, even when machines or links fail; a save button needs the same promise. Peak is 30,000 requests a second: 27,000 loads and 3,000 saves. Every player also reads today's event settings, a single key that takes 15% of all reads, and any one {nosql} key tops out around 3,000 reads a second. Pick the partition key and what the store does during a split, which is the chaos round.",
+    load: {
+      peakRps: 30_000,
+      readFraction: 0.9,
+      cacheableFraction: 0.6,
+      heavyWriteFraction: 0,
+      tunableConsistency: true,
+      partitionKeys: [
+        {
+          id: "player",
+          label: "Player ID",
+          // Saves spread evenly; the event key is still one key.
+          hotShare: 0.15,
+          scatterReads: 0,
+        },
+        {
+          id: "region",
+          label: "Player's region",
+          hotShare: 0.4,
+          scatterReads: 0,
+        },
+        {
+          id: "saved",
+          label: "Time of save",
+          hotShare: 0.9,
+          scatterReads: 0.9,
+          // Loading one player's save means scanning for it.
+          scatterFanout: 50,
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 9_500,
+      writesReach: ["nosql"],
+      noBacklog: false,
+      onSplit: "available",
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: { faults: SPLIT, label: SPLIT_LABEL },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+    ],
+    reference: graph(
+      [
+        ["dns", "dns", 1, 4],
+        ["lb", "load-balancer", 3, 4],
+        ["app", "app-server", 5, 4, 50, 2],
+        ["cache", "cache", 7, 3, 2, 2],
+        [
+          "saves",
+          "nosql",
+          9,
+          5,
+          5,
+          1,
+          { partitionKey: "player", consistency: "eventual" },
+        ],
+      ],
+      [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>saves"],
+    ),
+    concepts: ["hot-keys", "key-value-modelling", "conflict-resolution"],
+    hint: "Key saves by player so they spread. Then look at the one key every player reads: no amount of capacity lifts a single key's limit, but a {cache} can answer it.",
+  },
 ]
-
-const SPLIT: Fault[] = [{ kind: "network-split" }]
-const SPLIT_LABEL = "A network split cuts one zone off"
 
 /**
  * The CAP shelf. Each level turns on the sidebar's consistency choice, its

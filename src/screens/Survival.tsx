@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import { canConnect } from "~/game/edit"
 import { BoardActions } from "~/ui/BoardActions"
 import {
   Activity,
@@ -332,6 +333,19 @@ export function Survival({
         onTapEdge={editor.onTapEdge}
         onTapTile={editor.onTapTile}
         onMove={editor.onMove}
+        handles={
+          (wide || tab === "build") && !running
+            ? {
+                from:
+                  editor.tool.t === "connect" ? editor.tool.from : undefined,
+                canReceive: (id) =>
+                  editor.tool.t === "connect" &&
+                  canConnect(graph, editor.tool.from, id),
+                onStart: editor.startConnect,
+                onReceive: editor.receive,
+              }
+            : undefined
+        }
       />
       {!running && (
         <BoardActions

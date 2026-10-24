@@ -9,7 +9,8 @@ import { sfx } from "./sound"
 export type Tool =
   | { t: "select" }
   | { t: "place"; kind: ComponentKind }
-  | { t: "connect"; from: string }
+  /** `building`: started from a + handle, so finishing it doesn't open the inspector. */
+  | { t: "connect"; from: string; building?: boolean }
   | { t: "diagnose" }
 
 export type Selection = { node?: string; edge?: string }
@@ -104,21 +105,45 @@ export function useBoardEditor({
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
+  /** Start a connection from this component, or cancel one already started. */
+  const startConnect = (id: string) => {
+    if (running) return
+    setSel({})
+    setTool(
+      tool.t === "connect" && tool.from === id
+        ? { t: "select" }
+        : { t: "connect", from: id, building: true },
+    )
+  }
+
+  /**
+   * Finish the connection being drawn at this component. A connection begun
+   * from the inspector selects the target and goes back to it; one begun from
+   * a + handle leaves the player building, however it's finished.
+   */
+  const finishConnect = (id: string) => {
+    if (tool.t !== "connect") return
+    const inspect = !tool.building
+    if (canConnect(graph, tool.from, id)) {
+      dispatch({ type: "connect", from: tool.from, to: id })
+      if (inspect) setSel({ node: id })
+    } else if (id !== tool.from) {
+      onToast?.(
+        "Those two are already connected, or that isn't a valid target.",
+      )
+    }
+    setTool({ t: "select" })
+    if (inspect) onInspect?.()
+  }
+
+  /** The = handle: connect, and stay ready to build. */
+  const receive = (id: string) => {
+    if (!running) finishConnect(id)
+  }
+
   const onTapNode = (id: string) => {
     if (running) return
-    if (tool.t === "connect") {
-      if (canConnect(graph, tool.from, id)) {
-        dispatch({ type: "connect", from: tool.from, to: id })
-        setSel({ node: id })
-      } else if (id !== tool.from) {
-        onToast?.(
-          "Those two are already connected, or that isn't a valid target.",
-        )
-      }
-      setTool({ t: "select" })
-      onInspect?.()
-      return
-    }
+    if (tool.t === "connect") return finishConnect(id)
     if (tool.t === "diagnose") {
       setTool({ t: "select" })
       if (id !== CLIENT_ID) onDiagnose?.(id)
@@ -165,6 +190,8 @@ export function useBoardEditor({
           : null
 
   return {
+    startConnect,
+    receive,
     graph,
     dispatch,
     tool,

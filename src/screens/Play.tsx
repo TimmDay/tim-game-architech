@@ -1,4 +1,5 @@
 import { deviceId } from "~/game/device"
+import { canConnect } from "~/game/edit"
 import { BoardActions } from "~/ui/BoardActions"
 import clsx from "clsx"
 import {
@@ -123,6 +124,8 @@ export function Play({
     onTapEdge,
     onMove,
     banner,
+    startConnect,
+    receive,
   } = useBoardEditor({
     initial,
     provider,
@@ -490,6 +493,17 @@ export function Play({
         onTapTile={onTapTile}
         onMove={onMove}
         traffic={level.load.traffic}
+        handles={
+          (wide || tab === "build") && !running && tool.t !== "diagnose"
+            ? {
+                from: tool.t === "connect" ? tool.from : undefined,
+                canReceive: (id) =>
+                  tool.t === "connect" && canConnect(graph, tool.from, id),
+                onStart: startConnect,
+                onReceive: receive,
+              }
+            : undefined
+        }
       />
       {!running && (
         <BoardActions

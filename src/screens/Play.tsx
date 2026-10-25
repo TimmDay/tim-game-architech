@@ -404,7 +404,7 @@ export function Play({
           title={
             quiz.passed
               ? undefined
-              : `Pass the Gauntlet (${PASS_MARK}/10) below to unlock`
+              : "Pass the 10 question gauntlet below to unlock"
           }
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300/40 py-2 text-[14px] font-semibold text-amber-100 enabled:hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
         >
@@ -423,7 +423,7 @@ export function Play({
         <p className="text-[12px] leading-snug text-slate-500">
           {quiz.passed
             ? "Shows a three-star design, running, with the reasoning and trade-offs written out."
-            : `Score ${PASS_MARK}/10 on this scenario's key ideas to unlock the solution.${quiz.best > 0 ? ` Best so far: ${quiz.best}/10.` : ""} The discussion deck covers every question.`}
+            : `Score ${PASS_MARK} on the 10 question gauntlet, on this scenario's key ideas, to unlock the solution.${quiz.best > 0 ? ` Best so far: ${quiz.best}/10.` : ""} The discussion deck covers every question.`}
         </p>
       </div>
     )

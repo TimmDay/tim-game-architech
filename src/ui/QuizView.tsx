@@ -195,7 +195,7 @@ export function QuizView({
     <div className="space-y-4">
       <ModalHeader>
         <div className="font-mono text-[10px] tracking-[0.18em] text-amber-300/80 uppercase">
-          Unlock the solution · {PASS_MARK} of {total} to pass
+          {total} question gauntlet · {PASS_MARK} to pass
         </div>
         <div className="mt-2 flex gap-1">
           {attempt.questions.map((x, i) => {

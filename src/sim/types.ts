@@ -189,6 +189,8 @@ export type TrafficType = {
 export type Graph = {
   components: PlacedComponent[]
   edges: Edge[]
+  /** Where the Users block sits, once moved. Unset: CLIENT_TILE. Layout only. */
+  client?: { x: number; y: number }
 }
 
 export type LoadProfile = {

@@ -25,6 +25,7 @@ import { DECKS } from "~/decks"
 import { PASS_MARK, QUIZZES } from "~/quiz/questions"
 import { SCHEMA } from "~/quiz/schema"
 import { CONCEPTS, type ConceptId } from "~/levels/concepts"
+import type { Scenario } from "~/levels/roles"
 import type { Level } from "~/levels"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
 import { CATALOGUE, workerJobsPerSecond } from "~/sim/catalogue"
@@ -135,8 +136,7 @@ export function BriefPanel({
   onConcept,
   diagnose,
   components,
-  onDeck,
-  quiz,
+  study,
 }: {
   level: Level
   provider: Provider
@@ -144,9 +144,8 @@ export function BriefPanel({
   diagnose?: React.ReactNode
   /** The palette, on wide screens: building comes before reading up. */
   components?: React.ReactNode
-  onDeck?: (schema?: boolean) => void
-  /** The check that unlocks the suggested solution. */
-  quiz?: { passed: boolean; open: () => void }
+  /** The study cards, on wide screens; phones give them their own tab. */
+  study?: React.ReactNode
 }) {
   const [hint, setHint] = useState(false)
   return (
@@ -217,6 +216,28 @@ export function BriefPanel({
           ))}
         </div>
       </div>
+      {study}
+    </div>
+  )
+}
+
+/**
+ * Everything to study for a level: the discussion deck, the schema and API
+ * questions, and the quiz that unlocks the solution. On phones this is the
+ * Quiz tab, where any new deck or question set belongs too.
+ */
+export function StudyCards({
+  level,
+  onDeck,
+  quiz,
+}: {
+  level: Level
+  onDeck?: (schema?: boolean) => void
+  /** The check that unlocks the suggested solution. */
+  quiz?: { passed: boolean; open: () => void }
+}) {
+  return (
+    <div className="space-y-4">
       {onDeck && (DECKS[level.id]?.length ?? 0) > 0 && (
         <button
           type="button"
@@ -694,9 +715,43 @@ function CarriesPicker({
   )
 }
 
+/**
+ * Who the users are and what they send, from the level's own numbers and
+ * scenario: what the Users block stands for.
+ */
+export function audience(scenario: Scenario, load: LoadProfile): string[] {
+  const whole = (n: number) => Math.round(n).toLocaleString("en-US")
+  const share = (n: number) => `${Math.round(n * 100)}%`
+  const out = [
+    `${whole(load.peakRps)} requests a second at peak, ${share(load.readFraction)} of them reads: ${scenario.reads}.`,
+  ]
+  if (load.readFraction < 1)
+    out.push(
+      `The other ${share(1 - load.readFraction)} are writes: ${scenario.writes}.`,
+    )
+  if (load.cacheableFraction > 0)
+    out.push(
+      `About ${share(load.cacheableFraction)} of reads are for ${scenario.hot}, the same for everyone.`,
+    )
+  if (load.heavyWriteFraction > 0)
+    out.push(
+      `${share(load.heavyWriteFraction)} of writes are slow jobs that take a while to process.`,
+    )
+  for (const t of load.traffic ?? [])
+    out.push(`${t.label}: ${share(t.share)} of the ${t.of}.`)
+  if (load.regions)
+    out.push(
+      load.regions.farShare > 0
+        ? `${share(load.regions.farShare)} of users are on another continent, ${load.regions.rttMs}ms from the home region.`
+        : "Everyone is close to the home region.",
+    )
+  return out
+}
+
 export function InspectPanel({
   graph,
   load,
+  scenario,
   production,
   provider,
   selectedId,
@@ -715,6 +770,8 @@ export function InspectPanel({
   graph: Graph
   /** The level's load: what decides whether sharding and consistency show. */
   load?: LoadProfile
+  /** Who the users are, for the Users block. */
+  scenario?: Scenario
   /** Show production settings (levels and the sandbox, not Survival). */
   production?: boolean
   provider: Provider
@@ -853,8 +910,21 @@ export function InspectPanel({
       <div className="space-y-3">
         <H>Traffic source</H>
         <div className="text-[15px] font-semibold text-white">Users</div>
-        <p className="text-[13px] text-slate-400">
-          Every request starts here. Connect it to your entry point.
+        {scenario && load ? (
+          <ul className="space-y-1.5 text-[13px] leading-snug text-slate-300">
+            {audience(scenario, load).map((line) => (
+              <li key={line}>
+                <Rich text={line} provider={provider} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[13px] text-slate-400">
+            Every request starts here.
+          </p>
+        )}
+        <p className="text-[12px] text-slate-500">
+          Connect it to your entry point.
         </p>
         {connectBtn}
       </div>

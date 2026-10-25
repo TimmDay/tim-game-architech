@@ -6,8 +6,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { COLS, ROWS, inBounds } from "~/game/edit"
-import { CLIENT_TILE } from "~/levels"
+import { COLS, ROWS, clientTile, inBounds } from "~/game/edit"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
 import { carries } from "~/sim/simulate"
 import type { Graph, SimResult } from "~/sim/types"
@@ -58,7 +57,10 @@ type Pt = { x: number; y: number }
 const TAP_SLOP = 8
 
 function nodePos(graph: Graph, id: string) {
-  if (id === CLIENT_ID) return iso(CLIENT_TILE.x, CLIENT_TILE.y)
+  if (id === CLIENT_ID) {
+    const u = clientTile(graph)
+    return iso(u.x, u.y)
+  }
   const c = graph.components.find((c) => c.id === id)
   return c ? iso(c.x, c.y) : undefined
 }
@@ -80,7 +82,7 @@ export function Board(p: BoardProps) {
     const g = graphRef.current
     // An empty board still frames a few tiles' room to build in.
     const pts = [
-      iso(CLIENT_TILE.x, CLIENT_TILE.y),
+      iso(clientTile(g).x, clientTile(g).y),
       iso(6, 2),
       iso(6, 6),
       ...g.components.map((c) => iso(c.x, c.y)),
@@ -195,8 +197,7 @@ export function Board(p: BoardProps) {
       g.moved = true
     if (!g.moved) return
 
-    const dragging = g.target?.node && g.target.node !== CLIENT_ID
-    if (dragging && g.target?.node) {
+    if (g.target?.node) {
       const w = toWorld(pt)
       // Grab the block near its base, not the cursor's exact spot.
       const t = tileAt(w.x, w.y + 14)
@@ -262,7 +263,8 @@ export function Board(p: BoardProps) {
     return out
   }, [])
   const occupiedSet = new Set(p.graph.components.map((c) => `${c.x},${c.y}`))
-  occupiedSet.add(`${CLIENT_TILE.x},${CLIENT_TILE.y}`)
+  const users = clientTile(p.graph)
+  occupiedSet.add(`${users.x},${users.y}`)
 
   const edges = p.graph.edges.flatMap((e) => {
     const a = nodePos(p.graph, e.from)
@@ -306,7 +308,7 @@ export function Board(p: BoardProps) {
   const particleLayer = useParticles(particleFlows)
 
   const nodes = [
-    { id: CLIENT_ID, x: CLIENT_TILE.x, y: CLIENT_TILE.y },
+    { id: CLIENT_ID, x: users.x, y: users.y },
     ...p.graph.components.map((c) => ({ id: c.id, x: c.x, y: c.y })),
   ].sort((a, b) => a.x + a.y - (b.x + b.y))
 

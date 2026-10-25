@@ -11,7 +11,7 @@ import { EMPTY_SAVE, type Save } from "./save"
  */
 const get = <T>(key: string, profile: string | null): T | undefined => {
   try {
-    const raw = backend(key, profile).getItem(scoped(key, profile))
+    const raw = backend().getItem(scoped(key, profile))
     return raw ? (JSON.parse(raw) as T) : undefined
   } catch {
     return undefined
@@ -19,7 +19,7 @@ const get = <T>(key: string, profile: string | null): T | undefined => {
 }
 const put = (key: string, profile: string | null, value: unknown) => {
   try {
-    backend(key, profile).setItem(scoped(key, profile), JSON.stringify(value))
+    backend().setItem(scoped(key, profile), JSON.stringify(value))
   } catch {
     // Storage full or blocked.
   }

@@ -8,7 +8,8 @@ describe("profiles", () => {
     expect(scoped("lb.provider", "u1")).toBe("lb.provider")
     expect(scoped("lb.muted", "u1")).toBe("lb.muted")
     expect(scoped("lb.progress", null)).toBe("lb.progress")
-    expect(scoped("lb.progress", GUEST)).toBe("lb.progress")
+    expect(scoped("lb.progress", GUEST)).toBe("lb.g.progress")
+    expect(scoped("lb.provider", GUEST)).toBe("lb.provider")
   })
 })
 

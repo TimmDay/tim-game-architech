@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react"
-import { GUEST, switchProfile } from "~/game/profile"
+import { GUEST, clearGuestSave, switchProfile } from "~/game/profile"
 import { startSync, stopSync } from "~/sync/cloud"
 import { readSave } from "~/sync/local"
 
@@ -118,6 +118,7 @@ export async function startAuth() {
           markLegacyClaimed()
         }
         clearGuestSession()
+        clearGuestSave()
         switchProfile(u.uid)
         set({ status: "signed-in", user: toUser(u) })
         void startSync(app, u.uid, extras)
@@ -175,17 +176,18 @@ export async function signIn(which: "github" | "google") {
 }
 
 // --- guests ------------------------------------------------------------------
-const GUEST_FLAG = "lb.guest-session"
+/** Chose "continue as guest" in this browser: skip the welcome next time. */
+const GUEST_FLAG = "lb.guest"
 const guestSession = () => {
   try {
-    return sessionStorage.getItem(GUEST_FLAG) === "1"
+    return localStorage.getItem(GUEST_FLAG) === "1"
   } catch {
     return false
   }
 }
 function clearGuestSession() {
   try {
-    sessionStorage.clear()
+    localStorage.removeItem(GUEST_FLAG)
   } catch {
     // Nothing to clear.
   }
@@ -206,10 +208,10 @@ const markLegacyClaimed = () => {
   }
 }
 
-/** Play without an account. Progress lives in this tab and goes when it closes. */
+/** Play without an account. Progress stays in this browser until sign-in. */
 export function continueAsGuest() {
   try {
-    sessionStorage.setItem(GUEST_FLAG, "1")
+    localStorage.setItem(GUEST_FLAG, "1")
   } catch {
     // Private mode: still a guest, just without even session persistence.
   }

@@ -104,8 +104,10 @@ export function Play({
     report: Report
   } | null>(null)
   const [info, setInfo] = useState<Info | null>(null)
+  // Phones show one tab at a time: open on the brief until the level has a
+  // star, so a first visit starts with the story and the targets.
   const [tab, setTab] = useState<Tab>(
-    level.mode === "repair" ? "brief" : "build",
+    level.mode === "repair" || !progress[level.id]?.stars ? "brief" : "build",
   )
   const [sheetOpen, setSheetOpen] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
@@ -386,8 +388,10 @@ export function Play({
       onInfo={(kind) => setInfo({ kind })}
     />
   )
+  // Offered once there's something to be stuck on: after a run, a pass, or a quiz.
+  const tried = graded !== null || !!progress[level.id] || quiz.best > 0
   const solution =
-    sandbox || !SOLUTIONS[level.id] ? null : (
+    sandbox || !SOLUTIONS[level.id] || !tried ? null : (
       <div className="space-y-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-3">
         <H>Stuck?</H>
         <button

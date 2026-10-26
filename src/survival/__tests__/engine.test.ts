@@ -76,7 +76,7 @@ describe("demands", () => {
   it("leave a seed's traffic and incidents as they were", () => {
     for (const seed of SEEDS)
       for (let n = 1; n < 15; n++) {
-        const plain = wave(seed, n, new Set())
+        const plain = wave(seed, n, false)
         const w = wave(seed, n)
         expect(w.mix).toBe(plain.mix)
         expect(w.incidents).toEqual(plain.incidents)
@@ -101,14 +101,6 @@ describe("demands", () => {
   it("come often enough that most runs meet two by wave 8", () => {
     const met = SEEDS.filter((s) => wave(s, 8).demands.length >= 2)
     expect(met.length).toBeGreaterThanOrEqual(SEEDS.length / 2)
-  })
-
-  it("wait for the level that teaches what they need", () => {
-    const known = new Set(["front-page", "upload-rush"])
-    for (const seed of SEEDS)
-      for (let n = 1; n < 20; n++)
-        for (const d of wave(seed, n, known).demands)
-          expect(d.teaches).toBe("upload-rush")
   })
 
   it("can't be met by scaling app servers to the budget", () => {
@@ -148,7 +140,7 @@ describe("demands", () => {
   })
 
   it("fail a warehouse on the request path", () => {
-    const w = { ...wave(1, 5, new Set()), demands: [DEMANDS.analytics] }
+    const w = { ...wave(1, 5, false), demands: [DEMANDS.analytics] }
     const g = graph(
       [
         ["lb", "load-balancer", 3, 2],
@@ -162,7 +154,7 @@ describe("demands", () => {
   })
 
   it("fail a ledger kept in one unsharded primary once writes outgrow it", () => {
-    const base = wave(1, 12)
+    const base = wave(1, 12, false)
     const w = {
       ...base,
       mix: "checkout" as const,
@@ -178,5 +170,22 @@ describe("demands", () => {
     }
     expect(playWave(sharded, w).survived).toBe(true)
     expect(playWave(single, w).survived).toBe(false)
+  })
+
+  it("let you shard any time, but call too many shards overkill", () => {
+    const w = wave(1, 4, false)
+    const lean = sensible(w)
+    const shard = (n: number) => ({
+      ...lean,
+      components: lean.components.map((c) =>
+        c.kind === "sql-primary" ? { ...c, shards: n } : c,
+      ),
+    })
+    expect(w.load.partitionKeys?.length).toBeGreaterThan(0)
+    const reasons = playWave(shard(4), w).reasons
+    expect(reasons.some((r) => r.startsWith("On call quits"))).toBe(true)
+    expect(playWave(lean, w).reasons).not.toContainEqual(
+      expect.stringMatching(/^On call quits/),
+    )
   })
 })

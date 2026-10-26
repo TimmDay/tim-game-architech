@@ -184,6 +184,11 @@ export type TrafficType = {
   relayCost: number
   /** The kinds users may send it to directly. */
   to: ComponentKind[]
+  /**
+   * The same files for everyone (a launch video), so a {cdn} sent it directly
+   * serves it from its edge. Unset: every request is different.
+   */
+  cacheable?: boolean
 }
 
 export type Graph = {

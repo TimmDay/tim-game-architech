@@ -188,14 +188,7 @@ function AppScreens({
     const missing = SURVIVAL_REQUIRES.filter((id) => !isComplete(id, progress))
     if (missing.length === 0)
       return (
-        <Survival
-          provider={provider}
-          onBack={() => go("/")}
-          toggle={toggle}
-          known={LEVELS.filter((l) => isComplete(l.id, progress)).map(
-            (l) => l.id,
-          )}
-        />
+        <Survival provider={provider} onBack={() => go("/")} toggle={toggle} />
       )
   }
 

@@ -78,15 +78,14 @@ const INCIDENTS: Incident[] = [
  * has a warehouse, they keep wanting it fed. Each one needs a component that
  * more app servers can't stand in for.
  */
-export type DemandId = "fulfilment" | "search" | "analytics" | "ledger"
+export type DemandId =
+  "fulfilment" | "search" | "analytics" | "ledger" | "media" | "carts"
 
 export type Demand = {
   id: DemandId
   label: string
   /** What's asked, in `{kind}` tokens. */
   blurb: string
-  /** The level that teaches what it needs: no demand before its idea is met. */
-  teaches: string
   /** The earliest wave it can arrive on. */
   from: number
   /** Stores every write must reach. */
@@ -101,7 +100,6 @@ export const DEMANDS: Record<DemandId, Demand> = {
     label: "Courier bookings",
     blurb:
       "A quarter of all writes are now orders that book a courier, and the courier's API takes a second to answer. Customers only need to see that the order was placed: the booking can happen a moment later.",
-    teaches: "upload-rush",
     from: 3,
     sinks: [],
     budget: { base: 300, perRps: 0.2 },
@@ -111,7 +109,6 @@ export const DEMANDS: Record<DemandId, Demand> = {
     label: "Search launch",
     blurb:
       "Product wants search. Every write must also reach a {search-index}, kept up to date by events rather than on the request path.",
-    teaches: "feed-the-analysts",
     from: 3,
     sinks: ["search-index"],
     budget: { base: 450, perRps: 0.05 },
@@ -121,17 +118,33 @@ export const DEMANDS: Record<DemandId, Demand> = {
     label: "Analytics drive",
     blurb:
       "Finance wants every order in a {data-warehouse} for their reports. It's built for big queries, not for sitting on the request path.",
-    teaches: "feed-the-analysts",
     from: 4,
     sinks: ["data-warehouse"],
     budget: { base: 1_150, perRps: 0.02 },
+  },
+  media: {
+    id: "media",
+    label: "Launch video",
+    blurb:
+      "Marketing launches a video that everyone watches. A third of all reads are now its chunks, each 20 times the work of a page for whatever relays it. Send them to a {cdn} directly, with an {object-store} behind it.",
+    from: 3,
+    sinks: [],
+    budget: { base: 100, perRps: 0.05 },
+  },
+  carts: {
+    id: "carts",
+    label: "Cart service",
+    blurb:
+      "Carts move to their own key-value {nosql} store: every write updates someone's cart, looked up by its key.",
+    from: 4,
+    sinks: ["nosql"],
+    budget: { base: 400, perRps: 0.15 },
   },
   ledger: {
     id: "ledger",
     label: "Audited ledger",
     blurb:
-      "The auditors want every write in a {sql-primary}, with transactions. When one primary can't take the writes, split it into shards by customer.",
-    teaches: "tenant-split",
+      "The auditors want every write in a {sql-primary}, with transactions. When one primary can't take the writes, split it into shards.",
     from: 6,
     sinks: ["sql-primary"],
     budget: { base: 0, perRps: 0.05 },
@@ -141,8 +154,23 @@ export const DEMANDS: Record<DemandId, Demand> = {
 /** A 1-second call that mostly waits: workers run many at once. */
 const COURIER_JOB = { seconds: 1, cpuBound: false }
 
-/** How the ledger can be split: by customer spreads it, by time doesn't. */
-const LEDGER_KEYS: NonNullable<LoadProfile["partitionKeys"]> = [
+/** Video chunks: the app tier relays them at 20 times a page's cost. */
+const MEDIA: NonNullable<LoadProfile["traffic"]>[number] = {
+  id: "media",
+  label: "Video chunks",
+  of: "reads",
+  share: 1 / 3,
+  relayCost: 20,
+  to: ["cdn"],
+  cacheable: true,
+}
+
+/**
+ * How a store can be split, on every wave: by customer spreads it, by time
+ * doesn't. Sharding is always on offer; using more than the wave needs is
+ * overkill (see `playWave`).
+ */
+const SHARD_KEYS: NonNullable<LoadProfile["partitionKeys"]> = [
   { id: "customer", label: "Customer ID", hotShare: 0.02, scatterReads: 0 },
   { id: "time", label: "Time of the write", hotShare: 1, scatterReads: 0 },
 ]
@@ -187,27 +215,23 @@ export const BUDGET_BASE = 1_100
  */
 export const BUDGET_PER_RPS = 0.85
 /** Room to spare over a sensible design, so there's more than one answer. */
-export const BUDGET_MARGIN = 1.2
-export const LIVES = 3
+export const BUDGET_MARGIN = 1.3
+export const LIVES = 2
 
 const round10 = (n: number) => Math.round(n / 10) * 10
 
 /**
  * Demands in force on wave `n`, oldest first. Drawn from a stream of their
- * own, so they never change a seed's traffic or incidents. `known`: levels
- * with a star, since each demand waits for the level that teaches it.
+ * own, so they never change a seed's traffic or incidents. Survival may ask
+ * for things no level has taught yet: it's meant to be hard.
  */
-function demandsBy(
-  seed: number,
-  n: number,
-  known: ReadonlySet<string>,
-): Demand[] {
+function demandsBy(seed: number, n: number): Demand[] {
   const out: Demand[] = []
   for (let k = 3; k <= n; k++) {
     const r = rng(seed * 6007 + k * 15485863)
     if (r() >= DEMAND_CHANCE) continue
     const open = Object.values(DEMANDS).filter(
-      (d) => d.from <= k && known.has(d.teaches) && !out.includes(d),
+      (d) => d.from <= k && !out.includes(d),
     )
     const pick = open[Math.floor(r() * open.length)]
     if (pick) out.push(pick)
@@ -215,16 +239,7 @@ function demandsBy(
   return out
 }
 
-/** Every level: for tests and tools that want every demand on offer. */
-export const KNOWS_ALL: ReadonlySet<string> = new Set(
-  Object.values(DEMANDS).map((d) => d.teaches),
-)
-
-export function wave(
-  seed: number,
-  n: number,
-  known: ReadonlySet<string> = KNOWS_ALL,
-): Wave {
+export function wave(seed: number, n: number, withDemands = true): Wave {
   const r = rng(seed * 7919 + n * 104729)
   // Wave 1 is always gentle browsing. Upload floods need a queue and workers,
   // which the early budget can't stretch to, so they start at wave 4.
@@ -243,7 +258,7 @@ export function wave(
     if (pick) incidents.push(pick)
   }
   const peakRps = round10(START_RPS * Math.pow(GROWTH, n - 1))
-  const demands = demandsBy(seed, n, known)
+  const demands = withDemands ? demandsBy(seed, n) : []
   const has = (id: DemandId) => demands.some((d) => d.id === id)
   const load: LoadProfile = { peakRps, ...MIX[mix].load }
   // The courier call is the slow job from now on. In an upload flood it waits
@@ -252,7 +267,8 @@ export function wave(
     load.heavyWriteFraction = Math.max(load.heavyWriteFraction, 0.25)
     load.job = COURIER_JOB
   }
-  if (has("ledger")) load.partitionKeys = LEDGER_KEYS
+  if (has("media")) load.traffic = [MEDIA]
+  load.partitionKeys = SHARD_KEYS
   const extra = demands.reduce(
     (t, d) => t + d.budget.base + d.budget.perRps * peakRps,
     0,
@@ -268,7 +284,7 @@ export function wave(
     incidents,
     demands,
     fresh:
-      fresh && demandsBy(seed, n - 1, known).length < demands.length
+      fresh && demandsBy(seed, n - 1).length < demands.length
         ? fresh.id
         : undefined,
   }
@@ -285,6 +301,11 @@ export const waveTargets = (w: Wave): Targets => ({
 })
 
 export const WAVE_P99_LIMIT_MS = 800
+/**
+ * A shard is overkill when the store could lose one and its busiest shard
+ * would still be under this at peak: complexity bought for nothing.
+ */
+export const OVERKILL_UTILIZATION = 0.5
 export const WAVE_ERROR_LIMIT = 0.01
 
 export type WaveOutcome = {
@@ -322,6 +343,21 @@ export function playWave(graph: Graph, w: Wave): WaveOutcome {
           `${d.label}: only ${Math.round((got / writes) * 100)}% of writes reached the {${sink}}.`,
         )
     }
+  for (const c of graph.components) {
+    const shards = c.kind === "sql-primary" ? (c.shards ?? 1) : 1
+    if (shards < 2) continue
+    const fewer = {
+      ...graph,
+      components: graph.components.map((x) =>
+        x.id === c.id ? { ...x, shards: shards - 1 } : x,
+      ),
+    }
+    const busiest = simulate(fewer, w.load).perComponent[c.id]?.utilization ?? 1
+    if (busiest < OVERKILL_UTILIZATION)
+      reasons.push(
+        `On call quits: this system is more complex than it needs to be. The {sql-primary} runs ${shards} shards; with ${shards - 1} the busiest would still sit under ${Math.round(OVERKILL_UTILIZATION * 100)}% at peak.`,
+      )
+  }
   return { survived: reasons.length === 0, peak, hit, reasons }
 }
 

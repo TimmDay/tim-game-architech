@@ -53,19 +53,17 @@ const newSeed = () => Math.floor(Math.random() * 1_000_000)
 /**
  * Survival: keep one architecture alive through endless waves. Traffic grows
  * about 30% a wave, the mix changes, and from wave 3 something goes wrong
- * that you don't see coming. Three lives; the budget grows as you go.
+ * that you don't see coming, and the business keeps asking for more. Two
+ * lives; the budget grows as you go.
  */
 export function Survival({
   provider,
   onBack,
   toggle,
-  known,
 }: {
   provider: Provider
   onBack: () => void
   toggle: React.ReactNode
-  /** Levels with a star: demands wait for the level that teaches them. */
-  known: string[]
 }) {
   const wide = useWide()
   const [seed, setSeed] = useState(newSeed)
@@ -82,8 +80,6 @@ export function Survival({
   // The best before this run, so game over can tell whether it was beaten.
   const [bestAtStart, setBestAtStart] = useState(best)
   const [cleared, setCleared] = useState(0)
-  // Fixed for the run, so a demand already met can't vanish or appear early.
-  const [knownAtStart, setKnownAtStart] = useState(() => new Set(known))
   const running = phase === "ramp" || phase === "incident"
 
   const editor = useBoardEditor({
@@ -99,10 +95,7 @@ export function Survival({
   })
   const { graph } = editor
 
-  const w = useMemo(
-    () => makeWave(seed, n, knownAtStart),
-    [seed, n, knownAtStart],
-  )
+  const w = useMemo(() => makeWave(seed, n), [seed, n])
   const cost = waveCost(graph, w)
   const affordable = canLaunch(graph, w)
   const live = phase !== "build" && phase !== "over"
@@ -197,7 +190,6 @@ export function Survival({
   const restart = () => {
     editor.dispatch({ type: "reset", graph: { components: [], edges: [] } })
     setSeed(newSeed())
-    setKnownAtStart(new Set(known))
     setBestAtStart(best)
     setCleared(0)
     setN(1)

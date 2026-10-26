@@ -1,7 +1,7 @@
-import { graph } from "~/levels"
+import { graph, mark } from "~/levels"
 import { CLIENT_ID as C } from "~/sim/types"
 import type { Graph } from "~/sim/types"
-import { CACHE_HIT_EFFICIENCY } from "~/sim/simulate"
+import { CACHE_HIT_EFFICIENCY, simulate } from "~/sim/simulate"
 import { CATALOGUE, workerJobsPerSecond } from "~/sim/catalogue"
 import type { Wave } from "../engine"
 
@@ -32,15 +32,8 @@ export function sensible(w: Wave): Graph {
   const sql = CATALOGUE["sql-primary"].capacity
   const wants = (id: string) => w.demands.some((d) => d.id === id)
   if (wants("ledger")) {
-    // Transactions mean SQL: shard it once one primary can't keep up.
-    const shards = Math.max(
-      1,
-      Math.ceil((writes * 1.5) / sql.writeRps / 0.8),
-      Math.ceil(((reads - hits) * 1.5) / sql.readRps / 0.8),
-    )
-    // Three copies over three zones: a failed primary and a lost zone at once
-    // still leave one.
-    rows.push(["db", "sql-primary", 9, 3, 3, 3, { shards }])
+    // Transactions mean SQL, sharded by customer as far as `tune` needs.
+    rows.push(["db", "sql-primary", 9, 3, 3, 3, { shards: 1 }])
     edges.push("cache>db")
   } else if (
     writes * 1.5 > sql.writeRps * 0.8 ||
@@ -54,7 +47,9 @@ export function sensible(w: Wave): Graph {
     rows.push(["kv", "nosql", 9, 3, Math.max(1, blocks)])
     edges.push("cache>kv")
   } else {
-    rows.push(["db", "sql-primary", 9, 3, 2, 2])
+    // Three copies over three zones: a failed primary and a lost zone at once
+    // still leave one.
+    rows.push(["db", "sql-primary", 9, 3, 3, 3])
     edges.push("cache>db")
   }
   if (heavyWriteFraction > 0) {
@@ -108,7 +103,54 @@ export function sensible(w: Wave): Graph {
       edges.push("stream>dw")
     }
   }
-  return graph(rows, edges)
+  if (wants("carts") && !rows.some((r) => r[1] === "nosql")) {
+    // Every write updates a cart, and every read goes there too.
+    const block = CATALOGUE.nosql.capacity
+    const blocks = Math.max(
+      1,
+      Math.ceil((writes * 1.5) / block.writeRps / 0.8),
+      Math.ceil(((reads - hits) * 1.5) / block.readRps / 0.8),
+    )
+    rows.push(["carts", "nosql", 9, 5, blocks])
+    edges.push("app>carts")
+  }
+  let g = graph(rows, edges)
+  if (wants("media")) {
+    rows.push(["cdn", "cdn", 1, 1], ["files", "object-store", 3, 0])
+    edges.push(`${C}>cdn`, "cdn>files")
+    g = mark(graph(rows, edges), `${C}>cdn`, ["media"])
+  }
+  return tune(g, w)
+}
+
+/**
+ * Grow the tiers that hold or work through the data until they'd carry a
+ * 1.5x spike with a zone gone, and no further: what a careful player does
+ * with the live numbers, and lean enough never to be overkill.
+ */
+function tune(g: Graph, w: Wave): Graph {
+  const worst = { ...w.load, peakRps: w.load.peakRps * 1.5 }
+  const grow = (id: string) => {
+    const c = g.components.find((x) => x.id === id)
+    if (!c) return
+    const sharded = c.kind === "sql-primary"
+    const max = sharded ? 16 : CATALOGUE[c.kind].maxInstances
+    for (;;) {
+      const m = simulate(g, worst, [{ kind: "zone-outage" }]).perComponent[id]
+      const n = sharded ? (c.shards ?? 1) : c.instances
+      if (!m || m.utilization <= 0.9 || n >= max) return
+      const next = sharded ? { shards: n + 1 } : { instances: n + 1 }
+      g = {
+        ...g,
+        components: g.components.map((x) =>
+          x.id === id ? { ...x, ...next } : x,
+        ),
+      }
+      Object.assign(c, next)
+    }
+  }
+  for (const id of ["db", "kv", "carts", "w", "search", "stream"]) grow(id)
+  return g
 }
 
 /**

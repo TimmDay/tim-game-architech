@@ -444,7 +444,7 @@ function SurvivalSection({
       title="Survival"
       icon={<Swords size={22} />}
       accent="text-orange-200"
-      blurb="Keep one architecture alive while traffic grows every wave. Some waves are all reads, some are checkout rushes, some are floods of slow jobs. From wave 3, something breaks that you won't see coming. Three lives."
+      blurb="Keep one architecture alive while traffic grows every wave. Some waves are all reads, some are checkout rushes, some are floods of slow jobs. From wave 3, something breaks that you won't see coming, and the business starts asking for things more servers can't give it. Two lives."
       summary={best ? `Best: wave ${best}` : locked ? "Locked" : "No runs yet"}
     >
       <button

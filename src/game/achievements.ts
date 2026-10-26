@@ -215,15 +215,19 @@ export function grantAchievements(
   const granted = ACHIEVEMENTS.filter(
     (a) => !s.awarded[`ach:${a.id}`] && a.earned({ ...ctx, review: s }),
   )
-  if (granted.length === 0) return { state: s, granted }
+  if (granted.length === 0) return { state: keepRank(s, ctx.progress), granted }
   const awarded = { ...s.awarded }
   for (const a of granted) awarded[`ach:${a.id}`] = true
+  // Achievements pay one-time points, which can lift the rank too.
   return {
-    state: {
-      ...s,
-      awarded,
-      total: s.total + granted.length * ACHIEVEMENT_POINTS,
-    },
+    state: keepRank(
+      {
+        ...s,
+        awarded,
+        total: s.total + granted.length * ACHIEVEMENT_POINTS,
+      },
+      ctx.progress,
+    ),
     granted,
   }
 }
@@ -254,13 +258,14 @@ export function completion(review: ReviewState, progress: Progress) {
     .reduce((t, k) => t + awardValue(k), 0)
   const stars = starCount(progress) / MAX_STARS
   const points = Math.min(1, awards / MAX_AWARDS)
-  return { stars, points, value: Math.min(stars, points) }
+  return { stars, points, value: Math.min(stars, points), awards }
 }
 
 export { RANKS, type Rank } from "./ranks"
 import { RANKS, type Rank } from "./ranks"
 
-type Standing = { points: number; stars: number; done: number }
+/** Where a player stands, as shares of the game: what ranks are measured by. */
+type Standing = { points: number; stars: number }
 
 /** How far toward a rank, 0 to 1: the furthest-behind requirement decides. */
 const toward = (r: Rank, s: Standing) =>
@@ -268,18 +273,46 @@ const toward = (r: Rank, s: Standing) =>
     1,
     r.points ? s.points / r.points : 1,
     r.stars ? s.stars / r.stars : 1,
-    r.done ? s.done / r.done : 1,
   )
 
-export function rank(review: ReviewState, progress: Progress) {
-  const s: Standing = {
-    points: review.total,
-    stars: starCount(progress),
-    done: completion(review, progress).value,
-  }
+/** The marker for the highest rank reached, by its place in RANKS. */
+const RANK_KEY = "rank:"
+
+/** The highest rank the current numbers reach, ignoring what was reached before. */
+function reached(review: ReviewState, progress: Progress): number {
+  const c = completion(review, progress)
+  const s = { points: c.points, stars: c.stars }
   let i = 0
   while (i + 1 < RANKS.length && toward(RANKS[i + 1] as Rank, s) >= 1) i++
+  return i
+}
+
+/** The best rank ever held: new content lowers the shares, never the rank. */
+const held = (review: ReviewState) =>
+  Object.keys(review.awarded)
+    .filter((k) => k.startsWith(RANK_KEY))
+    .reduce((m, k) => Math.max(m, Number(k.slice(RANK_KEY.length)) || 0), 0)
+
+/** Record the rank reached, so it's kept if the game grows. */
+export const keepRank = (review: ReviewState, progress: Progress) => {
+  const i = reached(review, progress)
+  return i > held(review) ? mark(review, `${RANK_KEY}${i}`) : review
+}
+
+export function rank(review: ReviewState, progress: Progress) {
+  const c = completion(review, progress)
+  const s: Standing = { points: c.points, stars: c.stars }
+  const i = Math.min(
+    RANKS.length - 1,
+    Math.max(reached(review, progress), held(review)),
+  )
   const next = RANKS[i + 1]
+  const morePoints = next?.points
+    ? Math.ceil(next.points * MAX_AWARDS) - c.awards
+    : 0
+  const moreStars = next?.stars
+    ? Math.ceil(next.stars * MAX_STARS) - starCount(progress)
+    : 0
   return {
     title: RANKS[i]?.title ?? "Game Modder",
     quip: RANKS[i]?.quip ?? "",
@@ -288,14 +321,11 @@ export function rank(review: ReviewState, progress: Progress) {
     /** What's still missing for the next rank, in words. */
     needs: next
       ? [
-          next.points && s.points < next.points
-            ? `${(next.points - s.points).toLocaleString("en-US")} more points`
+          morePoints > 0
+            ? `${morePoints.toLocaleString("en-US")} more points from levels and cards`
             : null,
-          next.stars && s.stars < next.stars
-            ? `${next.stars - s.stars} more ${next.stars - s.stars === 1 ? "star" : "stars"}`
-            : null,
-          next.done && s.done < next.done
-            ? `${Math.round(next.done * 100)}% of the game done`
+          moreStars > 0
+            ? `${moreStars} more ${moreStars === 1 ? "star" : "stars"}`
             : null,
         ].filter((x): x is string => x !== null)
       : [],

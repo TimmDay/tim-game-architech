@@ -6,6 +6,7 @@ import {
   grantAchievements,
   RANKS,
   completion,
+  keepRank,
   mark,
   rank,
 } from "../achievements"
@@ -63,22 +64,31 @@ describe("achievements", () => {
 
 describe("ranks", () => {
   const allStars = Object.fromEntries(LEVELS.map((l) => [l.id, { stars: 3 }]))
-  const withPoints = (total: number) => ({ ...EMPTY, total })
+  /** One-time points from deck cards, one each: `n` of them. */
+  const withCards = (n: number) => {
+    const awarded: Record<string, true> = {}
+    for (const c of Object.values(DECKS).flat().slice(0, n))
+      awarded[`flash:${c.id}`] = true
+    return { ...EMPTY, awarded, total: computeTotal({ ...EMPTY, awarded }) }
+  }
 
   it("starts as a Game Modder and needs points and stars to climb", () => {
     expect(rank(EMPTY, {}).title).toBe("Game Modder")
-    expect(rank(withPoints(30), {}).title).toBe("The Spreadsheet Guy")
+    expect(rank(withCards(30), {}).title).toBe("The Spreadsheet Guy")
     // Points alone stall at the first rank that asks for stars.
-    expect(rank(withPoints(5000), {}).title).toBe("The Spreadsheet Guy")
-    expect(rank(withPoints(5000), {}).needs).toEqual(["2 more stars"])
-    expect(rank(withPoints(5000), allStars).title).toBe(
-      "Distinguished Architect",
-    )
+    expect(rank(withCards(2000), {}).title).toBe("The Spreadsheet Guy")
+    expect(rank(withCards(2000), {}).needs).toEqual(["2 more stars"])
+  })
+
+  it("measures both requirements as shares of the game", () => {
+    // Every star but few points: points hold the rank back, and say how many.
+    const r = rank(withCards(30), allStars)
+    expect(r.title).toBe("The Spreadsheet Guy")
+    expect(r.needs).toHaveLength(1)
+    expect(r.needs[0]).toMatch(/more points from levels and cards$/)
   })
 
   it("keeps the top ranks for finishing most of the game", () => {
-    // Every star, but none of the one-time points: not most of the game.
-    expect(completion(withPoints(5000), allStars).value).toBe(0)
     const awarded: Record<string, true> = {}
     for (const l of LEVELS) {
       awarded[`pass:${l.id}`] = true
@@ -99,15 +109,38 @@ describe("ranks", () => {
     expect(rank(s, allStars).next).toBeUndefined()
   })
 
-  it("doesn't count Retention or Survival toward finishing the game", () => {
+  it("doesn't count Retention or Survival toward rank", () => {
     const s = { ...clearSurvivalWave(EMPTY, 1), retention: { d: 9999 } }
     expect(completion(s, {}).points).toBe(0)
+    expect(rank(s, {}).title).toBe("Game Modder")
   })
 
-  it("orders every rank above the one before", () => {
+  it("never takes a rank back once it's been reached", () => {
+    const s = keepRank(withCards(2000), allStars)
+    const before = rank(s, allStars).title
+    expect(before).not.toBe("Game Modder")
+    // New content shrinks every share; losing the stars is the extreme case.
+    expect(rank(s, {}).title).toBe(before)
+    expect(keepRank(s, {})).toBe(s)
+  })
+
+  it("records the rank when achievements are granted", () => {
+    const { state } = grantAchievements(withCards(2000), {
+      progress: allStars,
+      quizzes: {},
+    })
+    expect(rank(state, {}).title).toBe(rank(state, allStars).title)
+  })
+
+  it("asks each rank for at least as much as the one before", () => {
     for (let i = 1; i < RANKS.length; i++) {
       const [a, b] = [RANKS[i - 1], RANKS[i]]
-      expect((b?.points ?? 0) >= (a?.points ?? 0) || b?.done).toBeTruthy()
+      const pts = [a?.points ?? 0, b?.points ?? 0] as const
+      const sts = [a?.stars ?? 0, b?.stars ?? 0] as const
+      expect(pts[1], b?.title).toBeGreaterThanOrEqual(pts[0])
+      expect(sts[1], b?.title).toBeGreaterThanOrEqual(sts[0])
+      expect(pts[1] > pts[0] || sts[1] > sts[0], b?.title).toBe(true)
+      expect(Math.max(pts[1], sts[1]), b?.title).toBeLessThanOrEqual(1)
     }
   })
 })

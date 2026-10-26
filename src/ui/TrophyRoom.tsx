@@ -165,7 +165,12 @@ export function TrophyRoom({ progress }: { progress: Progress }) {
                 className="mt-1 space-y-0.5 text-[12px] text-slate-400"
               >
                 {passed.map((x) => (
-                  <li key={x.title}>{x.title}</li>
+                  <li key={x.title}>
+                    {x.title}
+                    {x.quip && (
+                      <span className="text-slate-500 italic"> ({x.quip})</span>
+                    )}
+                  </li>
                 ))}
               </ol>
             </div>

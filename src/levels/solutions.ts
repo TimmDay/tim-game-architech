@@ -18,6 +18,35 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "clinic-records": {
+    overview:
+      "Writes are twice what one {sql-primary} takes, so the data is sharded, but the rule matters more than the load: no shard may hold two countries' records. The key is the country, then the clinic, and clinics are placed by a lookup table so each shard belongs to one country. The biggest country gets two shards and the other four get one each: six in all.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Every request comes from a signed-in clinician at one clinic, in one country.",
+      "The app looks the clinic up in a small table, kept in memory, that names its shard. Every shard belongs to one country's group.",
+      "A clinic's day list and a patient's chart are both on that one shard, so they never cross a border.",
+      "Each shard is a primary with a standby in a second zone, inside the same country's group, so the rule still holds after a failover.",
+    ],
+    numbers: [
+      "12,000 requests a second: 6,000 writes and 6,000 reads. One {sql-primary} would run at 200%.",
+      "Country alone: the biggest country's 55% is 3,300 writes a second on one shard, 110% of what it takes, and 2.5% of requests fail.",
+      "Patient ID or hashed clinic ID: the load spreads well and p99 is about 255ms, but every shard mixes countries, which fails the rule.",
+      "Visit date: every new write lands on one shard, 200% of what it takes, and 25% fail.",
+      "Country, then clinic, over six shards: the busiest is one of the big country's two, at about 56%, with p99 about 277ms. Five shards would fail the rule: the big country needs two.",
+      "Twenty-four {app-server} instances at 50%; with twenty, p99 creeps up to about 297ms.",
+      "Cost: about $120 for the {load-balancer} + 24 × $70 + 6 × 2 × $400 = $6,600 of $7,500.",
+    ],
+    tradeoffs: [
+      "The small countries' shards are mostly idle: the rule, not the load, decides how many there are.",
+      "The lookup table is one more thing to keep correct and available, and moving a clinic is a planned migration.",
+      "Reports across countries can only combine anonymised numbers each country produces on its own.",
+    ],
+    alternatives: [
+      "A separate database per country is the strongest separation (credentials, region and backups of its own), at the cost of five systems to run. The big country would still need sharding inside its own.",
+      "A per-country vault for names and ID numbers, with everything else pooled under a meaningless ID, puts less data under the strictest rule, but every chart reads the vault.",
+      "Access rules that let each country's staff see only its rows are needed regardless, but they don't separate the data: a bug, breach or bad migration on a shared shard touches every country.",
+    ],
+  },
   "fleet-tracker": {
     overview:
       "Writes outgrew one {sql-primary} four times over, so the data is split into eight shards. Sharding by courier, as in Tenant Split, fails here: the biggest courier is 35% of the traffic, more than any one shard can take. The key is courier ID for everyone except the few giants, who are split by van ID as well. Small couriers stay whole on one shard; the giant spreads out, and its dispatch board asks a handful of shards.",

@@ -1413,3 +1413,206 @@ export const FLEET_TRACKER = deck("fleet-tracker", [
     ],
   ],
 ])
+
+export const CLINIC_RECORDS = deck("clinic-records", [
+  [
+    "clarify",
+    "What exactly does 'never share a shard' require?",
+    [
+      "No shard may hold two countries' patients: that's about how the data is split.",
+      "Ask whether it also means where the machines run. That's a second rule (residency), met by where each shard's machines are placed.",
+      "And ask whether it covers copies too: standbys, backups and logs.",
+    ],
+    "Which of those does this level check, and which would you still have to promise?",
+  ],
+  [
+    "clarify",
+    "What would you ask about the countries?",
+    [
+      "How many, and how big? Here five, and the biggest is 55% of the traffic.",
+      "Which countries are next, and how soon?",
+      "Do patients ever move between countries, or clinics open across a border?",
+    ],
+  ],
+  [
+    "clarify",
+    "What would you ask about the reads?",
+    [
+      "A clinic's day list and one patient's chart: both belong to one clinic, in one country.",
+      "Does anything read across countries? Only research, and only anonymised numbers.",
+      "How fast must a chart open? Under a second, in a busy clinic.",
+    ],
+  ],
+  [
+    "product",
+    "A patient moves to another country and registers with a clinic there. Whose records are they?",
+    [
+      "The old records stay under the old country's rules, on its shards.",
+      "Copying them across is a transfer the patient consents to, not a database move.",
+      "New visits are written under the new country.",
+    ],
+  ],
+  [
+    "product",
+    "A sixth country signs up next quarter. What has to happen?",
+    [
+      "Its own shards are created, and its clinics are added to the lookup table.",
+      "Nothing moves for the other five countries.",
+      "If its law also says where machines may run, those shards are placed in that region.",
+    ],
+  ],
+  [
+    "decision",
+    "Which key, and why?",
+    [
+      "Country, then clinic, placed by a lookup table: each shard holds one country's clinics, and the big country spreads over shards of its own.",
+      "Clinic ID, hashed, spreads perfectly but mixes countries on every shard.",
+      "Country alone keeps them apart, but the biggest country's 55% is 3,300 writes a second on one shard: 110% of what it takes.",
+    ],
+    "Why can't a hash of 'country, then clinic' do the same job?",
+  ],
+  [
+    "decision",
+    "Why place clinics by a lookup table, and not a hash?",
+    [
+      "A hash sends each clinic wherever its number lands, so countries end up mixed.",
+      "The table maps each clinic to a shard in its own country's group.",
+      "It also lets you move one clinic, or give a country more shards, by changing a row.",
+    ],
+  ],
+  [
+    "decision",
+    "How many shards?",
+    [
+      "The rule needs one per country: five at least.",
+      "The biggest country's 3,300 writes a second is more than one primary takes, so it needs two of its own.",
+      "Six in all: the busiest runs at about 56%, half the big country.",
+    ],
+  ],
+  [
+    "decision",
+    "Each shard is a {sql-primary}. Does each need a standby?",
+    [
+      "Yes: a shard is the only home of its clinics' records.",
+      "The standby belongs to the same country's group, in a second zone, so the rule holds after a failover too.",
+      "It doubles the database bill, most of the budget here.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Four of the shards are far from busy. Isn't that waste?",
+    [
+      "Here the rule sets the shard count, not the load: the small countries' shards are mostly idle.",
+      "Smaller machines for small countries' shards would cut the cost.",
+      "It's the price of the rule, and worth naming as such.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Hashed clinic ID spreads the load perfectly. Why isn't it allowed?",
+    [
+      "Each clinic lands on a shard by its number, whatever its country.",
+      "So every shard ends up holding patients from several countries.",
+      "It passes on load and latency and fails the one rule that matters most here.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What does placing clinics by a lookup table cost?",
+    [
+      "A table to keep correct and available: every request needs it.",
+      "Every {app-server} keeps a copy in memory; changes to it are planned, not casual.",
+      "Moving a clinic to another shard is a migration: copy, keep in step, switch.",
+    ],
+  ],
+  [
+    "alternative",
+    "Why not run a separate database for each country?",
+    [
+      "It's the strongest separation: its own credentials, its own region, its own backups.",
+      "But five systems to run, upgrade and watch, and the big country still needs sharding inside its own.",
+      "Shard groups per country get most of the benefit from one system.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you keep only the sensitive fields apart?",
+    [
+      "Put names and ID numbers in a separate vault per country, and refer to patients elsewhere by a meaningless ID.",
+      "Less data falls under the strictest rule, and the rest can be pooled.",
+      "But every chart needs the vault, and the law may count medical notes as sensitive anyway.",
+    ],
+  ],
+  [
+    "alternative",
+    "Aren't access rules enough, so each country's staff only sees its own rows?",
+    [
+      "They limit who can read what, and you need them regardless.",
+      "But the records still sit together: a bug, a breach or a bad migration on that shard touches every country.",
+      "The rule here asks for separation, which access rules alone don't give.",
+    ],
+  ],
+  [
+    "scale",
+    "The biggest country doubles. What changes?",
+    [
+      "Its two shards would run past 100%, so it needs about four.",
+      "Add shards to its group and move some of its clinics over, by changing the lookup table.",
+      "The other countries don't notice.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Researchers want totals across all five countries. How?",
+    [
+      "Each country's shards produce anonymised counts on their own.",
+      "Only the counts are combined, never the records.",
+      "Check each country's law allows even that.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A clinic chain opens a branch across the border. What happens?",
+    [
+      "The branch is a separate clinic in the lookup table, in its own country's group.",
+      "A patient's records live with the country where they're treated.",
+      "Staff who work in both see each country's records only through that country's shards.",
+    ],
+  ],
+  [
+    "resilience",
+    "One shard's primary crashes. Who notices?",
+    [
+      "Only the clinics on that shard: a slice of one country.",
+      "Its standby takes over within a minute or two.",
+      "Every other country carries on untouched.",
+    ],
+  ],
+  [
+    "resilience",
+    "Does the rule apply to backups?",
+    [
+      "Yes: back up each shard on its own, so a country's backups hold only its patients.",
+      "Restore per country, to a point in time, without touching the others.",
+      "A single backup of everything would quietly break the rule.",
+    ],
+  ],
+  [
+    "security",
+    "Who can read which country's records?",
+    [
+      "Take the clinic, and so the country, from the signed-in session, never from the request.",
+      "Encrypt each country's data with its own key, so a leaked key exposes one country.",
+      "Log every read of a chart: health data needs an audit trail.",
+    ],
+  ],
+  [
+    "observability",
+    "How do you show an auditor the rule holds?",
+    [
+      "A regular check that every row on every shard belongs to that shard's country.",
+      "Alerts on any query that tries to read across countries.",
+      "A history of every change to the lookup table, and who made it.",
+    ],
+  ],
+])

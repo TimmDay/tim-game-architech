@@ -49,6 +49,8 @@ function checkLabel(
           ))}
         </>
       )
+    case "apart":
+      return `Each shard holds ${t.keepApart?.what ?? "one group's records"} (at least ${t.keepApart?.minShards ?? 1} shards, split to keep them apart)`
     case "backlog":
       return `Backlog growth ${rps(g.peak.backlogGrowthRps)} (must be 0)`
     case "availability":

@@ -39,6 +39,29 @@ const talk = (
 ): EstimateCard => ({ kind: "talk", prompt, points, followUp })
 
 export const ESTIMATES: Record<string, EstimateCard[]> = {
+  "clinic-records": [
+    mc(
+      "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",
+      "About 6,000 a second",
+      ["About 667 a second", "About 2,000 a second", "About 20,000 a second"],
+      "2,000 × 3 is 6,000: twice what one {sql-primary} takes. Dividing instead gives 667.",
+    ),
+    mc(
+      "The biggest country is 55% of the 6,000 writes. How many shards does it need to itself, at about 3,000 writes each?",
+      "2 shards",
+      ["1 shard", "4 shards", "6 shards"],
+      "55% of 6,000 is 3,300: more than one primary, so two, at about 55% each. Six is the total, with the other four countries.",
+    ),
+    talk(
+      "How many shards in all, and what sets the number?",
+      [
+        "The rule: at least one per country, so five.",
+        "The load: the biggest country needs two of its own.",
+        "Six in all. Most run far below capacity, because the rule sets the count, not the load.",
+      ],
+      "A sixth country joins. What changes, and what doesn't?",
+    ),
+  ],
   "fleet-tracker": [
     mc(
       "Say 60,000 vans each send an update every 5 seconds at peak. How many writes a second?",

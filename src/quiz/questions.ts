@@ -157,7 +157,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "Queues make the provider respond faster",
         "It means the provider never has to be called for most of the orders that customers place",
       ],
-      "On the request path, the provider's five seconds become every customer's five seconds, and the app tier runs out of capacity.",
+      "On the request path, the provider's five seconds become every ordering customer's five seconds, and every order fails.",
       5,
     ],
     [

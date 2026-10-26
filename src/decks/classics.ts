@@ -1830,7 +1830,7 @@ export const WEB_CRAWLER = deck("web-crawler", [
     "alternative",
     "Could the frontier service just fetch pages itself?",
     [
-      "Then every link waits on a site: here p99 passes 13 seconds and most requests fail.",
+      "Then every new link waits on a site: here p99 passes 3.5 seconds, and a quarter of requests fail when sites slow.",
       "Slow sites would tie up the service, and politeness would be impossible to enforce.",
       "Keep finding links and fetching pages apart.",
     ],

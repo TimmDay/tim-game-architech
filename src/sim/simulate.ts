@@ -39,7 +39,7 @@ export type Carries = "all" | "reads" | "writes" | "none"
  * player never has to annotate a line.
  *
  * Into or out of a queue or stream: messages, which are writes. Into a read-only
- * store: reads. A writes-to-a-replica mistake is therefore impossible to draw by
+ * store: reads. Into a {third-party-api}: writes. A writes-to-a-replica mistake is therefore impossible to draw by
  * accident, but routing ALL traffic through a replica (as the only store) still
  * shows up, because a component's own writes have nowhere to go.
  */
@@ -59,6 +59,9 @@ export function carries(graph: Graph, edge: Edge): Carries {
   // A search index is fed by events and queried by apps. A synchronous write
   // to it from the request path is never the intent of drawing that line.
   if (to?.kind === "search-index") return "reads"
+  // A provider you call (a charge, a push, a webhook) is sent the work, not
+  // asked for your users' reads: those stay with your own stores.
+  if (to?.kind === "third-party-api") return "writes"
   // Read/write splitting: once a caller reads somewhere else (replicas, or a
   // search index, directly or through a cache in front of it), its primary
   // takes the writes.

@@ -2,6 +2,7 @@ import clsx from "clsx"
 import {
   Brain,
   Calculator,
+  ChevronDown,
   Crown,
   Database,
   Globe,
@@ -23,6 +24,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react"
+import { useState } from "react"
 import {
   ACHIEVEMENTS,
   ACHIEVEMENT_POINTS,
@@ -64,6 +66,7 @@ export function TrophyRoom({ progress }: { progress: Progress }) {
   const r = rank(s, progress)
   const done = completion(s, progress)
   const earned = ACHIEVEMENTS.filter((a) => s.awarded[`ach:${a.id}`]).length
+  const [open, setOpen] = useState(false)
   return (
     <section className="mt-12">
       <h2 className="font-display flex items-center gap-2 text-2xl font-bold text-amber-200">
@@ -97,11 +100,25 @@ export function TrophyRoom({ progress }: { progress: Progress }) {
           </p>
         )}
       </div>
-      <p className="mt-4 mb-2 font-mono text-[11px] text-slate-500">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="achievements"
+        className="mt-4 mb-2 flex items-center gap-1.5 font-mono text-[11px] text-slate-500 hover:text-white"
+      >
         {earned} of {ACHIEVEMENTS.length} achievements · {ACHIEVEMENT_POINTS}{" "}
         points each
-      </p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <ChevronDown
+          size={13}
+          className={clsx("transition-transform", open && "rotate-180")}
+        />
+      </button>
+      <div
+        id="achievements"
+        hidden={!open}
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"
+      >
         {ACHIEVEMENTS.map((a) => {
           const got = s.awarded[`ach:${a.id}`]
           const Icon = ICONS[a.icon]

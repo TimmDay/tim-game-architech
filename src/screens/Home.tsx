@@ -552,7 +552,7 @@ function RetentionSection({ onOpen }: { onOpen: () => void }) {
           </span>
         </span>
         <span className="rounded-xl bg-emerald-300 px-4 py-2 text-[14px] font-bold text-slate-950">
-          {due > 0 ? "Start revising" : "Open"}
+          {due > 0 ? "Revise" : "Open"}
         </span>
       </button>
     </Shelf>

@@ -2,7 +2,8 @@ import { deviceId } from "~/game/device"
 import clsx from "clsx"
 import { Brain, Check, ChevronLeft, Play, RotateCcw, X } from "lucide-react"
 import { useMemo, useState } from "react"
-import { DECK_TITLES, DECKS } from "~/decks"
+import { DECKS } from "~/decks"
+import { TOPICS } from "~/decks/topics"
 import { CATEGORY_LABEL, type DeckCard } from "~/decks/types"
 import { getReview, updateReview, useReview } from "~/game/points-store"
 import { dueQueue, nextDue, review, reviewValue } from "~/game/review"
@@ -10,6 +11,7 @@ import { clearBuild } from "~/game/storage"
 import { levelById, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
 import { QUIZZES, type Question } from "~/quiz/questions"
+import { InfoTip } from "~/ui/InfoTip"
 import { Rich } from "~/ui/Rich"
 
 type Item =
@@ -17,8 +19,9 @@ type Item =
       id: string
       kind: "card"
       card: DeckCard
-      /** Where the card comes from, for the heading: a level or a topic. */
+      /** Where the card comes from, a level or a topic, and what that was. */
       from: string
+      about: string
     }
   | { id: string; kind: "mc"; q: Question; options: string[]; level: Level }
   | { id: string; kind: "level"; level: Level }
@@ -41,8 +44,11 @@ function resolve(id: string): Item | undefined {
   const [kind, a, b] = id.split(":")
   if (kind === "card" && a && b) {
     const card = DECKS[a]?.find((c) => c.id === `${a}:${b}`)
-    const from = levelById(a)?.title ?? DECK_TITLES[a]
-    return card && from ? { id, kind: "card", card, from } : undefined
+    const level = levelById(a)
+    const topic = TOPICS.find((t) => t.id === a)
+    const from = level?.title ?? topic?.title
+    const about = level?.tagline ?? topic?.blurb ?? ""
+    return card && from ? { id, kind: "card", card, from, about } : undefined
   }
   if (kind === "mc" && a && b) {
     const q = QUIZZES[a]?.[Number(b)]
@@ -135,18 +141,17 @@ export function Retention({
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-5 pb-10">
-        <p className="font-mono text-[10px] tracking-[0.2em] text-emerald-300/80 uppercase">
-          Retention
-        </p>
-        <h1 className="font-display text-2xl font-bold text-white">
-          Revise what you've met
-        </h1>
-        <p className="mt-1 text-[14px] leading-relaxed text-slate-400">
-          Cards and questions you've seen come back on a schedule: rarely once
-          you know them, tomorrow if you missed them. Right answers earn 1
-          point, or 2 for one you'd got wrong before. Passed scenarios come back
-          after a week, worth 25.
-        </p>
+        <div className="flex items-center gap-1">
+          <h1 className="font-mono text-[10px] tracking-[0.2em] text-emerald-300/80 uppercase">
+            Retention
+          </h1>
+          <InfoTip title="Revise what you've met">
+            Cards and questions you've seen come back on a schedule: rarely once
+            you know them, tomorrow if you missed them. Right answers earn 1
+            point, or 2 for one you'd got wrong before. Passed scenarios come
+            back after a week, worth 25.
+          </InfoTip>
+        </div>
 
         {queue.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-white/8 bg-white/[0.03] p-6 text-center">
@@ -176,8 +181,7 @@ export function Retention({
           <>
             <div className="mt-5 flex items-center justify-between font-mono text-[11px] text-slate-500">
               <span>
-                {index + 1} / {queue.length} ·{" "}
-                {item.kind === "card" ? item.from : item.level.title}
+                {index + 1} / {queue.length}
               </span>
               <span className={weak ? "text-amber-300" : undefined}>
                 {item.kind === "level"
@@ -187,6 +191,21 @@ export function Retention({
             </div>
 
             <div className="mt-2 rounded-3xl border border-white/10 bg-gradient-to-br from-slate-800/80 via-slate-900 to-emerald-950/60 p-6 shadow-2xl shadow-black/50">
+              {item.kind !== "level" && (
+                <div className="mb-5 border-b border-white/5 pb-4">
+                  <p className="text-[13px] font-semibold text-emerald-200">
+                    {item.kind === "card" ? item.from : item.level.title}
+                  </p>
+                  <p className="mt-0.5 text-[13px] leading-snug text-slate-400">
+                    <Rich
+                      text={
+                        item.kind === "card" ? item.about : item.level.tagline
+                      }
+                      provider={provider}
+                    />
+                  </p>
+                </div>
+              )}
               {item.kind === "card" && (
                 <>
                   <span className="rounded-full bg-white/10 px-2.5 py-1 font-mono text-[10px] tracking-wider text-slate-200 uppercase">

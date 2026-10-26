@@ -23,6 +23,7 @@ import { loadDeckMarks, saveDeckMarks, type CardMark } from "~/game/storage"
 import type { Provider } from "~/providers/names"
 import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
+import { InfoTip } from "~/ui/InfoTip"
 import { Rich } from "~/ui/Rich"
 import { EstimateQuiz, SchemaQuiz } from "~/ui/SchemaQuiz"
 
@@ -184,29 +185,24 @@ export function Deck({
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 pt-4 pb-10">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <p className="font-mono text-[10px] tracking-[0.2em] text-fuchsia-300/80 uppercase">
-              Discussion deck
-            </p>
-            <h1 className="font-display text-2xl font-bold text-white">
-              {level.title}
-            </h1>
-          </div>
+        <div className="flex items-center gap-1">
+          <h1 className="font-mono text-[10px] tracking-[0.2em] text-fuchsia-300/80 uppercase">
+            Discussion deck
+          </h1>
+          <InfoTip title={level.title}>
+            Answer each prompt out loud, as you would in the room, then flip it
+            to compare with what a strong answer covers.
+          </InfoTip>
           {onPlay && (
             <button
               type="button"
               onClick={onPlay}
-              className="rounded-lg border border-white/15 px-3 py-1.5 text-[13px] text-slate-200 hover:border-white/30"
+              className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-[13px] text-slate-200 hover:border-white/30"
             >
               Play the level
             </button>
           )}
         </div>
-        <p className="mt-2 text-[14px] leading-relaxed text-slate-400">
-          Answer each prompt out loud, as you would in the room, then flip it to
-          compare with what a strong answer covers.
-        </p>
 
         {/* Progress */}
         <div className="mt-4">

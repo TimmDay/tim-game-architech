@@ -30,7 +30,22 @@ export function sensible(w: Wave): Graph {
   ]
   const edges = [`${C}>dns`, "dns>lb", "lb>app", "app>cache"]
   const sql = CATALOGUE["sql-primary"].capacity
-  if (writes * 1.5 > sql.writeRps * 0.8 || (reads - hits) * 1.5 > sql.readRps) {
+  const wants = (id: string) => w.demands.some((d) => d.id === id)
+  if (wants("ledger")) {
+    // Transactions mean SQL: shard it once one primary can't keep up.
+    const shards = Math.max(
+      1,
+      Math.ceil((writes * 1.5) / sql.writeRps / 0.8),
+      Math.ceil(((reads - hits) * 1.5) / sql.readRps / 0.8),
+    )
+    // Three copies over three zones: a failed primary and a lost zone at once
+    // still leave one.
+    rows.push(["db", "sql-primary", 9, 3, 3, 3, { shards }])
+    edges.push("cache>db")
+  } else if (
+    writes * 1.5 > sql.writeRps * 0.8 ||
+    (reads - hits) * 1.5 > sql.readRps
+  ) {
     const block = CATALOGUE.nosql.capacity
     const blocks = Math.max(
       Math.ceil((writes * 1.5) / block.writeRps / 0.8),
@@ -55,11 +70,64 @@ export function sensible(w: Wave): Graph {
         Math.min(60, Math.ceil(jobs / perWorker / 0.85) + 1),
         3,
       ],
-      ["blobs", "object-store", 10, 7],
     )
-    edges.push("app>q", "q>w", "w>blobs")
+    edges.push("app>q", "q>w")
+    // Uploads keep their files; a courier booking keeps nothing.
+    if (w.mix === "uploads") {
+      rows.push(["blobs", "object-store", 10, 7])
+      edges.push("w>blobs")
+    }
+  }
+  const search = wants("search")
+  const warehouse = wants("analytics")
+  if (search || warehouse) {
+    // Every consumer gets every write: an event stream, not a queue.
+    const perStream = CATALOGUE["event-stream"].capacity.writeRps
+    rows.push([
+      "stream",
+      "event-stream",
+      6,
+      1,
+      Math.ceil((writes * 1.5) / perStream / 0.8),
+    ])
+    edges.push("app>stream")
+    if (search) {
+      const perIndex = CATALOGUE["search-index"].capacity.writeRps
+      rows.push([
+        "search",
+        "search-index",
+        9,
+        0,
+        Math.max(3, Math.ceil((writes * 1.5 * 1.5) / perIndex / 0.8)),
+        3,
+      ])
+      edges.push("stream>search")
+    }
+    if (warehouse) {
+      rows.push(["dw", "data-warehouse", 11, 1])
+      edges.push("stream>dw")
+    }
   }
   return graph(rows, edges)
+}
+
+/**
+ * Scales app servers to whatever the budget allows, in front of one store:
+ * the strategy demands exist to beat.
+ */
+export function appsOnly(w: Wave): Graph {
+  const fit = Math.floor(
+    (w.budget - 1_000) / CATALOGUE["app-server"].costPerInstanceMonthUsd,
+  )
+  return graph(
+    [
+      ["lb", "load-balancer", 3, 2],
+      ["app", "app-server", 5, 4, Math.max(3, Math.min(60, fit)), 3],
+      ["cache", "cache", 7, 3, 2, 2],
+      ["db", "sql-primary", 9, 3, 2, 2],
+    ],
+    [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
+  )
 }
 
 export function naive(): Graph {

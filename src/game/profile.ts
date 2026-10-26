@@ -22,7 +22,8 @@ const isPerPlayer = (key: string) =>
 /**
  * Who is playing:
  *   null      the original device save (no sign-in configured, or not chosen)
- *   "guest"   "continue as guest": saved for this tab only, in sessionStorage
+ *   "guest"   "continue as guest": saved in this browser, under lb.g.*, until
+ *             the player signs in and it's folded into their account
  *   <uid>     a signed-in account, saved per device and synced to the cloud
  */
 export const GUEST = "guest"
@@ -33,13 +34,24 @@ export const currentProfile = () => uid
 
 /** The storage key for this player's copy of `key`. */
 export function scoped(key: string, profile: string | null = uid): string {
-  if (!profile || profile === GUEST || !isPerPlayer(key)) return key
-  return `lb.u.${profile}.${key.slice("lb.".length)}`
+  if (!profile || !isPerPlayer(key)) return key
+  const rest = key.slice("lb.".length)
+  return profile === GUEST ? `lb.g.${rest}` : `lb.u.${profile}.${rest}`
 }
 
-/** Guests keep per-player data in sessionStorage; everything else is local. */
-export function backend(key: string, profile: string | null = uid): Storage {
-  return profile === GUEST && isPerPlayer(key) ? sessionStorage : localStorage
+/** Every save lives in localStorage, guests' included. */
+export function backend(): Storage {
+  return localStorage
+}
+
+/** Forget the guest save: it has just been folded into an account. */
+export function clearGuestSave() {
+  try {
+    for (const k of Object.keys(localStorage))
+      if (k.startsWith("lb.g.")) localStorage.removeItem(k)
+  } catch {
+    // Storage blocked: nothing was saved.
+  }
 }
 
 /** Per-player keys that sync (in-progress builds stay on the device). */

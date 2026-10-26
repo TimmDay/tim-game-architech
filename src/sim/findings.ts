@@ -37,6 +37,8 @@ export type Finding = {
   text: string
   componentId?: string
   concept?: ConceptId
+  /** Only the third star depends on it: results can hold it back until then. */
+  forStar3?: true
 }
 
 const pct = (n: number) => `${Math.round(n * 100)}%`
@@ -322,6 +324,7 @@ export function findings(
         severity: "warn",
         componentId: c.id,
         concept,
+        forStar3: true,
         text: `${name(c)} ${why}`,
       })
     }
@@ -336,6 +339,7 @@ export function findings(
       severity: "warn",
       componentId: c?.id,
       concept: "simplest-design",
+      forStar3: true,
       text: `${o.why} It costs the third star.`,
     })
   }

@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { Check, RotateCcw, Star, X } from "lucide-react"
+import { Check, ChevronDown, RotateCcw, Star, X } from "lucide-react"
 import type { ConceptId } from "~/levels/concepts"
 import type { Level } from "~/levels"
 import type { Provider } from "~/providers/names"
@@ -8,7 +8,7 @@ import type { Check as CheckT, Grade } from "~/sim/grade"
 import { ms, nines, pct, rps, usd } from "./format"
 import { Modal, ModalHeader } from "./Modal"
 import { Confetti } from "./Confetti"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { sfx } from "~/game/sound"
 import { FindingList, H } from "./panels"
 import { Rich } from "./Rich"
@@ -106,6 +106,13 @@ export function Results({
     return () => timers.forEach(clearTimeout)
   }, [grade.stars])
 
+  // Before the first two stars, third-star advice (production settings,
+  // extra parts) would bury what's actually broken: hold it back a tap.
+  const [showAll, setShowAll] = useState(false)
+  const early = grade.stars < 2 && !showAll && findings.some((f) => !f.forStar3)
+  const shown = early ? findings.filter((f) => !f.forStar3) : findings
+  const held = early ? findings.filter((f) => f.forStar3) : []
+
   const headline =
     grade.stars === 3
       ? "Load bearing."
@@ -174,10 +181,22 @@ export function Results({
         <div className="mt-4">
           <H>Findings</H>
           <FindingList
-            items={findings}
+            items={shown}
             provider={provider}
             onConcept={onConcept}
           />
+          {held.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="mt-1.5 flex w-full items-center justify-between rounded-lg border border-white/8 px-2.5 py-2 text-left text-[13px] text-slate-300 hover:border-white/20"
+            >
+              <span>
+                {held.length} more for ★3, once it handles peak and stays up
+              </span>
+              <ChevronDown size={15} className="text-slate-500" />
+            </button>
+          )}
         </div>
       )}
 

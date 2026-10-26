@@ -1,4 +1,4 @@
-import { Cloud, Timer } from "lucide-react"
+import { Cloud, HardDrive } from "lucide-react"
 import { continueAsGuest, signIn, type AuthState } from "~/auth/auth"
 import { GitHubMark, GoogleMark } from "~/ui/brand-marks"
 
@@ -62,8 +62,8 @@ export function Welcome({ auth }: { auth: AuthState }) {
           Continue as guest
         </button>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-[12px] text-slate-500">
-          <Timer size={13} /> Guest progress lasts until you close this tab.
-          Sign in any time to keep it.
+          <HardDrive size={13} /> Guest progress stays in this browser. Sign in
+          any time to take it to other devices.
         </p>
 
         {auth.status === "signed-out" && auth.error && (

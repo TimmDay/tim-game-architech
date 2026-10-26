@@ -12,7 +12,7 @@ const KEY = "lb.review"
 
 const load = (): ReviewState => {
   try {
-    const raw = backend(KEY).getItem(scoped(KEY))
+    const raw = backend().getItem(scoped(KEY))
     return raw
       ? normalize({ ...EMPTY, ...(JSON.parse(raw) as ReviewState) }, deviceId())
       : { ...EMPTY, retention: {} }
@@ -38,7 +38,7 @@ export function updateReview(fn: (s: ReviewState) => ReviewState) {
   if (next === state) return
   state = next
   try {
-    backend(KEY).setItem(scoped(KEY), JSON.stringify(state))
+    backend().setItem(scoped(KEY), JSON.stringify(state))
   } catch {
     // Storage blocked: points still count for this session.
   }

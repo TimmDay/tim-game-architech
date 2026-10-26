@@ -2,9 +2,10 @@ import { Trophy } from "lucide-react"
 import { useEffect, useState } from "react"
 import { grantAchievements, type Achievement } from "~/game/achievements"
 import { getReview, updateReview, useReview } from "~/game/points-store"
-import { awardStars } from "~/game/review"
+import { awardStars, catchUpAwards } from "~/game/review"
 import { sfx } from "~/game/sound"
-import { loadQuiz, type Progress } from "~/game/storage"
+import { loadDeckMarks, loadQuiz, type Progress } from "~/game/storage"
+import { DECKS } from "~/decks"
 import { LEVELS } from "~/levels"
 
 /**
@@ -24,7 +25,14 @@ export function AchievementToaster({ progress }: { progress: Progress }) {
     const best = Object.fromEntries(
       LEVELS.map((l) => [l.id, progress[l.id]?.stars ?? 0]),
     )
-    const paid = awardStars(getReview(), best)
+    // So do cards marked "got it" and items kept in Retention before those
+    // paid, from the deck marks and schedules every save already has.
+    const got = Object.keys(DECKS).flatMap((id) =>
+      Object.entries(loadDeckMarks(id))
+        .filter(([, m]) => m === "got")
+        .map(([card]) => card),
+    )
+    const paid = catchUpAwards(awardStars(getReview(), best), got)
     const { state, granted } = grantAchievements(paid, {
       progress,
       quizzes,

@@ -20,10 +20,13 @@ const DAY = 24 * 60 * 60 * 1000
 const t0 = Date.UTC(2026, 9, 1)
 
 describe("points", () => {
-  it("gives 1 point per flash card, once", () => {
-    let s = seeCard(EMPTY, "front-page:3", true, t0)
-    s = seeCard(s, "front-page:3", false, t0)
+  it("gives 1 point for marking a flash card and 2 more for getting it, once each", () => {
+    let s = seeCard(EMPTY, "front-page:3", false, t0)
     expect(s.total).toBe(POINTS.flashCard)
+    s = seeCard(s, "front-page:3", true, t0)
+    s = seeCard(s, "front-page:3", true, t0)
+    expect(s.total).toBe(POINTS.flashCard + POINTS.cardGot)
+    expect(computeTotal(s)).toBe(s.total)
   })
 
   it("gives 2 points per correct answer, once, and nothing for a wrong one", () => {
@@ -68,13 +71,36 @@ describe("retention", () => {
     expect(dueQueue(s, t0 + 3 * DAY).sort()).toEqual(["card:a", "card:b"])
   })
 
-  it("is worth 1 for a card you knew and 2 for one you'd got wrong", () => {
-    let s = seeCard(EMPTY, "a", true, t0)
-    s = seeCard(s, "b", false, t0)
-    const knew = review(s, "card:a", true, t0 + 3 * DAY)
-    const recovered = review(s, "card:b", true, t0 + DAY)
+  it("pays the first right answer once, then 1 for a card you knew and 2 for one you'd got wrong", () => {
+    const s = seeCard(EMPTY, "a", true, t0)
+    const first = review(s, "card:a", true, t0 + 3 * DAY)
+    expect(first.earned).toBe(POINTS.keptCard)
+    expect(first.state.awarded["kept:card:a"]).toBe(true)
+    // One-time, so it survives a recount and isn't Retention's own points.
+    expect(computeTotal(first.state)).toBe(first.state.total)
+    const knew = review(first.state, "card:a", true, t0 + 10 * DAY)
     expect(knew.earned).toBe(POINTS.reviewRight)
+    const missed = review(knew.state, "card:a", false, t0 + 30 * DAY)
+    const recovered = review(missed.state, "card:a", true, t0 + 31 * DAY)
     expect(recovered.earned).toBe(POINTS.reviewRecovered)
+  })
+
+  it("pays a first retain by kind: 1 for a card, 2 for a question, 25 for a scenario", () => {
+    let s = answerQuestion(EMPTY, "front-page", 0, true, t0)
+    s = passScenario(s, "front-page", t0)
+    expect(review(s, "mc:front-page:0", true, t0 + 3 * DAY).earned).toBe(
+      POINTS.keptQuestion,
+    )
+    expect(review(s, "level:front-page", true, t0 + 7 * DAY).earned).toBe(
+      POINTS.keptScenario,
+    )
+  })
+
+  it("counts a card got right in Retention as got, the first time", () => {
+    const s = seeCard(EMPTY, "b", false, t0)
+    const r = review(s, "card:b", true, t0 + DAY)
+    expect(r.earned).toBe(POINTS.keptCard + POINTS.cardGot)
+    expect(r.state.awarded["got:b"]).toBe(true)
   })
 
   it("spaces a card further out each time you get it right", () => {
@@ -134,15 +160,17 @@ describe("cross-device merging", () => {
   })
 
   it("adds up retention earned on different devices", () => {
-    let a = seeCard(EMPTY, "x", true, t)
-    let b = a
-    a = review(a, "card:x", true, t + 4 * DAY, "laptop").state
-    b = review(b, "card:y", true, t + 4 * DAY, "phone").state
-    b = seeCard(b, "y", true, t)
-    b = review(b, "card:y", true, t + 4 * DAY, "phone").state
+    // The first right answer is a one-time award; the second is Retention's.
+    const twice = (s: typeof EMPTY, id: string, device: string) => {
+      const once = review(s, id, true, t + 4 * DAY, device).state
+      return review(once, id, true, t + 20 * DAY, device).state
+    }
+    const a = twice(seeCard(EMPTY, "x", true, t), "card:x", "laptop")
+    const b = twice(seeCard(EMPTY, "y", true, t), "card:y", "phone")
     const m = mergeReview(a, b)
     expect(m.retention).toEqual({ laptop: 1, phone: 1 })
-    expect(m.total).toBe(POINTS.flashCard * 2 + 2)
+    const once = POINTS.flashCard + POINTS.cardGot + POINTS.keptCard
+    expect(m.total).toBe(once * 2 + 2)
   })
 
   it("keeps the most recently reviewed copy of each item", () => {
@@ -173,11 +201,11 @@ describe("cross-device merging", () => {
   it("converts an old save without losing points", () => {
     const old = {
       ...seeCard(EMPTY, "x", true, t),
-      total: 1 + 7,
+      total: POINTS.flashCard + POINTS.cardGot + 7,
       retention: undefined,
     }
     const n = normalize(old, "laptop")
-    expect(n.total).toBe(8)
+    expect(n.total).toBe(POINTS.flashCard + POINTS.cardGot + 7)
     expect(n.retention).toEqual({ laptop: 7 })
   })
 })

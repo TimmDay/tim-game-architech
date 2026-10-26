@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { EMPTY, passScenario, seeCard } from "~/game/review"
+import { EMPTY, POINTS, passScenario, seeCard } from "~/game/review"
 import {
   EMPTY_SAVE,
   fromCloud,
@@ -35,7 +35,9 @@ describe("whole-save merging", () => {
     expect(m.progress["lost-writes"]?.diagnosedFirstTry).toBe(true)
     expect(m.quizzes["front-page"]).toEqual({ best: 9, passed: true })
     expect(Object.keys(m.decks["front-page"] ?? {})).toHaveLength(2)
-    expect(m.review.total).toBe(20 + 1)
+    expect(m.review.total).toBe(
+      POINTS.scenarioPass + POINTS.flashCard + POINTS.cardGot,
+    )
   })
 
   it("is a no-op when merging a save with itself", () => {

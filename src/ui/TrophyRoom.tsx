@@ -110,8 +110,15 @@ export function TrophyRoom({ progress }: { progress: Progress }) {
             <p className="font-mono text-[10px] tracking-[0.2em] text-amber-300/80 uppercase">
               Rank
             </p>
-            <p className="font-display text-2xl font-bold text-white">
-              {r.title}
+            <p className="flex flex-wrap items-baseline gap-x-3">
+              <span className="font-display text-2xl font-bold text-white">
+                {r.title}
+              </span>
+              {r.quip && (
+                <span className="text-[13px] text-amber-100/70 italic">
+                  {r.quip}
+                </span>
+              )}
             </p>
           </div>
           <p className="font-mono text-[12px] text-slate-400">

@@ -257,32 +257,8 @@ export function completion(review: ReviewState, progress: Progress) {
   return { stars, points, value: Math.min(stars, points) }
 }
 
-export type Rank = {
-  title: string
-  /** Every requirement must be met. */
-  points?: number
-  stars?: number
-  /** Share of the whole game, from `completion`. */
-  done?: number
-}
-
-/** Early ranks need points and stars; the top ones need most of the game. */
-export const RANKS: Rank[] = [
-  { title: "Game Modder" },
-  { title: "The Spreadsheet Guy", points: 25 },
-  { title: "Student", points: 75, stars: 2 },
-  { title: "Intern", points: 150, stars: 5 },
-  { title: "Junior Engineer", points: 300, stars: 12 },
-  { title: "Engineer", points: 550, stars: 24 },
-  { title: "Senior Engineer", points: 900, stars: 40 },
-  { title: "Staff Engineer", points: 1300, stars: 56 },
-  { title: "Principal Engineer", points: 1800, stars: 72 },
-  { title: "Distinguished Architect", points: 2400, stars: 88 },
-  { title: "Chaos Monkey Tamer", done: 0.7 },
-  { title: "Keeper of the Five Nines", done: 0.8 },
-  { title: "Linus Torvalds", done: 0.9 },
-  { title: "Claude Shannon", done: 0.98 },
-]
+export { RANKS, type Rank } from "./ranks"
+import { RANKS, type Rank } from "./ranks"
 
 type Standing = { points: number; stars: number; done: number }
 
@@ -306,6 +282,7 @@ export function rank(review: ReviewState, progress: Progress) {
   const next = RANKS[i + 1]
   return {
     title: RANKS[i]?.title ?? "Game Modder",
+    quip: RANKS[i]?.quip ?? "",
     next,
     progress: next ? toward(next, s) : 1,
     /** What's still missing for the next rank, in words. */

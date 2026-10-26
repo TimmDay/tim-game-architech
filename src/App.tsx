@@ -178,6 +178,7 @@ function AppScreens({
           onExit={() => go("/")}
           onNext={(id) => go(`/play/${id}`)}
           onDeck={(start) => go(`/deck/${level.id}${start ? `/${start}` : ""}`)}
+          onTopic={(id) => go(`/deck/${id}`)}
           toggle={toggle}
         />
       </>

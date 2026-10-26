@@ -22,7 +22,7 @@ import {
   X,
 } from "lucide-react"
 import { useState } from "react"
-import { DECKS } from "~/decks"
+import { DECK_TITLES, DECKS } from "~/decks"
 import { PASS_MARK, QUIZZES } from "~/quiz/questions"
 import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
@@ -137,6 +137,7 @@ export function BriefPanel({
   level,
   provider,
   onConcept,
+  onTopic,
   diagnose,
   components,
   study,
@@ -144,6 +145,8 @@ export function BriefPanel({
   level: Level
   provider: Provider
   onConcept: (id: ConceptId) => void
+  /** Open a Fundamentals deck the level links to. */
+  onTopic?: (id: string) => void
   diagnose?: React.ReactNode
   /** The palette, on wide screens: building comes before reading up. */
   components?: React.ReactNode
@@ -217,6 +220,18 @@ export function BriefPanel({
               <BookOpen size={12} /> {CONCEPTS[c].title}
             </button>
           ))}
+          {onTopic &&
+            (level.topics ?? []).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onTopic(t)}
+                title="Fundamentals deck"
+                className="flex items-center gap-1 rounded-full border border-violet-300/25 bg-violet-300/[0.07] px-2.5 py-1 text-[12px] text-violet-100 hover:border-violet-300/50 hover:text-white"
+              >
+                <Layers size={12} /> {DECK_TITLES[t]} deck
+              </button>
+            ))}
         </div>
       </div>
       {study}

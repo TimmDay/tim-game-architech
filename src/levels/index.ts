@@ -43,6 +43,11 @@ export type Level = {
   /** Must earn three stars: pins the level as winnable in CI. Never shown. */
   reference: Graph
   concepts: ConceptId[]
+  /**
+   * Fundamentals decks on what this level practises, linked beside its
+   * concept cards (topic ids from `~/decks/topics`).
+   */
+  topics?: string[]
   hint: string
   /**
    * Build levels with their own shelf: classic interview questions, and the
@@ -2032,7 +2037,13 @@ const CLASSICS: Level[] = [
       ],
       [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>saves"],
     ),
-    concepts: ["hot-keys", "key-value-modelling", "conflict-resolution"],
+    concepts: [
+      "network-split",
+      "hot-keys",
+      "key-value-modelling",
+      "conflict-resolution",
+    ],
+    topics: ["topic-network-splits", "topic-sharding"],
     hint: "Key saves by player so they spread. Then look at the one key every player reads: no amount of capacity lifts a single key's limit, but a {cache} can answer it.",
   },
   {
@@ -2204,6 +2215,7 @@ const CLASSICS: Level[] = [
       ],
     ),
     concepts: ["queue-vs-log", "hot-keys", "idempotency"],
+    topics: ["topic-sharding"],
     hint: "Publish each click to an {event-stream} and redirect at once. Let {worker} instances count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
   },
   {
@@ -2292,7 +2304,13 @@ const CLASSICS: Level[] = [
       ],
       [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>edits"],
     ),
-    concepts: ["conflict-resolution", "partitioning", "cap-theorem"],
+    concepts: [
+      "network-split",
+      "conflict-resolution",
+      "partitioning",
+      "cap-theorem",
+    ],
+    topics: ["topic-network-splits", "topic-sharding"],
     hint: "Key the edit log by document, so opening one reads one partition. Then decide: during a split, should people on the cut-off side keep typing?",
   },
   {
@@ -2540,6 +2558,7 @@ const CLASSICS: Level[] = [
       ],
     ),
     concepts: ["hot-keys", "ephemeral-state", "fan-out"],
+    topics: ["topic-sharding"],
     hint: "Keep the ranking in sorted sets in the {cache}, which add a score and answer a rank in microseconds. Store each player's best score durably, keyed by player, so the ranking can be rebuilt.",
   },
 ]
@@ -2600,7 +2619,8 @@ const CAP: Level[] = [
       ],
       [`${C}>lb`, "lb>app", "app>db"],
     ),
-    concepts: ["cap-theorem", "quorum", "pacelc"],
+    concepts: ["network-split", "cap-theorem", "quorum", "pacelc"],
+    topics: ["topic-network-splits"],
     hint: "Count the {sql-primary}'s copies: during a split, a side can keep writing only if it holds a majority of them. Is there a majority on either side of two?",
   },
   {
@@ -2651,7 +2671,8 @@ const CAP: Level[] = [
       ],
       [`${C}>lb`, "lb>app", "app>baskets"],
     ),
-    concepts: ["cap-theorem", "conflict-resolution", "pacelc"],
+    concepts: ["network-split", "cap-theorem", "conflict-resolution", "pacelc"],
+    topics: ["topic-network-splits"],
     hint: "Here it's the opposite of a bank: during a split, every side should keep taking writes. Then think about how two versions of a basket become one.",
   },
   {
@@ -2738,6 +2759,7 @@ const CAP: Level[] = [
       "scatter-gather",
       "hot-keys",
     ],
+    topics: ["topic-sharding"],
     hint: "For each key, ask two things: does every new write land on the same shard, and does opening a task list name the key? A key the common reads don't name sends them to every shard.",
   },
   {
@@ -2816,7 +2838,13 @@ const CAP: Level[] = [
       ],
       [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
     ),
-    concepts: ["hot-keys", "conflict-resolution", "scatter-gather"],
+    concepts: [
+      "network-split",
+      "hot-keys",
+      "conflict-resolution",
+      "scatter-gather",
+    ],
+    topics: ["topic-network-splits", "topic-sharding"],
     hint: "No key that keeps one post's likes together can spread them. Split the hot post's likes across several keys, cache the counts, and let a split be reconciled afterwards.",
   },
   {
@@ -2890,7 +2918,8 @@ const CAP: Level[] = [
       ],
       [`${C}>lb`, "lb>app", "app>db"],
     ),
-    concepts: ["quorum", "partitioning", "cap-theorem"],
+    concepts: ["network-split", "quorum", "partitioning", "cap-theorem"],
+    topics: ["topic-network-splits", "topic-sharding"],
     hint: "A uniqueness check is only safe if the name's shard can't be written on both sides of a split. And a key that sends every new sign-up to the same place doesn't spread anything.",
   },
   {

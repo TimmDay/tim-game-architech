@@ -51,6 +51,7 @@ export type ConceptId =
   | "ephemeral-state"
   | "precomputation"
   | "latency-budget"
+  | "network-split"
   | "cap-theorem"
   | "quorum"
   | "pacelc"
@@ -127,6 +128,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "Alert on what users feel, not on every graph: error rate and p99 at the request tier, the age of the oldest message in each queue, and replication lag and storage on the system of record. An alert should mean someone needs to act now; everything else is a dashboard.",
     interview:
       "Name two or three alerts and their thresholds, tied to the targets: 'p99 over 300ms for five minutes pages someone'. Then say how you'd find which component is to blame: traces across the request path.",
+  },
+  "network-split": {
+    title: "Network splits",
+    body: "A network split (or network partition) is when every machine stays up but some can't reach the others: a switch fails, a link between zones is cut, a network change goes out with a mistake. Each side sees the other as down. From inside, a dead machine and an unreachable one look the same, so both sides can carry on as if they were the only survivor, and accept writes the other never sees.",
+    interview:
+      "Describe the event before the choice it forces: how the split happens, what each side can see, and how you'd notice. Then say, per store, whether the cut-off side refuses writes or keeps answering and merges afterwards.",
   },
   "cap-theorem": {
     title: "CAP theorem",

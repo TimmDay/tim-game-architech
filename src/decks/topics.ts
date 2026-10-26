@@ -885,4 +885,239 @@ export const TOPICS: Topic[] = [
       ],
     ],
   ),
+  topic(
+    "topic-network-splits",
+    "Network splits",
+    "When machines stay up but can't reach each other: what it is, how it happens, and how stores cope.",
+    [
+      [
+        "decision",
+        "What is a network split?",
+        [
+          "Every machine is still running, but some can't reach the others: the network has divided into sides.",
+          "Each side sees the other as down, even though it isn't.",
+          "It's also called a network partition. That's the P in CAP, and nothing to do with the data partitioning (sharding) you choose for scale.",
+        ],
+        "Why is a split harder to handle than a machine that simply dies?",
+      ],
+      [
+        "edge-case",
+        "How does a split actually happen?",
+        [
+          "A switch or router fails, or the link between two zones is cut or overloaded.",
+          "A network or firewall change goes out with a mistake in it, and one zone can no longer reach the rest.",
+          "A machine frozen for several seconds (overloaded, or paused while it cleans up memory) looks exactly the same from outside: it stops answering, then carries on as if nothing happened.",
+        ],
+      ],
+      [
+        "tradeoff",
+        "Why can't a machine just tell whether the other side is down?",
+        [
+          "From inside, a lost message, a slow message and a dead machine all look the same: no answer.",
+          "A timeout is only a guess. Too short and it gives up on machines that are fine; too long and users wait.",
+          "So during a split, both sides can believe they're the one that survived.",
+        ],
+      ],
+      [
+        "edge-case",
+        "What goes wrong if both sides keep accepting writes as if they were alone?",
+        [
+          "Split brain: two primaries, each taking writes the other can't see.",
+          "The same money is spent twice, or two people claim the same username.",
+          "When the split heals, the copies disagree, and something has to decide which writes win.",
+        ],
+        "Which of the levels you've played would that break, and which would shrug it off?",
+      ],
+      [
+        "decision",
+        "During a split, what can a store do?",
+        [
+          "Stay consistent: the side without a majority of the copies refuses writes until the split heals.",
+          "Stay available: every side keeps answering, and the copies are reconciled afterwards.",
+          "That's the CAP choice, made per piece of data: balances refuse, baskets keep going.",
+        ],
+      ],
+      [
+        "scale",
+        "How do majorities stop split brain?",
+        [
+          "A write commits only once a majority of the copies have it, and only one side of a split can hold a majority.",
+          "With three copies a side needs two: one side can keep writing, the other can't.",
+          "Two copies can't make a majority on either side, so a split stops all writes. Five copies survive losing two.",
+        ],
+      ],
+      [
+        "resilience",
+        "How do you design so a split does as little harm as possible?",
+        [
+          "Spread an odd number of copies over three zones, so cutting off any one zone leaves a majority together.",
+          "Give the primary a lease: if it can't reach a majority it stops taking writes before a new one is chosen.",
+          "Make retries safe with idempotency keys, so a write that was retried across the split isn't applied twice.",
+        ],
+        "Why three zones rather than two, if two already survive losing one?",
+      ],
+      [
+        "edge-case",
+        "An old primary was cut off, a new one was chosen, and then the old one comes back still thinking it's in charge. What stops its writes?",
+        [
+          "A fencing token: each new primary gets a higher number, and storage rejects writes carrying an older one.",
+          "Without it, the old primary's writes can land after the new primary's and overwrite them.",
+          "Leases help, but clocks drift and machines pause, so the token is the real guard.",
+        ],
+      ],
+      [
+        "tradeoff",
+        "You chose to stay available. How do the copies agree once the split heals?",
+        [
+          "Last write wins: simple, and it silently drops one of the writes.",
+          "Merge both sides: a basket becomes everything added on either side, which loses nothing but needs data that merges.",
+          "Some types always merge cleanly, like counters and sets. Deletes are the hard part: record them, or deleted items come back.",
+        ],
+      ],
+      [
+        "observability",
+        "How would you know a split had happened?",
+        [
+          "Alerts on copies falling behind each other, and on requests failing between zones.",
+          "A store reporting it has lost its majority, or an unexpected change of primary.",
+          "For stores that stay available, a count of writes accepted on the cut-off side: those are the conflicts to reconcile.",
+        ],
+      ],
+      [
+        "product",
+        "Which product questions decide what each piece of data does during a split?",
+        [
+          "Is a wrong answer worse than no answer here? A double-spent balance is; a slightly stale like count isn't.",
+          "How long can users wait? Splits usually last seconds to minutes.",
+          "Can the business fix conflicts afterwards, by merging, refunding or apologising, or must they never happen?",
+        ],
+      ],
+      [
+        "resilience",
+        "The split heals after ten minutes. What has to happen next?",
+        [
+          "The side that fell behind catches up from the others before it serves again.",
+          "If both sides took writes, conflicts are merged or resolved, and anything that can't be is flagged for a person.",
+          "Clients that were refused should retry, safely, now that writes work again.",
+        ],
+      ],
+    ],
+  ),
+  topic(
+    "topic-sharding",
+    "Sharding",
+    "Splitting data across machines by a key: when you need it, how to choose the key, and what it costs.",
+    [
+      [
+        "decision",
+        "What is sharding, and when do you actually need it?",
+        [
+          "Splitting the rows of a database across several machines by a key, so each takes a share of the writes and storage.",
+          "You need it when writes outgrow one primary (read replicas add reads, never writes) or the data outgrows one machine.",
+          "It comes after the cheaper fixes: caching, read replicas, a bigger machine. It's hard to undo.",
+        ],
+        "What would you try before sharding?",
+      ],
+      [
+        "tradeoff",
+        "How is a shard different from a replica?",
+        [
+          "A replica holds the same data as the original: it buys survival and extra reads, and every write lands on every copy.",
+          "A shard holds different data: each takes only its own share of the writes.",
+          "Real systems do both: each shard is a primary with its own standbys.",
+        ],
+      ],
+      [
+        "decision",
+        "How do you choose a partition key?",
+        [
+          "It spreads the writes evenly: no single key gets a big share of the traffic.",
+          "The common queries name it, so they go to one shard rather than all of them.",
+          "Data used together shares it, so joins and transactions stay inside one shard.",
+        ],
+        "Name a key that spreads writes perfectly but fails the second test.",
+      ],
+      [
+        "edge-case",
+        "What is a hot shard, and where does one come from?",
+        [
+          "One shard getting far more traffic than the rest, so it fails while the others idle.",
+          "Time-based keys put every new write on the newest shard. One huge customer or one viral post does it too.",
+          "More shards don't help: one key always lives on one shard. Split the key (add a suffix) or give the giant its own shard.",
+        ],
+      ],
+      [
+        "scale",
+        "Hash or range partitioning?",
+        [
+          "Hashing the key spreads data evenly, but neighbours end up apart, so range queries ask every shard.",
+          "Ranges (by name, by date) keep neighbours together for fast range queries, but the busy end of the range runs hot.",
+          "A lookup table (a directory) maps each key to a shard by hand: the most control, at the cost of another thing to keep up and available.",
+        ],
+      ],
+      [
+        "tradeoff",
+        "What gets harder once data is sharded?",
+        [
+          "Queries that don't name the key ask every shard and wait for the slowest.",
+          "Transactions across shards need a coordinator (two-phase commit), which is slow and fragile, so design to avoid them.",
+          "Unique values across all shards, like usernames, need the value itself as the key or a separate index.",
+        ],
+      ],
+      [
+        "scale",
+        "How many shards do you start with?",
+        [
+          "Enough for the write rate with room to spare: say each primary below about 60% at peak.",
+          "Plan for growth: many small logical shards on a few machines can be moved later without re-splitting the data.",
+          "Check the busiest key fits inside one shard's share, or no count will be enough.",
+        ],
+      ],
+      [
+        "resilience",
+        "One shard's primary fails. What happens?",
+        [
+          "Only that shard's slice of the data is affected: the rest keep serving.",
+          "Its standby in another zone takes over, as with any primary.",
+          "With many shards, something is failing more often, so failover has to be routine and automatic.",
+        ],
+      ],
+      [
+        "edge-case",
+        "The data outgrows your shards. How do you add more?",
+        [
+          "Moving data while it's being written is the hard part: copy it, keep the copy in step, then switch reads and writes over.",
+          "Consistent hashing moves only a small share of keys when a shard is added, instead of nearly all of them.",
+          "Logical shards mapped onto machines make it a move, not a re-split.",
+        ],
+      ],
+      [
+        "security",
+        "How can sharding keep data apart, not just spread it out?",
+        [
+          "Give each tenant, or each country's records, shards of their own, so a bug or a breach on one doesn't touch the others.",
+          "It makes deleting or exporting one customer's data a single-shard job.",
+          "Hashing mixes everyone together, so keeping groups apart needs placement by a lookup table or by ranges, not a hash.",
+        ],
+      ],
+      [
+        "alternative",
+        "What are the alternatives to sharding it yourself?",
+        [
+          "A bigger machine, read replicas and a cache: cheaper, and often enough for longer than you'd think.",
+          "A store that partitions for you, like {nosql}, or a distributed SQL database.",
+          "Either way you still choose the key, and hot keys and cross-shard queries still cost the same.",
+        ],
+      ],
+      [
+        "observability",
+        "What do you watch on a sharded database?",
+        [
+          "The busiest shard, not the average: one hot shard fails while the average looks fine.",
+          "The share of queries that ask every shard, and how slow they are.",
+          "Each shard's size and growth, so you add capacity before one fills up.",
+        ],
+      ],
+    ],
+  ),
 ]

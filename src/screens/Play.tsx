@@ -77,6 +77,7 @@ export function Play({
   onExit,
   onNext,
   onDeck,
+  onTopic,
   toggle,
 }: {
   level: Level
@@ -88,6 +89,8 @@ export function Play({
   onNext: (id: string) => void
   /** Open the discussion deck, or straight to its schema or estimation cards. */
   onDeck: (start?: "schema" | "estimate") => void
+  /** Open a Fundamentals deck the level links to. */
+  onTopic: (id: string) => void
   toggle: React.ReactNode
 }) {
   const wide = useWide()
@@ -353,6 +356,7 @@ export function Play({
       components={components}
       study={wide ? study : undefined}
       onConcept={(c) => setInfo({ concept: c })}
+      onTopic={onTopic}
       diagnose={
         level.mode === "repair" ? (
           <DiagnoseBox

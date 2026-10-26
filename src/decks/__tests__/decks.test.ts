@@ -66,3 +66,30 @@ describe.each(TOPICS.map((t) => [t.id, t] as const))("%s topic", (id, t) => {
     expect(new Set(t.cards.map((c) => c.id)).size).toBe(t.cards.length)
   })
 })
+
+describe("fundamentals links from levels", () => {
+  it("only link topics that exist", () => {
+    for (const l of LEVELS)
+      for (const t of l.topics ?? [])
+        expect(
+          TOPICS.some((x) => x.id === t),
+          `${l.id} → ${t}`,
+        ).toBe(true)
+  })
+
+  it("send every level with a network split to its deck and card", () => {
+    const split = LEVELS.filter((l) =>
+      l.chaos.faults.some((f) => f.kind === "network-split"),
+    )
+    expect(split.length).toBeGreaterThan(0)
+    for (const l of split) {
+      expect(l.topics, l.id).toContain("topic-network-splits")
+      expect(l.concepts, l.id).toContain("network-split")
+    }
+  })
+
+  it("send every level that offers partition keys to the sharding deck", () => {
+    for (const l of LEVELS.filter((x) => x.load.partitionKeys?.length))
+      expect(l.topics, l.id).toContain("topic-sharding")
+  })
+})

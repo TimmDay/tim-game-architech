@@ -1,8 +1,9 @@
 /**
  * Estimation: the back-of-envelope step an interview opens with. Business
  * numbers in, requests a second, storage and machines out, worked through
- * before anything is drawn. A few cards per interview classic, mixing
- * multiple choice with prompts to work out loud.
+ * before anything is drawn. A few cards per interview classic, and per
+ * level elsewhere where the numbers are the lesson, mixing multiple choice
+ * with prompts to work out loud.
  *
  * The inputs are round, made-up figures chosen so the answers land on each
  * level's own numbers: a peak worked out here is the peak its brief gives.
@@ -38,6 +39,64 @@ const talk = (
 ): EstimateCard => ({ kind: "talk", prompt, points, followUp })
 
 export const ESTIMATES: Record<string, EstimateCard[]> = {
+  "front-page": [
+    mc(
+      "Say readers load 300 million pages a day, and peak is about four times the average. What peak should you design for?",
+      "About 15,000 requests a second",
+      [
+        "About 3,500 requests a second",
+        "About 80,000 requests a second",
+        "About 1,500 requests a second",
+      ],
+      "300 million ÷ 86,400 is about 3,500 a second on average; four times that is about 14,000. That's this level's 15,000. Dividing by 3,600 (an hour) instead gives 83,000.",
+    ),
+    mc(
+      "95% of the 15,000 are reads, and 90% of those are the articles everyone is reading. A cache serves almost all of those. About how many reads still reach the database?",
+      "About 2,000 a second",
+      [
+        "About 14,000 a second",
+        "About 7,000 a second",
+        "None: the cache serves them all",
+      ],
+      "14,250 reads × 90% cacheable × about 95% hits is about 12,000 served by the cache, leaving about 2,000 for the {sql-primary}. It takes about 10,000, so one primary is plenty once the cache is in front.",
+    ),
+    talk(
+      "How much memory does the cache need?",
+      [
+        "The hot set is small: about 50 trending articles, at about 100 KB each rendered, is 5 MB.",
+        "Even the 10,000 most-read articles of the week is about 1 GB, which fits in one cache node with room to spare.",
+        "So the cache is sized by requests a second and by surviving a lost node, not by memory.",
+      ],
+      "The cache node restarts cold at peak. What happens to the database for the next minute?",
+    ),
+  ],
+  "tenant-split": [
+    mc(
+      "6,000 writes a second, one {sql-primary} takes about 3,000, and you want each shard under about 60% so a busy hour has room. How many shards?",
+      "4 shards",
+      ["2 shards", "3 shards", "12 shards"],
+      "6,000 ÷ (3,000 × 60%) is 3.3, so round up to 4: 1,500 writes each, at 50%. Two runs both at 100%; three runs at 67%, with no room for the busy hour.",
+    ),
+    mc(
+      "Split by company, and the biggest company is an eighth of all traffic. If you went to 16 shards, what's the least its shard would take?",
+      "About 750 writes a second",
+      [
+        "About 375 writes a second",
+        "About 190 writes a second",
+        "About 6,000 writes a second",
+      ],
+      "One company's rows all live on one shard, so its eighth of 6,000 (750 a second) stays together however many shards there are. 6,000 ÷ 16 is 375, but that's the average shard, not the busiest.",
+    ),
+    talk(
+      "Created date, task ID or company ID: which key, and why?",
+      [
+        "Created date: every new task lands on the newest shard, so one shard takes nearly all the writes.",
+        "Task ID: writes spread evenly, but 'open this project's task list' doesn't name a task, so it asks every shard.",
+        "Company ID: a company's projects and tasks live together, so almost every read goes to one shard, and the biggest company (an eighth) fits within one shard's room.",
+      ],
+      "Your biggest customer doubles in size. What changes?",
+    ),
+  ],
   "short-links": [
     mc(
       "Say links are clicked 600 million times a day, and peak is about three times the average. What peak should you design for?",

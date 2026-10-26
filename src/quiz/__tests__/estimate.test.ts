@@ -3,8 +3,8 @@ import { LEVELS } from "~/levels"
 import { ESTIMATES } from "../estimate"
 
 describe.each(Object.entries(ESTIMATES))("%s estimation cards", (id, cards) => {
-  it("belongs to an interview classic", () => {
-    expect(LEVELS.find((l) => l.id === id)?.track).toBe("classic")
+  it("belongs to a level", () => {
+    expect(LEVELS.some((l) => l.id === id)).toBe(true)
   })
 
   it("has two to five cards, mixing choices and prompts", () => {
@@ -26,7 +26,7 @@ describe.each(Object.entries(ESTIMATES))("%s estimation cards", (id, cards) => {
 
 it("covers every interview classic", () => {
   const classics = LEVELS.filter((l) => l.track === "classic").map((l) => l.id)
-  expect(Object.keys(ESTIMATES).sort()).toEqual(classics.sort())
+  for (const id of classics) expect(ESTIMATES[id], id).toBeDefined()
 })
 
 it("doesn't make answer length a reliable tell, either way", () => {

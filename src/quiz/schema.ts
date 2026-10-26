@@ -27,6 +27,70 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "first-customers": s([
+    [
+      "Agents open a list of a team's open tickets, newest activity first. What makes that fast?",
+      "An index on team, status and last update",
+      [
+        "A separate table for each status",
+        "A full-text index on every reply",
+        "Sorting all tickets in the app server",
+      ],
+      "With that index the database reads just the open tickets, already in order. A table per status means moving rows every time one changes.",
+    ],
+    [
+      "Where do a ticket's replies go?",
+      "A replies table, each row holding its ticket's ID",
+      [
+        "A text column on the ticket, appended to each time",
+        "A new table created for each ticket",
+        "A list stored on the customer's account row",
+      ],
+      "One row per reply keeps each one small, ordered by time and easy to page through. A column that grows forever gets slower to read and write.",
+    ],
+    [
+      "An agent closes a ticket. Which request?",
+      "PATCH /tickets/:id with the new status",
+      [
+        "POST /tickets with the whole ticket again",
+        "GET /tickets/:id?status=closed",
+        "DELETE /tickets/:id, then create it again",
+      ],
+      "PATCH changes just the fields it sends. A GET must never change anything: caches and link previews send GET requests freely.",
+    ],
+  ]),
+  "bad-migration": s([
+    [
+      "You need to rename a column of results. What's the safe order?",
+      "Add the new one, copy across, switch reads, then drop the old",
+      [
+        "Rename it in place, during a quiet hour",
+        "Drop it, then add it back under the new name",
+        "Rename it on the standby first, then fail over",
+      ],
+      "Each step can be undone, and old and new code both work in between. A rename in place breaks every running server that still uses the old name.",
+    ],
+    [
+      "A migration will drop a column. What has to exist first, for a 15-minute promise?",
+      "Point-in-time recovery, so a restore stops just before it",
+      [
+        "A second standby in another zone",
+        "A read replica the migration skips",
+        "Last night's daily backup",
+      ],
+      "Standbys and replicas copy the drop straight away. Last night's backup loses a day. Point-in-time recovery replays the log up to the minute before.",
+    ],
+    [
+      "The code stops using a column. When is it dropped?",
+      "In a later release, once nothing reads or writes it",
+      [
+        "In the same release that stops using it",
+        "Before the release that stops using it",
+        "Never: dropping columns is too risky",
+      ],
+      "In a rolling deploy, old servers still run for a while. Dropping in the same release breaks them mid-deploy; dropping first breaks them all.",
+    ],
+  ]),
   "top-players": s([
     [
       "What's the durable store's key?",

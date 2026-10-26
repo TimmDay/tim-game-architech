@@ -11,6 +11,7 @@ import {
   GraduationCap,
   Hammer,
   Library,
+  Shuffle,
   Siren,
   Split,
   Star,
@@ -23,7 +24,7 @@ import { TOPICS } from "~/decks/topics"
 import { TrophyRoom } from "~/ui/TrophyRoom"
 import { useReview } from "~/game/points-store"
 import { bestSurvivalWave, dueQueue } from "~/game/review"
-import { isComplete } from "~/game/progression"
+import { isComplete, isUnlocked } from "~/game/progression"
 import { loadOpenShelves, saveOpenShelves } from "~/game/storage"
 import { SURVIVAL_REQUIRES } from "~/survival/engine"
 import { missingPrereqs } from "~/game/progression"
@@ -205,6 +206,7 @@ export function Home({
   const ops = LEVELS.filter((l) => l.track === "ops")
   const repair = LEVELS.filter((l) => l.mode === "repair")
   const total = LEVELS.reduce((s, l) => s + (progress[l.id]?.stars ?? 0), 0)
+  const started = build[0] !== undefined && isComplete(build[0].id, progress)
   const shelf = (
     id: string,
     title: string,
@@ -261,10 +263,23 @@ export function Home({
           <div className="mt-5 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => onPlay(build[0]?.id ?? "")}
-              className="rounded-xl bg-cyan-300 px-4 py-2.5 text-[14px] font-bold text-slate-950 shadow-[0_0_30px_-6px] shadow-cyan-300/70"
+              onClick={() => {
+                // After the first level, any level you can open, from any shelf.
+                const open = started
+                  ? LEVELS.filter((l) => isUnlocked(l, progress))
+                  : []
+                const pick = open[Math.floor(Math.random() * open.length)]
+                onPlay(pick?.id ?? build[0]?.id ?? "")
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-cyan-300 px-4 py-2.5 text-[14px] font-bold text-slate-950 shadow-[0_0_30px_-6px] shadow-cyan-300/70"
             >
-              Start building
+              {started ? (
+                <>
+                  <Shuffle size={15} /> Build random
+                </>
+              ) : (
+                "Start building"
+              )}
             </button>
             <button
               type="button"
@@ -312,6 +327,15 @@ export function Home({
         repair,
         "text-rose-200",
       )}
+      <RetentionSection onOpen={onRetention} />
+      {shelf(
+        "classics",
+        "Classics",
+        <GraduationCap size={22} />,
+        "The questions interviewers ask most: a URL shortener, a chat app, a ticket sale and more. Each one hides the mistake that question is designed to catch.",
+        classics,
+        "text-violet-200",
+      )}
       {shelf(
         "cap",
         "CAP trade-offs",
@@ -319,14 +343,6 @@ export function Home({
         "When a network split leaves copies of your data apart, do you refuse requests or let the copies disagree? Choose per store, then shard the data by a partition key that spreads the load.",
         cap,
         "text-indigo-200",
-      )}
-      {shelf(
-        "classics",
-        "Interview classics",
-        <GraduationCap size={22} />,
-        "The questions interviewers ask most: a URL shortener, a chat app, a ticket sale and more. Each one hides the mistake that question is designed to catch.",
-        classics,
-        "text-violet-200",
       )}
       {shelf(
         "ops",
@@ -338,7 +354,6 @@ export function Home({
       )}
       <FundamentalsSection onDeck={onDeck} />
       <SurvivalSection progress={progress} onOpen={onSurvival} />
-      <RetentionSection onOpen={onRetention} />
       <TrophyRoom progress={progress} />
     </main>
   )
@@ -527,7 +542,7 @@ function RetentionSection({ onOpen }: { onOpen: () => void }) {
   return (
     <Shelf
       id="retention"
-      title="Retention"
+      title="Retain"
       icon={<Brain size={22} />}
       accent="text-emerald-200"
       blurb="Revise the cards, questions and scenarios you've already met. Ones you know come back rarely; ones you missed come back tomorrow, worth double."

@@ -7,6 +7,7 @@ import { DECKS } from "~/decks"
 import { TOPICS } from "~/decks/topics"
 import { QUIZZES } from "~/quiz/questions"
 import { ESTIMATES } from "~/quiz/estimate"
+import { DEMANDS } from "~/survival/engine"
 import { SCHEMA } from "~/quiz/schema"
 import { KINDS } from "~/sim/catalogue"
 import { findings } from "~/sim/findings"
@@ -68,6 +69,7 @@ const allRawText = (): string[] => {
       }
     }
   }
+  for (const d of Object.values(DEMANDS)) out.push(d.label, d.blurb)
   for (const t of TOPICS)
     for (const card of t.cards)
       out.push(

@@ -434,7 +434,7 @@ export function simulate(
         flow: {
           reads: t.type.of === "reads" ? f : 0,
           writes: t.type.of === "writes" ? f : 0,
-          cacheable: 0,
+          cacheable: t.type.of === "reads" && t.type.cacheable ? f : 0,
         },
       })
     }

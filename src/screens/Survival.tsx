@@ -9,6 +9,7 @@ import {
   Play as PlayIcon,
   RotateCcw,
   ShieldAlert,
+  Sparkles,
   SlidersHorizontal,
   Skull,
   Swords,
@@ -34,6 +35,7 @@ import {
   canLaunch,
   playWave,
   wave as makeWave,
+  waveTargets,
   type WaveOutcome,
 } from "~/survival/engine"
 import { Board } from "~/ui/Board"
@@ -41,6 +43,7 @@ import { CardView } from "~/ui/CardView"
 import { Confetti } from "~/ui/Confetti"
 import { ms, pct, rps, usd } from "~/ui/format"
 import { Modal } from "~/ui/Modal"
+import { Rich } from "~/ui/Rich"
 import { FindingList, H, InspectPanel, PalettePanel } from "~/ui/panels"
 
 type Phase = "build" | "ramp" | "incident" | "report" | "over"
@@ -50,7 +53,8 @@ const newSeed = () => Math.floor(Math.random() * 1_000_000)
 /**
  * Survival: keep one architecture alive through endless waves. Traffic grows
  * about 30% a wave, the mix changes, and from wave 3 something goes wrong
- * that you don't see coming. Three lives; the budget grows as you go.
+ * that you don't see coming, and the business keeps asking for more. Two
+ * lives; the budget grows as you go.
  */
 export function Survival({
   provider,
@@ -222,6 +226,40 @@ export function Survival({
       <p className="text-[13px] leading-relaxed text-slate-300">
         {rps(w.load.peakRps)} at peak. {MIX[w.mix].blurb}
       </p>
+      {w.demands.length > 0 && (
+        <div className="space-y-2">
+          {[...w.demands].reverse().map((d) => (
+            <div
+              key={d.id}
+              className={clsx(
+                "rounded-xl border p-2.5",
+                d.id === w.fresh
+                  ? "border-sky-300/40 bg-sky-300/[0.07]"
+                  : "border-white/10 bg-white/[0.02]",
+              )}
+            >
+              <p className="flex items-center gap-1.5 text-[12px] font-semibold text-sky-100">
+                <Sparkles size={12} className="text-sky-300" />
+                {d.label}
+                {d.id === w.fresh && (
+                  <span className="rounded-full bg-sky-300/20 px-1.5 font-mono text-[9px] tracking-wider text-sky-200 uppercase">
+                    New
+                  </span>
+                )}
+              </p>
+              {d.id === w.fresh ? (
+                <p className="mt-1 text-[12px] leading-snug text-slate-300">
+                  <Rich text={d.blurb} provider={provider} />
+                </p>
+              ) : (
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  Still required.
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
       <div>
         <div className="flex justify-between font-mono text-[11px]">
           <span className="text-slate-500">Monthly cost</span>
@@ -291,6 +329,7 @@ export function Survival({
       selectedId={editor.sel.node}
       selectedEdgeId={editor.sel.edge}
       result={result}
+      load={w.load}
       live={live}
       connecting={editor.tool.t === "connect"}
       onConnect={(id) =>
@@ -429,7 +468,7 @@ export function Survival({
   )
 
   const findingsShown = outcome
-    ? findings(graph, w.load, outcome.hit).slice(0, 4)
+    ? findings(graph, w.load, outcome.hit, waveTargets(w)).slice(0, 4)
     : []
 
   const modal =
@@ -469,7 +508,7 @@ export function Survival({
           <ul className="mt-4 space-y-1">
             {outcome.reasons.map((r) => (
               <li key={r} className="text-[13px] text-rose-200">
-                • {r}
+                • <Rich text={r} provider={provider} />
               </li>
             ))}
           </ul>

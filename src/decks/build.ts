@@ -1768,6 +1768,17 @@ export const STEP_COUNTER = deck("step-counter", [
     "What would make you choose SQL anyway?",
   ],
   [
+    "alternative",
+    "How would you keep SQL by sharding it?",
+    [
+      "Hash the user ID to pick one of several {sql-primary} shards; the app or a routing proxy sends each query to its user's shard.",
+      "Each shard is a whole database: its own standby, backups and alerts.",
+      "Start with many small logical shards per database, so growing moves whole shards instead of re-hashing every user.",
+      "It works, but it's machinery a {nosql} store runs for you, for data that never joins.",
+    ],
+    "Tenant Split has you shard a {sql-primary} by hand: what happens with a bad key?",
+  ],
+  [
     "decision",
     "What's the key?",
     [

@@ -34,8 +34,12 @@ export type Settings = {
 export const inBounds = (x: number, y: number) =>
   x >= 0 && y >= 0 && x < COLS && y < ROWS
 
+/** The Users block's tile: where it starts, unless the player moved it. */
+export const clientTile = (g: Graph) => g.client ?? CLIENT_TILE
+
 export function occupied(g: Graph, x: number, y: number, except?: string) {
-  if (x === CLIENT_TILE.x && y === CLIENT_TILE.y) return true
+  const u = clientTile(g)
+  if (except !== CLIENT_ID && x === u.x && y === u.y) return true
   return g.components.some((c) => c.id !== except && c.x === x && c.y === y)
 }
 
@@ -67,6 +71,7 @@ export function edit(g: Graph, a: Action): Graph {
     }
     case "move":
       if (!inBounds(a.x, a.y) || occupied(g, a.x, a.y, a.id)) return g
+      if (a.id === CLIENT_ID) return { ...g, client: { x: a.x, y: a.y } }
       return {
         ...g,
         components: g.components.map((c) =>
@@ -84,6 +89,7 @@ export function edit(g: Graph, a: Action): Graph {
       }
     case "remove":
       return {
+        ...g,
         components: g.components.filter((c) => c.id !== a.id),
         edges: g.edges.filter((e) => e.from !== a.id && e.to !== a.id),
       }

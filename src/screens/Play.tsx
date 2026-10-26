@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Lightbulb,
   Lock,
+  ClipboardCheck,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -46,6 +47,7 @@ import { Modal } from "~/ui/Modal"
 import {
   H,
   BriefPanel,
+  StudyCards,
   DiagnoseBox,
   InspectPanel,
   PalettePanel,
@@ -55,7 +57,7 @@ import {
 import { Results } from "~/ui/Results"
 import { SandboxReport } from "~/ui/SandboxReport"
 
-type Tab = "brief" | "build" | "inspect" | "test"
+type Tab = "brief" | "build" | "inspect" | "quiz" | "test"
 type Phase = "idle" | "ramp" | "hold" | "chaos"
 type Info =
   | { concept: ConceptId }
@@ -104,11 +106,8 @@ export function Play({
     report: Report
   } | null>(null)
   const [info, setInfo] = useState<Info | null>(null)
-  // Phones show one tab at a time: open on the brief until the level has a
-  // star, so a first visit starts with the story and the targets.
-  const [tab, setTab] = useState<Tab>(
-    level.mode === "repair" || !progress[level.id]?.stars ? "brief" : "build",
-  )
+  // Phones show one tab at a time, and a level always opens on its brief.
+  const [tab, setTab] = useState<Tab>("brief")
   const [sheetOpen, setSheetOpen] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
   const [diag, setDiag] = useState({ attempts: 0, solved: false })
@@ -336,17 +335,23 @@ export function Play({
   }
 
   // --- panels --------------------------------------------------------------
-  const brief = (components?: React.ReactNode) => (
-    <BriefPanel
+  const study = (
+    <StudyCards
       level={level}
-      provider={provider}
-      components={components}
       onDeck={onDeck}
       quiz={
         sandbox || !SOLUTIONS[level.id]
           ? undefined
           : { passed: quiz.passed, open: () => setInfo({ quiz: true }) }
       }
+    />
+  )
+  const brief = (components?: React.ReactNode) => (
+    <BriefPanel
+      level={level}
+      provider={provider}
+      components={components}
+      study={wide ? study : undefined}
       onConcept={(c) => setInfo({ concept: c })}
       diagnose={
         level.mode === "repair" ? (
@@ -388,10 +393,8 @@ export function Play({
       onInfo={(kind) => setInfo({ kind })}
     />
   )
-  // Offered once there's something to be stuck on: after a run, a pass, or a quiz.
-  const tried = graded !== null || !!progress[level.id] || quiz.best > 0
   const solution =
-    sandbox || !SOLUTIONS[level.id] || !tried ? null : (
+    sandbox || !SOLUTIONS[level.id] ? null : (
       <div className="space-y-2 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] p-3">
         <H>Stuck?</H>
         <button
@@ -401,7 +404,7 @@ export function Play({
           title={
             quiz.passed
               ? undefined
-              : `Pass the ${PASS_MARK}/10 check below to unlock`
+              : "Pass the 10 question gauntlet below to unlock"
           }
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-300/40 py-2 text-[14px] font-semibold text-amber-100 enabled:hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-slate-500"
         >
@@ -412,15 +415,15 @@ export function Play({
           <button
             type="button"
             onClick={() => setInfo({ quiz: true })}
-            className="w-full rounded-lg bg-amber-300 py-2 text-[14px] font-bold text-slate-950"
+            className="w-full rounded-lg border border-amber-300/35 bg-amber-300/10 py-2 text-[14px] font-semibold text-amber-100 hover:bg-amber-300/15"
           >
-            Unlock it: 10-question check
+            Unlock it: Gauntlet
           </button>
         )}
         <p className="text-[12px] leading-snug text-slate-500">
           {quiz.passed
             ? "Shows a three-star design, running, with the reasoning and trade-offs written out."
-            : `Score ${PASS_MARK}/10 on this scenario's key ideas to unlock the solution.${quiz.best > 0 ? ` Best so far: ${quiz.best}/10.` : ""} The discussion deck covers every question.`}
+            : `Score ${PASS_MARK} on the 10 question gauntlet, on this scenario's key ideas, to unlock the solution.${quiz.best > 0 ? ` Best so far: ${quiz.best}/10.` : ""} The discussion deck covers every question.`}
         </p>
       </div>
     )
@@ -439,7 +442,8 @@ export function Play({
   const inspect = (
     <InspectPanel
       graph={graph}
-      load={level.load}
+      load={sandbox ? load : level.load}
+      scenario={level.scenario}
       production
       provider={provider}
       selectedId={sel.node}
@@ -711,6 +715,15 @@ export function Play({
     { id: "brief", label: "Brief", icon: <BookOpen size={16} /> },
     { id: "build", label: "Build", icon: <Hammer size={16} /> },
     { id: "inspect", label: "Inspect", icon: <SlidersHorizontal size={16} /> },
+    ...(sandbox
+      ? []
+      : [
+          {
+            id: "quiz" as const,
+            label: "Quiz",
+            icon: <ClipboardCheck size={16} />,
+          },
+        ]),
     { id: "test", label: "Test", icon: <Activity size={16} /> },
   ]
   return (
@@ -731,10 +744,11 @@ export function Play({
               </div>
             )}
             {tab === "inspect" && inspect}
+            {tab === "quiz" && study}
             {tab === "test" && test}
           </div>
         )}
-        <nav className="grid grid-cols-4">
+        <nav className={clsx("grid", sandbox ? "grid-cols-4" : "grid-cols-5")}>
           {tabs.map((t) => (
             <button
               key={t.id}

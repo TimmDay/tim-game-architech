@@ -60,7 +60,7 @@ type Route =
   | { screen: "home" }
   | { screen: "codex" }
   | { screen: "play"; levelId: string }
-  | { screen: "deck"; levelId: string; schema?: boolean }
+  | { screen: "deck"; levelId: string; start?: "schema" | "estimate" }
   | { screen: "retention" }
   | { screen: "survival" }
 
@@ -71,7 +71,11 @@ function parse(hash: string): Route {
   if (screen === "retention") return { screen: "retention" }
   if (screen === "survival") return { screen: "survival" }
   if (screen === "deck" && id && (levelById(id) || DECK_TITLES[id]))
-    return { screen: "deck", levelId: id, schema: sub === "schema" }
+    return {
+      screen: "deck",
+      levelId: id,
+      start: sub === "schema" || sub === "estimate" ? sub : undefined,
+    }
   if (screen === "play" && id && (id === "sandbox" || levelById(id)))
     return { screen: "play", levelId: id }
   return { screen: "home" }
@@ -173,7 +177,7 @@ function AppScreens({
           }}
           onExit={() => go("/")}
           onNext={(id) => go(`/play/${id}`)}
-          onDeck={(schema) => go(`/deck/${level.id}${schema ? "/schema" : ""}`)}
+          onDeck={(start) => go(`/deck/${level.id}${start ? `/${start}` : ""}`)}
           toggle={toggle}
         />
       </>
@@ -204,9 +208,9 @@ function AppScreens({
     if (!level && !topic) return null
     return (
       <Deck
-        key={`${route.levelId}${route.schema ? "/schema" : ""}`}
+        key={`${route.levelId}/${route.start ?? ""}`}
         source={{ id: route.levelId, title: level?.title ?? topic ?? "" }}
-        startOnSchema={route.schema}
+        start={route.start}
         provider={provider}
         onBack={() => history.back()}
         onPlay={level ? () => go(`/play/${level.id}`) : undefined}

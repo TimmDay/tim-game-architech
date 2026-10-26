@@ -221,7 +221,7 @@ export function Results({
       {onDeck && (
         <button
           type="button"
-          onClick={onDeck}
+          onClick={() => onDeck()}
           className="mt-3 w-full text-center text-[13px] text-fuchsia-200/90 underline decoration-fuchsia-300/40 underline-offset-4 hover:text-fuchsia-100"
         >
           Now practise talking it through: open the discussion deck

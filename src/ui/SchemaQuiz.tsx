@@ -1,9 +1,19 @@
 import clsx from "clsx"
-import { ArrowLeft, ArrowRight, Check, Database, X } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calculator,
+  Check,
+  Database,
+  Eye,
+  X,
+  type LucideIcon,
+} from "lucide-react"
 import { useMemo, useState } from "react"
 import { updateReview, useReview } from "~/game/points-store"
-import { answerSchema } from "~/game/review"
+import { answerEstimate, answerSchema, type ReviewState } from "~/game/review"
 import type { Provider } from "~/providers/names"
+import { ESTIMATES, type EstimateCard } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
 import { Rich } from "./Rich"
 
@@ -23,10 +33,38 @@ function order(n: number, seed: number): number[] {
   return out
 }
 
-/**
- * A level's schema and API questions, one at a time: pick an option, see
- * whether it's right and why. A point each, the first time it's right.
- */
+/** Tailwind needs whole class names, so each set's colours are spelled out. */
+type Tone = {
+  count: string
+  card: string
+  tag: string
+  hover: string
+  right: string
+  tick: string
+  next: string
+}
+
+const GREEN: Tone = {
+  count: "text-green-300",
+  card: "border-green-300/25 to-green-950/40",
+  tag: "bg-green-300/15 text-green-200",
+  hover: "hover:border-green-300/50",
+  right: "border-green-300/60 bg-green-300/15 text-green-50",
+  tick: "text-green-300",
+  next: "border-green-300/40 bg-green-300/10 text-green-100",
+}
+
+const SKY: Tone = {
+  count: "text-sky-300",
+  card: "border-sky-300/25 to-sky-950/40",
+  tag: "bg-sky-300/15 text-sky-200",
+  hover: "hover:border-sky-300/50",
+  right: "border-sky-300/60 bg-sky-300/15 text-sky-50",
+  tick: "text-sky-300",
+  next: "border-sky-300/40 bg-sky-300/10 text-sky-100",
+}
+
+/** A level's schema and API questions. A point each, the first time it's right. */
 export function SchemaQuiz({
   levelId,
   provider,
@@ -34,99 +72,217 @@ export function SchemaQuiz({
   levelId: string
   provider: Provider
 }) {
-  const questions = useMemo(() => SCHEMA[levelId] ?? [], [levelId])
+  const cards = useMemo(
+    () =>
+      (SCHEMA[levelId] ?? []).map((q): EstimateCard => ({ kind: "mc", ...q })),
+    [levelId],
+  )
+  return (
+    <CardQuiz
+      cards={cards}
+      prefix={`schema:${levelId}`}
+      answer={(s, i, right) => answerSchema(s, levelId, i, right)}
+      label="Schema & API"
+      Icon={Database}
+      tone={GREEN}
+      done="answered right"
+      provider={provider}
+    />
+  )
+}
+
+/** A level's estimation cards: choices to pick, and sums to work out loud. */
+export function EstimateQuiz({
+  levelId,
+  provider,
+}: {
+  levelId: string
+  provider: Provider
+}) {
+  return (
+    <CardQuiz
+      cards={ESTIMATES[levelId] ?? []}
+      prefix={`est:${levelId}`}
+      answer={(s, i, right) => answerEstimate(s, levelId, i, right)}
+      label="Estimation"
+      Icon={Calculator}
+      tone={SKY}
+      done="done"
+      provider={provider}
+    />
+  )
+}
+
+/**
+ * One card at a time: pick an option and see whether it's right and why, or
+ * work a prompt out, then reveal what a strong answer covers.
+ */
+function CardQuiz({
+  cards,
+  prefix,
+  answer,
+  label,
+  Icon,
+  tone,
+  done,
+  provider,
+}: {
+  cards: EstimateCard[]
+  /** Award keys are `${prefix}:${index}`. */
+  prefix: string
+  answer: (s: ReviewState, index: number, right: boolean) => ReviewState
+  label: string
+  Icon: LucideIcon
+  tone: Tone
+  /** "3 of 5 {done}" */
+  done: string
+  provider: Provider
+}) {
   const review = useReview()
   const [index, setIndex] = useState(0)
   const [picked, setPicked] = useState<string | null>(null)
   const [earned, setEarned] = useState(false)
-  const q = questions[index]
+  const card = cards[index]
   const options = useMemo(() => {
-    if (!q) return []
-    const all = [q.correct, ...q.wrong]
+    if (card?.kind !== "mc") return []
+    const all = [card.correct, ...card.wrong]
     return order(all.length, index).map((i) => all[i] ?? "")
-  }, [q, index])
-  if (!q) return null
+  }, [card, index])
+  if (!card) return null
 
-  const key = (i: number) => `schema:${levelId}:${i}`
-  const right = questions.filter((_, i) => review.awarded[key(i)]).length
+  const key = (i: number) => `${prefix}:${i}`
+  const right = cards.filter((_, i) => review.awarded[key(i)]).length
   const go = (i: number) => {
-    setIndex(Math.max(0, Math.min(questions.length - 1, i)))
+    setIndex(Math.max(0, Math.min(cards.length - 1, i)))
     setPicked(null)
     setEarned(false)
   }
+  // A prompt's reveal counts as its answer: there's nothing to get wrong.
   const pick = (o: string) => {
     if (picked) return
-    const correct = o === q.correct
+    const correct = card.kind === "talk" || o === card.correct
     setPicked(o)
     setEarned(correct && !review.awarded[key(index)])
-    updateReview((s) => answerSchema(s, levelId, index, correct))
+    updateReview((s) => answer(s, index, correct))
   }
 
   return (
     <div className="mt-5">
       <div className="flex items-center justify-between font-mono text-[11px] text-slate-500">
-        <span className="text-green-300">
-          {right} of {questions.length} answered right
+        <span className={tone.count}>
+          {right} of {cards.length} {done}
         </span>
         <span>
-          {index + 1} / {questions.length}
+          {index + 1} / {cards.length}
         </span>
       </div>
-      <div className="mt-2 rounded-3xl border border-green-300/25 bg-gradient-to-br from-slate-900 to-green-950/40 p-6 shadow-2xl shadow-black/50">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-green-300/15 px-2.5 py-1 font-mono text-[10px] font-semibold tracking-wider text-green-200 uppercase">
-          <Database size={11} /> Schema & API
+      <div
+        className={clsx(
+          "mt-2 rounded-3xl border bg-gradient-to-br from-slate-900 p-6 shadow-2xl shadow-black/50",
+          tone.card,
+        )}
+      >
+        <span
+          className={clsx(
+            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold tracking-wider uppercase",
+            tone.tag,
+          )}
+        >
+          <Icon size={11} /> {label}
         </span>
         <p className="font-display mt-5 text-[20px] leading-snug font-semibold text-white sm:text-[22px]">
-          <Rich text={q.prompt} provider={provider} />
+          <Rich text={card.prompt} provider={provider} />
         </p>
-        <div className="mt-5 space-y-2">
-          {options.map((o) => {
-            const isRight = o === q.correct
-            const state = !picked
-              ? "idle"
-              : isRight
-                ? "right"
-                : o === picked
-                  ? "wrong"
-                  : "dim"
-            return (
-              <button
-                key={o}
-                type="button"
-                disabled={picked !== null}
-                onClick={() => pick(o)}
-                className={clsx(
-                  "flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-3 text-left text-[15px] leading-snug",
-                  state === "idle" &&
-                    "border-white/10 bg-white/[0.03] text-slate-100 hover:border-green-300/50",
-                  state === "right" &&
-                    "border-green-300/60 bg-green-300/15 text-green-50",
-                  state === "wrong" &&
-                    "border-rose-300/50 bg-rose-300/10 text-rose-100",
-                  state === "dim" && "border-white/5 text-slate-500",
-                )}
-              >
-                {state === "right" && (
-                  <Check size={17} className="mt-0.5 shrink-0 text-green-300" />
-                )}
-                {state === "wrong" && (
-                  <X size={17} className="mt-0.5 shrink-0 text-rose-300" />
-                )}
-                <span>
-                  <Rich text={o} provider={provider} />
+        {card.kind === "mc" ? (
+          <div className="mt-5 space-y-2">
+            {options.map((o) => {
+              const isRight = o === card.correct
+              const state = !picked
+                ? "idle"
+                : isRight
+                  ? "right"
+                  : o === picked
+                    ? "wrong"
+                    : "dim"
+              return (
+                <button
+                  key={o}
+                  type="button"
+                  disabled={picked !== null}
+                  onClick={() => pick(o)}
+                  className={clsx(
+                    "flex w-full items-start gap-2.5 rounded-xl border px-3.5 py-3 text-left text-[15px] leading-snug",
+                    state === "idle" &&
+                      clsx(
+                        "border-white/10 bg-white/[0.03] text-slate-100",
+                        tone.hover,
+                      ),
+                    state === "right" && tone.right,
+                    state === "wrong" &&
+                      "border-rose-300/50 bg-rose-300/10 text-rose-100",
+                    state === "dim" && "border-white/5 text-slate-500",
+                  )}
+                >
+                  {state === "right" && (
+                    <Check
+                      size={17}
+                      className={clsx("mt-0.5 shrink-0", tone.tick)}
+                    />
+                  )}
+                  {state === "wrong" && (
+                    <X size={17} className="mt-0.5 shrink-0 text-rose-300" />
+                  )}
+                  <span>
+                    <Rich text={o} provider={provider} />
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        ) : picked ? (
+          <>
+            <ul className="mt-5 space-y-2.5">
+              {card.points.map((p, i) => (
+                <li
+                  key={i}
+                  className="flex gap-2.5 text-[15px] leading-relaxed text-slate-100"
+                >
+                  <span className="mt-2 size-1.5 shrink-0 rounded-full bg-sky-300" />
+                  <span>
+                    <Rich text={p} provider={provider} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {card.followUp && (
+              <p className="mt-5 rounded-xl border border-fuchsia-400/25 bg-fuchsia-400/[0.07] p-3 text-[14px] leading-relaxed text-fuchsia-50">
+                <span className="font-semibold text-fuchsia-200">
+                  They'll push with:{" "}
                 </span>
-              </button>
-            )
-          })}
-        </div>
-        {picked && (
+                <Rich text={card.followUp} provider={provider} />
+              </p>
+            )}
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => pick("reveal")}
+            className={clsx(
+              "mt-5 flex w-full items-center justify-center gap-1.5 rounded-xl border py-2.5 text-[14px] font-semibold",
+              tone.next,
+            )}
+          >
+            <Eye size={15} /> Work it out loud, then reveal
+          </button>
+        )}
+        {picked && (card.kind === "mc" || earned) && (
           <p className="mt-4 text-[14px] leading-relaxed text-slate-300">
             {earned && (
-              <span className="mr-1.5 font-semibold text-green-300">
+              <span className={clsx("mr-1.5 font-semibold", tone.tick)}>
                 +1 point.
               </span>
             )}
-            <Rich text={q.why} provider={provider} />
+            {card.kind === "mc" && <Rich text={card.why} provider={provider} />}
           </p>
         )}
       </div>
@@ -143,15 +299,18 @@ export function SchemaQuiz({
         <button
           type="button"
           onClick={() => go(index + 1)}
-          disabled={index >= questions.length - 1}
-          className="flex-1 rounded-xl border border-green-300/40 bg-green-300/10 py-2.5 text-[14px] font-semibold text-green-100 disabled:opacity-30"
+          disabled={index >= cards.length - 1}
+          className={clsx(
+            "flex-1 rounded-xl border py-2.5 text-[14px] font-semibold disabled:opacity-30",
+            tone.next,
+          )}
         >
           {picked ? "Next question" : "Skip"}
         </button>
         <button
           type="button"
           onClick={() => go(index + 1)}
-          disabled={index >= questions.length - 1}
+          disabled={index >= cards.length - 1}
           aria-label="Next question"
           className="grid size-11 place-items-center rounded-xl border border-white/10 text-slate-300 disabled:opacity-30"
         >

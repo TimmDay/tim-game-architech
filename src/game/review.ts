@@ -7,6 +7,7 @@ import { ACHIEVEMENT_POINTS } from "./achievement-points"
  *   card:<deckCardId>        a discussion deck card
  *   mc:<levelId>:<index>     a quiz question, by position in QUIZZES
  *   schema:<levelId>:<index> a schema or API question, by position in SCHEMA
+ *   est:<levelId>:<index>    an estimation card, by position in ESTIMATES
  *   level:<levelId>          revisiting a passed scenario
  *
  * Award keys also include star:<levelId>:<n> for each star reached.
@@ -18,6 +19,8 @@ export const POINTS = {
   mcCorrect: 2,
   /** First time you answer a schema or API question correctly. */
   schemaCorrect: 1,
+  /** First time you get an estimate right, or reveal one's working. */
+  estimate: 1,
   /** First time you earn a star on a scenario. */
   scenarioPass: 20,
   /** Each of a scenario's three stars, the first time you reach it. */
@@ -79,6 +82,7 @@ export function awardValue(key: string): number {
   if (key.startsWith("flash:")) return POINTS.flashCard
   if (key.startsWith("mc:")) return POINTS.mcCorrect
   if (key.startsWith("schema:")) return POINTS.schemaCorrect
+  if (key.startsWith("est:")) return POINTS.estimate
   if (key.startsWith("pass:")) return POINTS.scenarioPass
   if (key.startsWith("star:")) return POINTS.star
   if (key.startsWith("survival:")) return POINTS.survivalWave
@@ -144,6 +148,19 @@ export function answerSchema(
   return correct
     ? award(s, `schema:${levelId}:${index}`, POINTS.schemaCorrect)
     : s
+}
+
+/**
+ * An estimation card done: a choice answered (a point the first time it's
+ * right), or a prompt's working revealed (a point the first time).
+ */
+export function answerEstimate(
+  s: ReviewState,
+  levelId: string,
+  index: number,
+  correct: boolean,
+) {
+  return correct ? award(s, `est:${levelId}:${index}`, POINTS.estimate) : s
 }
 
 /** A scenario graded with at least one star. */

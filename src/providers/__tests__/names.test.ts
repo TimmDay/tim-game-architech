@@ -6,6 +6,7 @@ import { SOLUTIONS } from "~/levels/solutions"
 import { DECKS } from "~/decks"
 import { TOPICS } from "~/decks/topics"
 import { QUIZZES } from "~/quiz/questions"
+import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
 import { KINDS } from "~/sim/catalogue"
 import { findings } from "~/sim/findings"
@@ -35,6 +36,9 @@ const allRawText = (): string[] => {
       out.push(qn.prompt, qn.correct, ...qn.wrong, qn.why)
     for (const card of DECKS[l.id] ?? [])
       out.push(card.prompt, ...card.points, card.followUp ?? "")
+    for (const c of ESTIMATES[l.id] ?? [])
+      if (c.kind === "mc") out.push(c.prompt, c.correct, ...c.wrong, c.why)
+      else out.push(c.prompt, ...c.points, c.followUp ?? "")
     const sol = SOLUTIONS[l.id]
     if (sol)
       out.push(

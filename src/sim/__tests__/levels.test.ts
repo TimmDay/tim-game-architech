@@ -579,6 +579,15 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
   })
 
+  it("push alerts: the provider is sent the notifications, not the inbox loads", () => {
+    const l = level("push-alerts")
+    const g = rewire(l.reference, ["sends", "push"], ["app>provider"])
+    const r = grade(g, l.load, l.targets, l.chaos.faults)
+    // 1,200 sends fit a 2,000 quota, so nothing is refused until the goal.
+    expect(r.peak.errorRate).toBe(0)
+    expect(r.chaos.errorRate).toBeGreaterThan(0)
+  })
+
   it("push alerts: too little quota or too few workers fall behind at a normal peak", () => {
     const l = level("push-alerts")
     expect(

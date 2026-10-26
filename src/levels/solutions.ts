@@ -60,7 +60,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A charge is mostly waiting, so each worker keeps about 100 calls in flight. Two workers run at 9% normally. When the provider slows by five seconds, each call holds its slot for at most half a second, and backoff adds a fifth more calls: they run at 45%, and the queue keeps up.",
       "With no timeout, each call holds its slot for five seconds and the queue falls 87 orders a second behind. Twenty workers would keep up, at more than twice the budget. With immediate retries, the provider gets three calls for each charge, 180% of its quota, and charges fall 160 a second behind.",
       "Retries with no idempotency key charge about 14 orders a second twice.",
-      "Calling the provider from the {app-server} instead puts its slowness on every customer: the app tier runs out of capacity and every request fails.",
+      "Calling the provider from the {app-server} instead puts its slowness on every order: p99 is 1.7 seconds on a normal day, and when the provider slows, every order fails.",
       "Cost: about $34 for the {load-balancer} + 2 × $70 + 2 × $400 + about $114 for the {queue} + 2 × $120 = $1,328 of $1,450.",
     ],
     tradeoffs: [
@@ -604,7 +604,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A run is one webhook call of about 300ms, nearly all waiting, so each worker keeps 100 in flight. Twelve run at 25% normally.",
       "In the chaos round, timeouts hold each slow call for half a second instead of five, backoff adds a fifth more calls, the dead-letter queue sets aside the job that always fails, and alerts replace hung workers: the twelve run at 82%.",
       "Take away any one of those settings and the queue falls behind: by 511 jobs a second without the dead-letter queue, and by every job with no alert on either the workers or the queue. Without idempotency keys, retries deliver about 120 webhooks a second twice.",
-      "Calling webhooks inside the scheduler's requests instead puts their slowness on every customer request: p99 passes 12 seconds.",
+      "Calling webhooks inside the scheduler's requests instead puts their slowness on the customers' requests: p99 passes 2 seconds on a normal day, and when the webhooks slow, 60% of requests fail.",
       "Cost: $1 + about $41 for the {load-balancer} + 4 × $70 + 2 × $400 + about $946 for the {queue} + 12 × $120 = $3,508 of $3,800.",
     ],
     tradeoffs: [
@@ -810,7 +810,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "The seen set grows by 1,500 keys a second, about 130 million a day, far too many for one database to keep forever. Two {nosql} blocks take the writes at 75% and the lookups at 60%.",
       "A fetch takes about a second, nearly all waiting, so each fetcher keeps 100 in flight. Thirty fetch 1,500 pages a second at 50%, using 75% of the sites' politeness budget.",
       "When big sites slow to ten seconds, the timeout cuts each try at half a second and backoff retries it later: the fetchers rise to 80% and keep up. With no timeout, each fetch waits the full ten seconds and the crawl falls 1,269 pages a second behind.",
-      "Fetching inside the frontier service instead puts every site's response time on every link: p99 passes 13 seconds and most requests fail.",
+      "Fetching inside the frontier service instead puts every site's response time on every new link: p99 passes 3.5 seconds on a normal day, and when sites slow, a quarter of requests fail.",
       "Cost: about $84 for the {load-balancer} + 14 × $70 + 2 × $950 + about $1,419 for the {queue} + 30 × $120 + about $5,938 for the {object-store} = $13,921 of $15,000. Storing each page as its own object is the biggest line: writes are billed per request.",
     ],
     tradeoffs: [
@@ -840,7 +840,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "The {sql-primary} is 40% busy on writes, and 80% during the goal.",
       "A provider call takes about 150ms, nearly all waiting, so each worker keeps 100 in flight and sends about 667 a second. Three send 2,000 a second, exactly the provider's quota, and run at 60% at peak.",
       "The goal brings 2,400 notifications a second. 2,000 go out and the line grows by 400 a second; when the burst passes, the spare capacity drains it.",
-      "Calling the provider inside the request instead puts its 600ms p99, and every refusal, on the app's critical path: p99 passes 12 seconds, and requests fail before the goal even goes in.",
+      "Calling the provider inside the request instead puts its 600ms p99, and every refusal, on the app's critical path: p99 is 1.8 seconds on a normal day, and when the goal goes in, the 400 sends a second over quota are refused and 7% of requests fail.",
       "Cost: $1 + about $49 for the {load-balancer} + 9 × $70 + 2 × $400 + about $1,135 for the {queue} + 3 × $120 = $2,975 of $3,250. The provider's own fees are a business cost, not counted here.",
     ],
     tradeoffs: [

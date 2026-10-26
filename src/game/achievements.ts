@@ -3,7 +3,7 @@ import { LEVELS } from "~/levels"
 import { QUIZZES } from "~/quiz/questions"
 import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
-import { awardValue, type ReviewState } from "./review"
+import { awardValue, keptValue, type ReviewState } from "./review"
 import type { Progress, QuizRecord } from "./storage"
 
 /**
@@ -236,12 +236,28 @@ export function grantAchievements(
 export const mark = (s: ReviewState, key: string): ReviewState =>
   s.awarded[key] ? s : { ...s, awarded: { ...s.awarded, [key]: true } }
 
-/** One-time awards from content that has an end: not Retention or Survival. */
-const FINITE = ["flash:", "mc:", "schema:", "est:", "pass:", "star:", "ach:"]
+/**
+ * One-time awards from content that has an end. Retention counts once per
+ * item (its first right answer); its repeats and Survival don't.
+ */
+const FINITE = [
+  "flash:",
+  "got:",
+  "kept:",
+  "mc:",
+  "schema:",
+  "est:",
+  "pass:",
+  "star:",
+  "ach:",
+]
+const CARDS = new Set(Object.values(DECKS).flatMap((d) => d.map((c) => c.id)))
+  .size
+const QUESTIONS = Object.values(QUIZZES).flat().length
 const MAX_AWARDS =
-  new Set(Object.values(DECKS).flatMap((d) => d.map((c) => c.id))).size *
-    awardValue("flash:") +
-  Object.values(QUIZZES).flat().length * awardValue("mc:") +
+  CARDS * (awardValue("flash:") + awardValue("got:") + keptValue("card:")) +
+  QUESTIONS * (awardValue("mc:") + keptValue("mc:")) +
+  LEVELS.length * keptValue("level:") +
   Object.values(SCHEMA).flat().length * awardValue("schema:") +
   Object.values(ESTIMATES).flat().length * awardValue("est:") +
   LEVELS.length * (awardValue("pass:") + 3 * awardValue("star:")) +

@@ -8,6 +8,12 @@
  * for at least as much as the one before. Ranks are never lost once
  * reached, so new content can't demote anyone.
  *
+ * The early ranks are spaced so each one is seen. Counting scenarios
+ * explored fully (every star and card): one is still a Game Modder (it has
+ * only 3 of the 4 stars The Spreadsheet Guy asks for), part of a second
+ * makes The Spreadsheet Guy, about four Student Intern, six Slopapotamus
+ * and eight Junior Engineer.
+ *
  * The quip shows beside the title in the trophy room.
  */
 export type Rank = {
@@ -22,31 +28,32 @@ export const RANKS: Rank[] = [
   {
     title: "The Spreadsheet Guy",
     quip: "Pivoting tables and smoking macros",
-    points: 0.005,
+    points: 0.015,
+    stars: 0.03,
   },
   {
     title: "Student Intern",
     quip: "omg I might actually get a job",
-    points: 0.015,
-    stars: 0.015,
+    points: 0.06,
+    stars: 0.085,
   },
   {
     title: "Slopapotamus",
     quip: "Work pays the tokens, I make the memes",
-    points: 0.03,
-    stars: 0.04,
+    points: 0.09,
+    stars: 0.13,
   },
   {
     title: "Junior Engineer",
     quip: "Do I even exist?",
-    points: 0.07,
-    stars: 0.09,
+    points: 0.115,
+    stars: 0.17,
   },
   {
     title: "Engineer",
     quip: "I've caused my first production incident",
-    points: 0.12,
-    stars: 0.18,
+    points: 0.15,
+    stars: 0.22,
   },
   {
     title: "Senior Engineer",

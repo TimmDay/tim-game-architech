@@ -10,11 +10,19 @@ import { ACHIEVEMENT_POINTS } from "./achievement-points"
  *   est:<levelId>:<index>    an estimation card, by position in ESTIMATES
  *   level:<levelId>          revisiting a passed scenario
  *
- * Award keys also include star:<levelId>:<n> for each star reached.
+ * Award keys also include star:<levelId>:<n> for each star reached,
+ * got:<deckCardId> the first time a card is marked "got it", and
+ * kept:<itemId> the first time an item is answered right in Retention.
  */
 export const POINTS = {
   /** First time you mark a flash card, either way. */
   flashCard: 1,
+  /** First time you mark a flash card "got it". */
+  cardGot: 2,
+  /** Retention, the first time each item comes back right: once, so it counts toward rank. */
+  keptCard: 1,
+  keptQuestion: 2,
+  keptScenario: 25,
   /** First time you answer a quiz question correctly. */
   mcCorrect: 2,
   /** First time you answer a schema or API question correctly. */
@@ -80,6 +88,8 @@ const interval = (id: string, box: number) => {
  */
 export function awardValue(key: string): number {
   if (key.startsWith("flash:")) return POINTS.flashCard
+  if (key.startsWith("got:")) return POINTS.cardGot
+  if (key.startsWith("kept:")) return keptValue(key.slice("kept:".length))
   if (key.startsWith("mc:")) return POINTS.mcCorrect
   if (key.startsWith("schema:")) return POINTS.schemaCorrect
   if (key.startsWith("est:")) return POINTS.estimate
@@ -94,6 +104,13 @@ export function awardValue(key: string): number {
 export const computeTotal = (s: ReviewState) =>
   Object.keys(s.awarded).reduce((t, k) => t + awardValue(k), 0) +
   Object.values(s.retention ?? {}).reduce((t, n) => t + n, 0)
+
+/** What the first right answer in Retention is worth, by item id. */
+export function keptValue(id: string): number {
+  if (isLevelItem(id)) return POINTS.keptScenario
+  if (id.startsWith("mc:")) return POINTS.keptQuestion
+  return POINTS.keptCard
+}
 
 /** Give a one-time award, unless it has been given before. */
 function award(s: ReviewState, key: string, points: number): ReviewState {
@@ -121,7 +138,8 @@ export function seeCard(
   now: number,
 ) {
   const id = `card:${cardId}`
-  const awarded = award(s, `flash:${cardId}`, POINTS.flashCard)
+  const seen = award(s, `flash:${cardId}`, POINTS.flashCard)
+  const awarded = got ? award(seen, `got:${cardId}`, POINTS.cardGot) : seen
   return schedule(awarded, id, got, now)
 }
 
@@ -188,8 +206,25 @@ export function awardStars(
   return next
 }
 
+/**
+ * Saves from before "got" and first-retain awards earn them here: cards
+ * already marked "got it" (deck marks are synced), and items whose schedule
+ * shows a right answer in Retention. A card or question starts at box 1 at
+ * best and a scenario at box 0, so anything higher has been kept.
+ */
+export function catchUpAwards(s: ReviewState, gotCards: string[]): ReviewState {
+  let next = s
+  for (const id of gotCards) next = award(next, `got:${id}`, POINTS.cardGot)
+  for (const [id, item] of Object.entries(s.items))
+    if (item.box >= (isLevelItem(id) ? 1 : 2))
+      next = award(next, `kept:${id}`, keptValue(id))
+  return next
+}
+
 /** What a correct answer to this item is worth in Retention right now. */
 export function reviewValue(s: ReviewState, id: string) {
+  // The first one is a one-time award; after that, Retention's own points.
+  if (!s.awarded[`kept:${id}`]) return keptValue(id)
   if (isLevelItem(id)) return POINTS.scenarioRevisit
   return s.items[id]?.weak ? POINTS.reviewRecovered : POINTS.reviewRight
 }
@@ -207,21 +242,34 @@ export function review(
 ): { state: ReviewState; earned: number } {
   const prev = s.items[id]
   if (!prev) return { state: s, earned: 0 }
-  const earned = right ? reviewValue(s, id) : 0
   const box = right ? prev.box + 1 : 0
   const item = { box, weak: !right, last: now, due: now + interval(id, box) }
+  const counted = {
+    ...s,
+    items: { ...s.items, [id]: item },
+    reviewsRight: (s.reviewsRight ?? 0) + (right ? 1 : 0),
+  }
+  if (!right) return { state: counted, earned: 0 }
+  // A card got right in Retention is also a card marked "got it".
+  const got = id.startsWith("card:")
+    ? award(counted, `got:${id.slice("card:".length)}`, POINTS.cardGot)
+    : counted
+  const firstKept = `kept:${id}`
+  if (!s.awarded[firstKept]) {
+    const kept = award(got, firstKept, keptValue(id))
+    return { state: kept, earned: kept.total - s.total }
+  }
+  const earned = reviewValue(s, id)
   return {
     state: {
-      ...s,
-      total: s.total + earned,
-      items: { ...s.items, [id]: item },
-      reviewsRight: (s.reviewsRight ?? 0) + (right ? 1 : 0),
+      ...got,
+      total: got.total + earned,
       retention: {
         ...s.retention,
         [device]: (s.retention?.[device] ?? 0) + earned,
       },
     },
-    earned,
+    earned: got.total + earned - s.total,
   }
 }
 

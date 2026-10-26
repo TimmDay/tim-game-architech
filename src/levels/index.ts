@@ -2732,7 +2732,12 @@ const CAP: Level[] = [
       ],
       [`${C}>lb`, "lb>app", "app>db"],
     ),
-    concepts: ["partitioning", "scatter-gather", "hot-keys"],
+    concepts: [
+      "partitioning",
+      "copies-vs-shards",
+      "scatter-gather",
+      "hot-keys",
+    ],
     hint: "For each key, ask two things: does every new write land on the same shard, and does opening a task list name the key? A key the common reads don't name sends them to every shard.",
   },
   {

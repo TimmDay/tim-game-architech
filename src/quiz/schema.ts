@@ -27,6 +27,134 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "feed-the-analysts": s([
+    [
+      "What does an order-placed event carry?",
+      "The order's ID, its items and totals, and when it was placed",
+      [
+        "Only the order's ID, so each consumer looks up the rest",
+        "The whole customer record and every order they've made",
+        "The SQL statement checkout ran, for consumers to replay",
+      ],
+      "Enough for the search index and the warehouse to do their job without calling back into the {sql-primary} 1,600 times a second each.",
+    ],
+    [
+      "How should the warehouse hold orders for finance's reports?",
+      "One wide row per order line, with the date to filter on",
+      [
+        "The same tables as checkout, joined when a report runs",
+        "One document per customer, with their orders inside",
+        "One row per page view, with the order added later",
+      ],
+      "Reports scan millions of lines by date and add them up. Wide rows with everything a report needs, stored by column, make that fast without joins.",
+    ],
+    [
+      "After a retry, the warehouse gets the same event twice. What stops a double count?",
+      "Keying each row by the event's ID, so a repeat overwrites it",
+      [
+        "Trusting the stream to deliver each event exactly once",
+        "Adding the time it arrived to each row as it lands",
+        "A monthly job that removes duplicates by hand",
+      ],
+      "Streams deliver at least once. A row keyed by the event's ID makes the second delivery a no-op.",
+    ],
+  ]),
+  "plug-finder": s([
+    [
+      "How are chargers found near the driver?",
+      "A geospatial index on each station's coordinates",
+      [
+        "A table scan for stations within a few miles",
+        "A text search on the name of the nearest town",
+        "Stations sorted by latitude, then filtered",
+      ],
+      "A geospatial index answers 'what's inside this box' without touching the other quarter-million stations.",
+    ],
+    [
+      "Where does a charger's live 'in use' status live?",
+      "In the {nosql} store, keyed by station and port",
+      [
+        "In the {search-index}, rewritten on every map view",
+        "In the {data-warehouse}, on each station's row",
+        "On the phone of whoever marked it in use",
+      ],
+      "Status changes every few minutes and is read by key. The search index gets a status-changed event to stay roughly in step.",
+    ],
+    [
+      "Which request does the map make as the driver pans?",
+      "GET /stations?bbox=… with the corners rounded to a grid",
+      [
+        "POST /stations/search with the driver's whole route",
+        "GET /stations, then filter on the phone",
+        "GET /stations/:id once for every pin on the screen",
+      ],
+      "Rounded corners mean nearby drivers ask the exact same question, so the {cdn} can answer from its cache. A POST is never cached.",
+    ],
+  ]),
+  "first-customers": s([
+    [
+      "Agents open a list of a team's open tickets, newest activity first. What makes that fast?",
+      "An index on team, status and last update",
+      [
+        "A separate table for each status",
+        "A full-text index on every reply",
+        "Sorting all tickets in the app server",
+      ],
+      "With that index the database reads just the open tickets, already in order. A table per status means moving rows every time one changes.",
+    ],
+    [
+      "Where do a ticket's replies go?",
+      "A replies table, each row holding its ticket's ID",
+      [
+        "A text column on the ticket, appended to each time",
+        "A new table created for each ticket",
+        "A list stored on the customer's account row",
+      ],
+      "One row per reply keeps each one small, ordered by time and easy to page through. A column that grows forever gets slower to read and write.",
+    ],
+    [
+      "An agent closes a ticket. Which request?",
+      "PATCH /tickets/:id with the new status",
+      [
+        "POST /tickets with the whole ticket again",
+        "GET /tickets/:id?status=closed",
+        "DELETE /tickets/:id, then create it again",
+      ],
+      "PATCH changes just the fields it sends. A GET must never change anything: caches and link previews send GET requests freely.",
+    ],
+  ]),
+  "bad-migration": s([
+    [
+      "You need to rename a column of results. What's the safe order?",
+      "Add the new one, copy across, switch reads, then drop the old",
+      [
+        "Rename it in place, during a quiet hour",
+        "Drop it, then add it back under the new name",
+        "Rename it on the standby first, then fail over",
+      ],
+      "Each step can be undone, and old and new code both work in between. A rename in place breaks every running server that still uses the old name.",
+    ],
+    [
+      "A migration will drop a column. What has to exist first, for a 15-minute promise?",
+      "Point-in-time recovery, so a restore stops just before it",
+      [
+        "A second standby in another zone",
+        "A read replica the migration skips",
+        "Last night's daily backup",
+      ],
+      "Standbys and replicas copy the drop straight away. Last night's backup loses a day. Point-in-time recovery replays the log up to the minute before.",
+    ],
+    [
+      "The code stops using a column. When is it dropped?",
+      "In a later release, once nothing reads or writes it",
+      [
+        "In the same release that stops using it",
+        "Before the release that stops using it",
+        "Never: dropping columns is too risky",
+      ],
+      "In a rolling deploy, old servers still run for a while. Dropping in the same release breaks them mid-deploy; dropping first breaks them all.",
+    ],
+  ]),
   "top-players": s([
     [
       "What's the durable store's key?",

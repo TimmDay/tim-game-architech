@@ -408,9 +408,12 @@ function Shelf({
           >
             {icon} {title}
           </span>
-          <span className="mt-1 block max-w-xl text-[14px] text-slate-400">
-            {blurb}
-          </span>
+          {/* Folded shelves show just their names: the list stays short. */}
+          {open && (
+            <span className="mt-1 block max-w-xl text-[14px] text-slate-400">
+              {blurb}
+            </span>
+          )}
         </span>
         <span className="flex shrink-0 items-center gap-2 pt-1.5">
           {summary && (

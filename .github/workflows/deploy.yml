@@ -1,6 +1,6 @@
 name: Deploy
 
-# main → the live site. A pull request → its own preview URL (7 days),
+# main → the live site. A pull request → its own preview URL (24 hours),
 # deleted when the pull request closes: a site holds only 50 channels.
 on:
   push:
@@ -54,12 +54,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           out=$(pnpm exec firebase hosting:channel:deploy "pr-${{ github.event.number }}" \
-            --expires 7d --project tim-game-architech --json) || true
+            --expires 1d --project tim-game-architech --json) || true
           # On failure the CLI still prints JSON, with the reason in "error".
           url=$(printf '%s' "$out" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(j.status!=="success"){console.error("Preview deploy failed: "+(j.error??s));process.exit(1)}console.log(Object.values(j.result)[0].url)})')
           echo "Preview: $url"
-          gh pr comment "${{ github.event.number }}" --edit-last --body "Preview: $url (expires in 7 days; sign-in only works on the live site)" \
-            || gh pr comment "${{ github.event.number }}" --body "Preview: $url (expires in 7 days; sign-in only works on the live site)"
+          gh pr comment "${{ github.event.number }}" --edit-last --body "Preview: $url (expires in 24 hours: after that, run it locally; sign-in only works on the live site)" \
+            || gh pr comment "${{ github.event.number }}" --body "Preview: $url (expires in 24 hours: after that, run it locally; sign-in only works on the live site)"
 
       # Free the channel as soon as the pull request is merged or closed.
       - name: Delete preview

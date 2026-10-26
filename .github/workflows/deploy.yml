@@ -14,8 +14,12 @@ permissions:
   id-token: write
   pull-requests: write
 
+# A newer push replaces an older one's deploy. A PR's group is its number,
+# not github.ref: once merged, that's main, and main's live deploy would
+# cancel the PR's cleanup. Cleanup has a group of its own, so nothing
+# cancels it.
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-${{ github.event.pull_request.number && format('pr-{0}-{1}', github.event.pull_request.number, github.event.action == 'closed' && 'close' || 'preview') || github.ref }}
   cancel-in-progress: true
 
 jobs:

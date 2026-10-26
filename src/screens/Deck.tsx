@@ -21,9 +21,10 @@ import { updateReview } from "~/game/points-store"
 import { seeCard } from "~/game/review"
 import { loadDeckMarks, saveDeckMarks, type CardMark } from "~/game/storage"
 import type { Provider } from "~/providers/names"
+import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
 import { Rich } from "~/ui/Rich"
-import { SchemaQuiz } from "~/ui/SchemaQuiz"
+import { EstimateQuiz, SchemaQuiz } from "~/ui/SchemaQuiz"
 
 const CATEGORY_TONE: Record<CardCategory, string> = {
   clarify: "bg-cyan-300/15 text-cyan-200",
@@ -38,7 +39,7 @@ const CATEGORY_TONE: Record<CardCategory, string> = {
   observability: "bg-lime-300/15 text-lime-200",
 }
 
-type Filter = CardCategory | "all" | "revisit" | "schema"
+type Filter = CardCategory | "all" | "revisit" | "schema" | "estimate"
 
 /** Deterministic shuffle, so a reshuffle is a new order but a re-render isn't. */
 function shuffled<T>(items: T[], seed: number): T[] {
@@ -66,7 +67,7 @@ export function Deck({
   onBack,
   onPlay,
   toggle,
-  startOnSchema,
+  start,
 }: {
   /** Which deck: a level's id and title, or a topic's. */
   source: { id: string; title: string }
@@ -75,14 +76,18 @@ export function Deck({
   /** Absent for Fundamentals topics, which have no level to play. */
   onPlay?: () => void
   toggle: React.ReactNode
-  /** Open on the schema and API questions. */
-  startOnSchema?: boolean
+  /** Open on the schema and API questions, or the estimation cards. */
+  start?: "schema" | "estimate"
 }) {
   const level = source
   const all = useMemo(() => DECKS[level.id] ?? [], [level.id])
   const [marks, setMarks] = useState(() => loadDeckMarks(level.id))
   const [filter, setFilter] = useState<Filter>(
-    startOnSchema && SCHEMA[source.id]?.length ? "schema" : "all",
+    start === "schema" && SCHEMA[source.id]?.length
+      ? "schema"
+      : start === "estimate" && ESTIMATES[source.id]?.length
+        ? "estimate"
+        : "all",
   )
   // The filter tags take a lot of room on a phone, so they start folded away.
   const [tagsOpen, setTagsOpen] = useState(filter !== "all")
@@ -98,7 +103,7 @@ export function Deck({
     )
     const base = seed ? shuffled(ordered, seed) : ordered
     if (filter === "all") return base
-    if (filter === "schema") return []
+    if (filter === "schema" || filter === "estimate") return []
     if (filter === "revisit")
       return base.filter((c) => marks[c.id] === "revisit")
     return base.filter((c) => c.category === filter)
@@ -153,6 +158,7 @@ export function Deck({
   }, [])
 
   const schemaCount = SCHEMA[level.id]?.length ?? 0
+  const estimateCount = ESTIMATES[level.id]?.length ?? 0
   const counts = useMemo(() => {
     const m = new Map<CardCategory, number>()
     for (const c of all) m.set(c.category, (m.get(c.category) ?? 0) + 1)
@@ -239,7 +245,9 @@ export function Deck({
                       ? "To revisit"
                       : filter === "schema"
                         ? "Schema & API"
-                        : CATEGORY_LABEL[filter]}
+                        : filter === "estimate"
+                          ? "Estimation"
+                          : CATEGORY_LABEL[filter]}
                   </span>
                 )}
                 <ChevronDown
@@ -301,6 +309,20 @@ export function Deck({
               </button>
             )
           })}
+          {estimateCount > 0 && (
+            <button
+              type="button"
+              onClick={() => pick("estimate")}
+              className={clsx(
+                "rounded-full border px-2.5 py-1 text-[12px]",
+                filter === "estimate"
+                  ? "border-sky-300 bg-sky-300 text-slate-950"
+                  : "border-sky-300/40 text-sky-200 hover:border-sky-300",
+              )}
+            >
+              Estimation <span className="opacity-60">{estimateCount}</span>
+            </button>
+          )}
           {schemaCount > 0 && (
             <button
               type="button"
@@ -335,6 +357,8 @@ export function Deck({
 
         {filter === "schema" ? (
           <SchemaQuiz levelId={level.id} provider={provider} />
+        ) : filter === "estimate" ? (
+          <EstimateQuiz levelId={level.id} provider={provider} />
         ) : !card ? (
           <p className="mt-10 text-center text-[14px] text-slate-400">
             {filter === "revisit"

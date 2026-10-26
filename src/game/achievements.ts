@@ -1,6 +1,7 @@
 import { DECKS } from "~/decks"
 import { LEVELS } from "~/levels"
 import { QUIZZES } from "~/quiz/questions"
+import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
 import { awardValue, type ReviewState } from "./review"
 import type { Progress, QuizRecord } from "./storage"
@@ -41,6 +42,7 @@ export type Achievement = {
     | "Database"
     | "Moon"
     | "Plane"
+    | "Calculator"
   earned: (c: AchievementContext) => boolean
 }
 
@@ -182,6 +184,13 @@ export const ACHIEVEMENTS: Achievement[] = [
     earned: (c) => count(c.review, "schema:") >= 50,
   },
   {
+    id: "envelope",
+    title: "Back of the envelope",
+    description: "Finish 25 estimation cards.",
+    icon: "Calculator",
+    earned: (c) => count(c.review, "est:") >= 25,
+  },
+  {
     id: "jet-lag",
     title: "Jet lag",
     description: "Three stars on Worldwide.",
@@ -224,12 +233,13 @@ export const mark = (s: ReviewState, key: string): ReviewState =>
   s.awarded[key] ? s : { ...s, awarded: { ...s.awarded, [key]: true } }
 
 /** One-time awards from content that has an end: not Retention or Survival. */
-const FINITE = ["flash:", "mc:", "schema:", "pass:", "star:", "ach:"]
+const FINITE = ["flash:", "mc:", "schema:", "est:", "pass:", "star:", "ach:"]
 const MAX_AWARDS =
   new Set(Object.values(DECKS).flatMap((d) => d.map((c) => c.id))).size *
     awardValue("flash:") +
   Object.values(QUIZZES).flat().length * awardValue("mc:") +
   Object.values(SCHEMA).flat().length * awardValue("schema:") +
+  Object.values(ESTIMATES).flat().length * awardValue("est:") +
   LEVELS.length * (awardValue("pass:") + 3 * awardValue("star:")) +
   ACHIEVEMENTS.length * ACHIEVEMENT_POINTS
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   EMPTY,
   POINTS,
+  answerEstimate,
   answerQuestion,
   awardStars,
   computeTotal,
@@ -31,6 +32,15 @@ describe("points", () => {
     s = answerQuestion(s, "front-page", 0, true, t0)
     s = answerQuestion(s, "front-page", 0, true, t0)
     expect(s.total).toBe(POINTS.mcCorrect)
+  })
+
+  it("gives 1 point per estimation card, once, and survives a recount", () => {
+    let s = answerEstimate(EMPTY, "short-links", 0, false)
+    expect(s.total).toBe(0)
+    s = answerEstimate(s, "short-links", 0, true)
+    s = answerEstimate(s, "short-links", 0, true)
+    expect(s.total).toBe(POINTS.estimate)
+    expect(computeTotal(s)).toBe(POINTS.estimate)
   })
 
   it("gives 20 points for passing a scenario, once", () => {

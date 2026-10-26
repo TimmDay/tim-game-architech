@@ -2,6 +2,7 @@ import clsx from "clsx"
 import {
   Activity,
   BookOpen,
+  Calculator,
   Check,
   CircleAlert,
   ClipboardCheck,
@@ -23,6 +24,7 @@ import {
 import { useState } from "react"
 import { DECKS } from "~/decks"
 import { PASS_MARK, QUIZZES } from "~/quiz/questions"
+import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
 import { CONCEPTS, type ConceptId } from "~/levels/concepts"
 import type { Scenario } from "~/levels/roles"
@@ -232,7 +234,7 @@ export function StudyCards({
   quiz,
 }: {
   level: Level
-  onDeck?: (schema?: boolean) => void
+  onDeck?: (start?: "schema" | "estimate") => void
   /** The check that unlocks the suggested solution. */
   quiz?: { passed: boolean; open: () => void }
 }) {
@@ -255,10 +257,27 @@ export function StudyCards({
           <ArrowRight size={16} className="text-fuchsia-200/70" />
         </button>
       )}
+      {onDeck && (ESTIMATES[level.id]?.length ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={() => onDeck("estimate")}
+          className="flex w-full items-center justify-between rounded-xl border border-sky-300/25 bg-sky-300/[0.05] px-3 py-2.5 text-left hover:border-sky-300/50"
+        >
+          <span>
+            <span className="flex items-center gap-1.5 text-[14px] font-semibold text-sky-100">
+              <Calculator size={15} /> Estimation
+            </span>
+            <span className="text-[12px] text-slate-400">
+              {ESTIMATES[level.id]?.length} back-of-envelope sums to work out
+            </span>
+          </span>
+          <ArrowRight size={16} className="text-sky-200/70" />
+        </button>
+      )}
       {onDeck && (SCHEMA[level.id]?.length ?? 0) > 0 && (
         <button
           type="button"
-          onClick={() => onDeck(true)}
+          onClick={() => onDeck("schema")}
           className="flex w-full items-center justify-between rounded-xl border border-green-300/25 bg-green-300/[0.05] px-3 py-2.5 text-left hover:border-green-300/50"
         >
           <span>

@@ -1,6 +1,7 @@
 import clsx from "clsx"
 import {
   Brain,
+  Calculator,
   Crown,
   Database,
   Globe,
@@ -54,6 +55,7 @@ const ICONS: Record<Achievement["icon"], LucideIcon> = {
   Database,
   Moon,
   Plane,
+  Calculator,
 }
 
 /** Rank, progress to the next one, and every achievement, earned or not. */

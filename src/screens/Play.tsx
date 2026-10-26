@@ -86,8 +86,8 @@ export function Play({
   onProgress: (p: Progress) => void
   onExit: () => void
   onNext: (id: string) => void
-  /** Open the discussion deck, or straight to its schema questions. */
-  onDeck: (schema?: boolean) => void
+  /** Open the discussion deck, or straight to its schema or estimation cards. */
+  onDeck: (start?: "schema" | "estimate") => void
   toggle: React.ReactNode
 }) {
   const wide = useWide()

@@ -11,6 +11,7 @@ import {
 } from "../achievements"
 import { DECKS } from "~/decks"
 import { QUIZZES } from "~/quiz/questions"
+import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
 import { EMPTY, clearSurvivalWave, computeTotal } from "../review"
 
@@ -87,6 +88,8 @@ describe("ranks", () => {
       qs.forEach((_, i) => (awarded[`mc:${id}:${i}`] = true))
     for (const [id, qs] of Object.entries(SCHEMA))
       qs.forEach((_, i) => (awarded[`schema:${id}:${i}`] = true))
+    for (const [id, cs] of Object.entries(ESTIMATES))
+      cs.forEach((_, i) => (awarded[`est:${id}:${i}`] = true))
     for (const d of Object.values(DECKS))
       for (const c of d) awarded[`flash:${c.id}`] = true
     for (const a of ACHIEVEMENTS) awarded[`ach:${a.id}`] = true

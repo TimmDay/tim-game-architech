@@ -39,6 +39,348 @@ const talk = (
 ): EstimateCard => ({ kind: "talk", prompt, points, followUp })
 
 export const ESTIMATES: Record<string, EstimateCard[]> = {
+  "first-customers": [
+    mc(
+      "Peak is 1,500 requests a second and one {app-server} handles about 1,000. How many do you run so that losing one still carries peak?",
+      "3 instances",
+      ["2 instances", "1 instance", "6 instances"],
+      "Two carry peak at 75%, but lose one and the last runs at 150%. With three, losing one leaves two at 75%. That's N+1: enough for peak, plus one you can lose.",
+    ),
+    mc(
+      "Say 1,500 customer companies each open 200 tickets a month, and a ticket with its replies is about 20 KB. How much storage a year?",
+      "About 70 GB a year",
+      ["About 6 GB a year", "About 7 TB a year", "About 700 MB a year"],
+      "1,500 × 200 × 12 is 3.6 million tickets; × 20 KB is about 72 GB. One database holds that for years. Forgetting the × 12 gives 6 GB, the size of one month.",
+    ),
+    talk(
+      "A fifth of the 1,500 are writes. Does one {sql-primary} cope?",
+      [
+        "300 writes a second against about 3,000 is 10%; 1,200 reads against about 10,000 is 12%.",
+        "So one primary is plenty, with lots of room to grow.",
+        "A second instance in another zone is a standby: it's there to survive a failure, not to add capacity.",
+      ],
+      "At what traffic would one primary first stop being enough?",
+    ),
+  ],
+  "going-viral": [
+    mc(
+      "10,000 image requests a second, and a {cdn} in front serves about 90% from its edge. How many still reach the {object-store}?",
+      "About 1,000 a second",
+      ["About 5,500 a second", "About 9,000 a second", "None at all"],
+      "10% of 10,000 is 1,000, well under the 5,500 the store answers for one key prefix. Without the {cdn}, all 10,000 arrive and nearly half fail.",
+    ),
+    mc(
+      "Each image is about 200 KB. At 10,000 a second, how much data goes out each second?",
+      "About 2 GB, or 16 gigabits",
+      [
+        "About 200 MB, or 1.6 gigabits",
+        "About 16 GB, or 128 gigabits",
+        "About 2 megabits",
+      ],
+      "10,000 × 200 KB is 2 GB a second; × 8 bits is 16 gigabits. That's far beyond one server's network card, and exactly what a {cdn}'s edge is built for.",
+    ),
+    talk(
+      "The chaos round doubles traffic to 20,000 a second. What changes?",
+      [
+        "The edge still serves about 90%, so about 2,000 reach the {object-store}: still under its 5,500.",
+        "The {cdn} scales for you; there's nothing to resize.",
+        "{app-server} instances in front would add cost and nothing else: they'd still fetch every miss from the same store.",
+      ],
+      "A brand-new image goes viral before any edge has it. What happens in the first seconds?",
+    ),
+  ],
+  "upload-rush": [
+    mc(
+      "100 uploads a second, and resizing each takes half a second of CPU. How many CPU cores does resizing keep busy?",
+      "About 50 cores",
+      ["About 5 cores", "About 100 cores", "About 200 cores"],
+      "100 jobs a second × 0.5 seconds each is 50 seconds of CPU every second, so 50 cores busy all the time.",
+    ),
+    mc(
+      "Each {worker} has 4 cores. How many workers keep up with 50 cores of resizing, at about 80% busy?",
+      "16 workers",
+      ["13 workers", "50 workers", "4 workers"],
+      "50 ÷ 4 is 12.5 workers flat out; at 80% busy that's about 16. Thirteen keeps up only if nothing ever slows down or dies.",
+    ),
+    talk(
+      "Why not resize on the {app-server} while the user waits?",
+      [
+        "Every upload would make the user wait half a second, longer once requests queue up behind each other.",
+        "The request tier would need 50 cores for work nobody needs to see instantly.",
+        "A {queue} absorbs bursts and lets the {worker} pool grow on its own; if a worker dies, its message is simply handed to another.",
+      ],
+      "How does the app know when the resized copies are ready to show?",
+    ),
+  ],
+  "step-counter": [
+    mc(
+      "About a million wristbands each sync once every five minutes at peak. How many sync writes a second?",
+      "About 3,500 a second",
+      ["About 200,000 a second", "About 55 a second", "About 12,000 a second"],
+      "Five minutes is 300 seconds, and 1,000,000 ÷ 300 is about 3,300. That's this level's 3,500 writes, past the 3,000 one {sql-primary} takes. Dividing by 5 instead of 300 gives 200,000.",
+    ),
+    mc(
+      "3,500 writes a second, and 1.5 times that on the first Monday of January. A {nosql} block takes about 1,000 writes a second. How many blocks?",
+      "6 blocks",
+      ["4 blocks", "2 blocks", "53 blocks"],
+      "3,500 × 1.5 is 5,250, so six blocks of 1,000. Four covers a normal day but not the January spike.",
+    ),
+    talk(
+      "How much storage do the syncs add a year?",
+      [
+        "Say a sync is about 100 bytes and the average is about a third of peak: 1,200 a second.",
+        "1,200 × 86,400 is about 100 million syncs a day, about 10 GB a day.",
+        "That's about 4 TB a year: fine for a store that partitions by user, and a reason to roll old minute-by-minute data up into daily totals.",
+      ],
+      "Do you keep every heart-rate sample forever?",
+    ),
+  ],
+  "zone-outage": [
+    mc(
+      "Peak needs 8 {app-server} instances. Spread over two zones, how many do you run so losing a zone still carries peak?",
+      "16, with 8 in each zone",
+      ["9, with one spare", "12, with 6 in each zone", "24, over three zones"],
+      "When a zone goes dark you keep only the other zone's half, so each half must carry peak on its own: 8 and 8.",
+    ),
+    mc(
+      "The dashboard promises 99.95% availability. How much downtime does that allow in a month?",
+      "About 22 minutes",
+      ["About 43 minutes", "About 4 minutes", "About 3.6 hours"],
+      "A month is about 43,200 minutes, and 0.05% of that is about 22. 99.9% allows 43 minutes, 99.99% about 4, and 99.5% about 3.6 hours.",
+    ),
+    talk(
+      "With three zones instead of two, how many {app-server} instances?",
+      [
+        "Losing one of three zones leaves two thirds of the instances.",
+        "So 8 must fit in two zones: 4 per zone, 12 in all, instead of 16.",
+        "More zones means less spare capacity. The {sql-primary} still needs a standby in a second zone either way.",
+      ],
+      "Why not keep everything in one zone and fail over quickly instead?",
+    ),
+  ],
+  "feed-the-analysts": [
+    mc(
+      "1,600 orders a second, and 1.5 times that in the flash sale. One {event-stream} shard takes about 1,000 events a second in. How many shards?",
+      "3 shards",
+      ["2 shards", "1 shard", "6 shards"],
+      "1,600 × 1.5 is 2,400, so three shards of 1,000. Two cover a normal day and fall behind in the sale.",
+    ),
+    mc(
+      "Each order event is about 1 KB, and the average is about a third of the 1,600-a-second peak. How much does the {data-warehouse} take in each day?",
+      "About 50 GB a day",
+      ["About 140 GB a day", "About 2 GB a day", "About 50 TB a day"],
+      "About 530 a second × 86,400 is about 46 million orders a day; × 1 KB is about 46 GB. Using the peak rate all day gives 140 GB.",
+    ),
+    talk(
+      "Why one write to a stream, instead of checkout writing to all three stores?",
+      [
+        "Checkout pays for one fast write; the {search-index} and the {data-warehouse} read the stream at their own pace.",
+        "Three writes in a row multiply the risk: at 99.9% each, all three succeed only 99.7% of the time.",
+        "The warehouse answers in seconds, which no customer should wait for, and the stream can replay events if a consumer falls behind.",
+      ],
+      "The search index falls an hour behind. What do customers notice?",
+    ),
+  ],
+  "shoebox-receipts": [
+    mc(
+      "30 receipt photos a second, and each OCR call takes about 3 seconds. How many calls are in flight at once?",
+      "About 90 at once",
+      ["About 10 at once", "About 30 at once", "About 270 at once"],
+      "In flight = arrivals × time each takes: 30 × 3 is 90. Workers that mostly wait can run many calls each, so this sets how many slots you need, not cores.",
+    ),
+    mc(
+      "The {doc-ai} quota comes in blocks of 10 calls a second. Deadline day is 1.5 times the normal 30 photos a second. How many blocks?",
+      "5 blocks",
+      ["3 blocks", "2 blocks", "45 blocks"],
+      "30 × 1.5 is 45 calls a second, so five blocks of 10. Three covers a normal day; on deadline day the backlog would grow by 15 photos a second.",
+    ),
+    talk(
+      "What does OCR cost in deadline week, at about a cent a page?",
+      [
+        "Say the 30-a-second peak lasts two hours a day for a week: 30 × 7,200 × 7 is about 1.5 million pages.",
+        "At a cent a page that's about $15,000, most of this level's bill.",
+        "Typed-in receipts cost nothing to read, so making the form easy to use saves real money.",
+      ],
+      "The provider won't raise your quota in time. What do you tell users?",
+    ),
+  ],
+  "plug-finder": [
+    mc(
+      "250,000 charging ports, each with a live status record of about 200 bytes. How much memory to hold them all?",
+      "About 50 MB",
+      ["About 5 GB", "About 500 KB", "About 50 GB"],
+      "250,000 × 200 bytes is 50 MB: it fits in memory many times over, which is why a fast key-value store or a cache can serve live status.",
+    ),
+    mc(
+      "9,500 map views a second, and 60% are of the same busy areas. A {cdn} caching each answer for 30 seconds serves nearly all of those. Roughly how many still reach your servers?",
+      "About 4,000 a second",
+      ["About 9,500 a second", "About 500 a second", "About 6,000 a second"],
+      "About 95% of the 5,700 repeat views are served at the edge, about 5,400, leaving about 4,000. The other 40% are quieter areas that each need fresh work.",
+    ),
+    talk(
+      "Status changes every few minutes. Is 30 seconds of caching acceptable?",
+      [
+        "A charging session lasts half an hour or more, so a 30-second-old answer is rarely wrong.",
+        "Marking a charger in use writes straight to the store, never to the cached map.",
+        "When a driver taps a station, fetch just that one fresh: cheap, and it's the moment accuracy matters.",
+      ],
+      "Two drivers race for the last free charger. What decides who gets it?",
+    ),
+  ],
+  "balance-sheet": [
+    mc(
+      "Each transfer writes two ledger entries. Peak is 240 transfers a second, and the average is about a third of that. How many entries a day?",
+      "About 14 million",
+      ["About 40 million", "About 7 million", "About 600,000"],
+      "80 a second × 2 entries × 86,400 is about 14 million. Forgetting the second entry gives 7 million; using the peak rate all day gives 40 million.",
+    ),
+    mc(
+      "A write commits once a majority of copies confirm it. How many copies can be lost or cut off while writes still commit?",
+      "1 of 3, or 2 of 5",
+      ["2 of 3, or 4 of 5", "None of 3, or 1 of 5", "1 of 3, or 1 of 5"],
+      "A majority of 3 is 2, so one can go. A majority of 5 is 3, so two can go. With 2 copies the majority is both, so losing either stops writes.",
+    ),
+    talk(
+      "Is one {sql-primary} enough here, or do you need to shard?",
+      [
+        "240 writes a second is about 8% of what one primary takes, and 360 reads is a few percent.",
+        "So there's nothing to shard: spend on copies, three over three zones, so a split leaves a majority.",
+        "Sharding would add moving parts and transfers between shards, which are much harder to keep correct.",
+      ],
+      "Traffic grows tenfold. What runs out first?",
+    ),
+  ],
+  "full-basket": [
+    mc(
+      "4,500 basket writes a second, and a {nosql} block takes about 1,000. How many blocks to run each at about 75%?",
+      "6 blocks",
+      ["5 blocks", "3 blocks", "15 blocks"],
+      "4,500 ÷ 750 is 6. Five runs each at 90%, with no room for a busy minute. One {sql-primary} at 3,000 is already ruled out.",
+    ),
+    mc(
+      "20 million shoppers each have a basket of about 2 KB. How much storage?",
+      "About 40 GB",
+      ["About 4 TB", "About 400 MB", "About 40 TB"],
+      "20,000,000 × 2 KB is 40 GB: small. Baskets are sized by how fast they change, not by how much they hold.",
+    ),
+    talk(
+      "A split cuts off one zone of three for 10 minutes at peak. If that side refused writes, how many adds would fail?",
+      [
+        "About a third of the traffic is on the cut-off side: about 1,500 writes a second.",
+        "Over 600 seconds that's about 900,000 refused adds and removals.",
+        "Each one is a shopper who might leave, which is why the basket keeps accepting writes and merges the copies afterwards.",
+      ],
+      "So how do you merge two versions of the same basket?",
+    ),
+  ],
+  "like-storm": [
+    mc(
+      "3,000 likes a second, and four in ten go to one post. How many writes a second hit that post's key?",
+      "About 1,200 a second",
+      ["About 300 a second", "About 3,000 a second", "About 120 a second"],
+      "40% of 3,000 is 1,200, past the 1,000 one key takes however much capacity you buy.",
+    ),
+    mc(
+      "Split that post's likes over 10 keys with a random suffix. What does each key take?",
+      "About 120 writes a second",
+      [
+        "About 1,200 writes a second",
+        "About 12 writes a second",
+        "About 300 writes a second",
+      ],
+      "1,200 ÷ 10 is 120, about 12% of a key's limit. The price: reading the count now means adding up 10 keys.",
+    ),
+    talk(
+      "12,000 reads of like counts a second. Why cache them, and how stale can they be?",
+      [
+        "Most reads are of the same few popular posts, so a cache serves nearly all of them.",
+        "A count a few seconds old is fine: nobody can tell 1,204,113 from 1,204,180.",
+        "With salted keys, each uncached count costs 10 reads, so the cache saves even more than usual.",
+      ],
+      "How would you show the singer an exact count?",
+    ),
+  ],
+  "claim-your-name": [
+    mc(
+      "6,000 writes a second over 3 shards, each with three copies across three zones. How many {sql-primary} instances do you pay for?",
+      "9 instances",
+      ["3 instances", "6 instances", "18 instances"],
+      "3 shards × 3 copies is 9. Each shard takes 2,000 writes, about 67% of one primary; the copies add survival, not capacity.",
+    ),
+    mc(
+      "Split by sign-up time instead, and about 90% of writes land on the newest shard. What does it take?",
+      "About 5,400 writes a second",
+      [
+        "About 2,000 writes a second",
+        "About 600 writes a second",
+        "About 6,000 writes a second",
+      ],
+      "90% of 6,000 is 5,400, nearly twice what one primary takes, whatever the shard count. New sign-ups all have the newest time.",
+    ),
+    talk(
+      "Why does the username have to be the partition key?",
+      [
+        "Then every check for a name, and every claim of it, goes to one shard.",
+        "One strongly consistent primary can refuse a second claim of the same name, even during a split.",
+        "With any other key, checking a name means asking every shard, and two shards could both say yes.",
+      ],
+      "Someone changes their username. What has to move?",
+    ),
+  ],
+  worldwide: [
+    mc(
+      "Half your users are a 150 ms round trip away, and opening a page takes two round trips to your servers. What's the least they wait, before any work is done?",
+      "About 300 ms: already past the 250 ms target",
+      [
+        "About 150 ms, comfortably inside it",
+        "About 75 ms, comfortably inside it",
+        "About 600 ms, far past it",
+      ],
+      "Two crossings of 150 ms is 300 ms before your servers do anything. No amount of server capacity fixes distance: the servers have to be near them.",
+    ),
+    mc(
+      "A store runs a full copy in each of two regions. Of 2,000 writes a second, how many does the far copy receive?",
+      "All 2,000",
+      ["About 1,000", "About 200", "None until they're read"],
+      "Each copy holds everything, so every write goes to both. Two regions double the store's bill and its write work, not just its reads.",
+    ),
+    talk(
+      "Which components need to run in both regions, and which don't?",
+      [
+        "Everything a request touches: {load-balancer}, {app-server}, {cache} and the store, or far users still cross the ocean.",
+        "{dns} is global already; nothing to copy.",
+        "Writes must be accepted in both regions, so the store has to be one that takes writes everywhere and reconciles later.",
+      ],
+      "One region goes dark. Can the other carry everyone?",
+    ),
+  ],
+  "black-friday": [
+    mc(
+      "11,250 reads a second reach the {sql-primary}, which answers about 10,000. Twenty {app-server} instances can serve 20,000. Where does it break?",
+      "The database, at about 112%",
+      [
+        "The app tier, at about 112%",
+        "The load balancer, at 100%",
+        "Nowhere: it should hold",
+      ],
+      "The app tier runs at about 63%. Every read goes on to the database, and it's past its limit. More app servers only send it more reads.",
+    ),
+    mc(
+      "85% of reads are the same catalogue. A cache in front catches about 95% of those. How many reads still reach the database?",
+      "About 2,000 a second",
+      ["About 9,000 a second", "About 11,000 a second", "About 500 a second"],
+      "11,250 × 85% × 95% is about 9,100 served by the cache, leaving about 2,100: a fifth of what the database takes.",
+    ),
+    talk(
+      "Twenty app servers for 12,500 requests. Too many, or too few?",
+      [
+        "12,500 ÷ 1,000 is 13 flat out; with room for a crash, 15 or 16 is plenty.",
+        "Twenty is about 63% busy, so a few could go back to pay for the cache.",
+        "The money was spent on the tier that wasn't red.",
+      ],
+      "How would you have found this bottleneck before Black Friday?",
+    ),
+  ],
   "front-page": [
     mc(
       "Say readers load 300 million pages a day, and peak is about four times the average. What peak should you design for?",

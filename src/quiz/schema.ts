@@ -27,6 +27,70 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "feed-the-analysts": s([
+    [
+      "What does an order-placed event carry?",
+      "The order's ID, its items and totals, and when it was placed",
+      [
+        "Only the order's ID, so each consumer looks up the rest",
+        "The whole customer record and every order they've made",
+        "The SQL statement checkout ran, for consumers to replay",
+      ],
+      "Enough for the search index and the warehouse to do their job without calling back into the {sql-primary} 1,600 times a second each.",
+    ],
+    [
+      "How should the warehouse hold orders for finance's reports?",
+      "One wide row per order line, with the date to filter on",
+      [
+        "The same tables as checkout, joined when a report runs",
+        "One document per customer, with their orders inside",
+        "One row per page view, with the order added later",
+      ],
+      "Reports scan millions of lines by date and add them up. Wide rows with everything a report needs, stored by column, make that fast without joins.",
+    ],
+    [
+      "After a retry, the warehouse gets the same event twice. What stops a double count?",
+      "Keying each row by the event's ID, so a repeat overwrites it",
+      [
+        "Trusting the stream to deliver each event exactly once",
+        "Adding the time it arrived to each row as it lands",
+        "A monthly job that removes duplicates by hand",
+      ],
+      "Streams deliver at least once. A row keyed by the event's ID makes the second delivery a no-op.",
+    ],
+  ]),
+  "plug-finder": s([
+    [
+      "How are chargers found near the driver?",
+      "A geospatial index on each station's coordinates",
+      [
+        "A table scan for stations within a few miles",
+        "A text search on the name of the nearest town",
+        "Stations sorted by latitude, then filtered",
+      ],
+      "A geospatial index answers 'what's inside this box' without touching the other quarter-million stations.",
+    ],
+    [
+      "Where does a charger's live 'in use' status live?",
+      "In the {nosql} store, keyed by station and port",
+      [
+        "In the {search-index}, rewritten on every map view",
+        "In the {data-warehouse}, on each station's row",
+        "On the phone of whoever marked it in use",
+      ],
+      "Status changes every few minutes and is read by key. The search index gets a status-changed event to stay roughly in step.",
+    ],
+    [
+      "Which request does the map make as the driver pans?",
+      "GET /stations?bbox=… with the corners rounded to a grid",
+      [
+        "POST /stations/search with the driver's whole route",
+        "GET /stations, then filter on the phone",
+        "GET /stations/:id once for every pin on the screen",
+      ],
+      "Rounded corners mean nearby drivers ask the exact same question, so the {cdn} can answer from its cache. A POST is never cached.",
+    ],
+  ]),
   "first-customers": s([
     [
       "Agents open a list of a team's open tickets, newest activity first. What makes that fast?",

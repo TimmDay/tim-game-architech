@@ -41,6 +41,7 @@ export type ConceptId =
   | "cache-stampede"
   | "id-generation"
   | "partitioning"
+  | "copies-vs-shards"
   | "delivery-guarantees"
   | "fan-out-on-write"
   | "hot-keys"
@@ -174,6 +175,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "Split data across many machines by a key, so each machine takes a share of the writes. One {sql-primary} has a ceiling on writes that more standbys don't raise; a partitioned store like {nosql} raises it by adding partitions. The partition key decides whether load spreads evenly.",
     interview:
       "Name the partition key and why: for chat, the conversation ID keeps a chat's messages together and in order. Then say what happens to a very busy key.",
+  },
+  "copies-vs-shards": {
+    title: "Copies and shards",
+    body: "A copy (a replica or a standby) holds the same data as the original: it buys survival and, for read replicas, more reads, but every write still lands on every copy. A shard holds different data: the rows are split by a key, so each shard takes only its share of the writes. Real stores do both. Each shard has its own primary and standbys, so a sharded {sql-primary} with three copies over three zones is a grid: shards down, zones across. Your app still sees one database, and the driver or the store routes each query to its shard.",
+    interview:
+      "Keep the words apart: say replicas when you mean copies and shards or partitions when you mean splitting. Then size each on its own: shards from the write rate one primary can take, copies from the failures you must survive.",
   },
   "delivery-guarantees": {
     title: "Delivery guarantees",

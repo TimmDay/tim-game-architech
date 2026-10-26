@@ -59,6 +59,7 @@ import { plain } from "~/text"
 import { ms, nines, pct, priceNote, rps, usd } from "./format"
 import { MiniBlock } from "./MiniBlock"
 import { Rich } from "./Rich"
+import { ShardMap } from "./ShardMap"
 
 export const H = ({ children }: { children: React.ReactNode }) => (
   <h3 className="mb-2 font-mono text-[10px] font-semibold tracking-[0.18em] text-slate-500 uppercase">
@@ -1052,6 +1053,7 @@ export function InspectPanel({
       )}
 
       {load && <DataOptions c={c} load={load} onSet={(v) => onSet(c.id, v)} />}
+      {load && <ShardMap c={c} load={load} m={live ? m : undefined} />}
       {production && (
         <ProductionOptions
           c={c}

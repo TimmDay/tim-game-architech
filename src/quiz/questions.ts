@@ -36,6 +36,118 @@ const q = (rows: Row[]): Question[] =>
   }))
 
 export const QUIZZES: Record<string, Question[]> = {
+  "fleet-tracker": q([
+    [
+      "Why can't more shards rescue courier ID as the key?",
+      "The biggest courier's rows all share one key, so they live on one shard",
+      [
+        "Courier IDs are too short to hash evenly",
+        "Eight is the most shards a database can have",
+        "More shards would need more {load-balancer} instances in front of them",
+      ],
+      "Its 35% is 4,200 writes a second on one shard, against about 3,000, whatever the shard count.",
+      5,
+    ],
+    [
+      "Van ID spreads writes evenly. What's wrong with it here?",
+      "Dispatch boards name the courier, so most reads ask every shard",
+      [
+        "Vans change courier too often to be a key",
+        "Van IDs would put every write on the newest shard",
+        "It breaks the transaction between a delivery and its position",
+      ],
+      "85% of reads scatter to all eight shards and wait for the slowest: p99 reaches about 317ms.",
+      10,
+    ],
+    [
+      "Why is the time of the update a bad key?",
+      "Every new update lands on the newest shard",
+      [
+        "Clocks on vans can't be trusted",
+        "Old positions would be deleted when shards are added",
+        "Time can't be combined with a courier ID",
+      ],
+      "New rows all have the current time, so one shard takes every write: 400% of what it can.",
+      5,
+    ],
+    [
+      "With 'courier ID, then van ID', where does a small courier's data live?",
+      "All on one shard, so its dispatch board asks only that shard",
+      [
+        "Spread over every shard, one van each",
+        "On a shard reserved for the biggest courier",
+        "In the lookup table, alongside the routing",
+      ],
+      "Only couriers too big for one shard are split by van. Everyone else stays whole.",
+      6,
+    ],
+    [
+      "12,000 writes a second, about 3,000 per primary. Why eight shards rather than seven?",
+      "Seven work today, but peak season would push the busiest to about 74%",
+      [
+        "Seven can't divide 12,000 evenly",
+        "Shard counts have to be powers of two",
+        "Seven would put the biggest courier back on one shard",
+      ],
+      "Eight run at 50% normally and about 65% in peak season: room to spare without overspending.",
+      7,
+    ],
+    [
+      "Why does this level keep the data in SQL?",
+      "A delivery's status and the van's position are written in one transaction",
+      [
+        "{nosql} stores can't hold location data",
+        "SQL databases take more writes than {nosql} stores",
+        "Sharding only works for SQL databases",
+      ],
+      "'Delivered, here, at 14:02' must be all or nothing, and billing joins deliveries, vans and drivers.",
+      2,
+    ],
+    [
+      "The biggest courier asks for a database of its own. Does that remove the need to split by van?",
+      "No: their 35% alone is more than one primary takes",
+      [
+        "Yes: one courier can always fit on one primary",
+        "Yes, as long as their database has a standby",
+        "No, because couriers can't have their own databases",
+      ],
+      "4,200 writes a second needs splitting whatever database it's in. Their own shards, split by van, is the same design.",
+      9,
+    ],
+    [
+      "The lookup table that routes the big couriers is unavailable. How do you keep serving?",
+      "Every {app-server} keeps a copy in memory, refreshed every few seconds",
+      [
+        "Send every request to every shard until it's back",
+        "Route everyone by courier ID until it's back",
+        "Stop all writes until the table is restored",
+      ],
+      "The table is tiny and changes rarely, so a local copy keeps routing working through an outage.",
+      19,
+    ],
+    [
+      "How do you stop one courier seeing another's vans?",
+      "Take the courier from the signed-in session and put it in every query",
+      [
+        "Put each courier on a different shard",
+        "Trust the courier ID the dispatch board sends",
+        "Hide other couriers' vans in the dispatch board's screen",
+      ],
+      "Routing isn't a security boundary: couriers share shards. The session decides who you are.",
+      20,
+    ],
+    [
+      "Peak season brings 1.3 times the traffic. What happens to the busiest shard?",
+      "It goes from 50% to about 65%",
+      [
+        "It goes from 50% to 130%",
+        "Nothing: shards scale on their own",
+        "It moves to the biggest courier's shard",
+      ],
+      "1.3 × 50% is 65%, still comfortably under capacity.",
+      14,
+    ],
+  ]),
   "step-counter": q([
     [
       "Why can't one {sql-primary} take the syncs, however many standbys it has?",

@@ -27,6 +27,38 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "fleet-tracker": s([
+    [
+      "What's the shard key on a van's position update?",
+      "The courier's ID, plus the van's ID for the few big couriers",
+      [
+        "The van's ID alone, for every courier",
+        "The time the update was sent",
+        "An ID generated for each update",
+      ],
+      "Small couriers stay on one shard; the giants spread out by van. A key generated per update would scatter every read.",
+    ],
+    [
+      "What does the lookup table that routes the giants hold?",
+      "One row per big courier: its ID, and that it's split by van",
+      [
+        "Every van's ID and the shard it lives on",
+        "Every delivery's ID and its shard",
+        "A copy of each courier's dispatch board",
+      ],
+      "Only the exceptions are listed, so it stays tiny and every {app-server} can keep it in memory.",
+    ],
+    [
+      "Which request does a dispatch board make?",
+      "GET /couriers/me/vans?updatedSince=…, scoped by the signed-in session",
+      [
+        "GET /vans?courier=:id, with the courier taken from the request",
+        "GET /vans, filtered on the dispatcher's screen",
+        "POST /vans/search with every van's ID",
+      ],
+      "The session decides the courier, so nobody can ask for a competitor's vans. updatedSince keeps each refresh small.",
+    ],
+  ]),
   "feed-the-analysts": s([
     [
       "What does an order-placed event carry?",

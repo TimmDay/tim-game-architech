@@ -18,6 +18,36 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "fleet-tracker": {
+    overview:
+      "Writes outgrew one {sql-primary} four times over, so the data is split into eight shards. Sharding by courier, as in Tenant Split, fails here: the biggest courier is 35% of the traffic, more than any one shard can take. The key is courier ID for everyone except the few giants, who are split by van ID as well. Small couriers stay whole on one shard; the giant spreads out, and its dispatch board asks a handful of shards.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Every request belongs to a signed-in dispatcher, driver or customer, who belongs to one courier.",
+      "The app checks a small lookup table, kept in memory, for whether the courier is one of the giants.",
+      "Most couriers: the key is the courier, so all their vans and deliveries share a shard, and the delivery-plus-position transaction stays on one database.",
+      "A giant: the key is courier plus van, so its vans spread across the shards. Its dispatch board asks the shards that hold its vans and merges them.",
+      "Each shard is a primary with a standby in a second zone.",
+    ],
+    numbers: [
+      "20,000 requests a second: 12,000 writes and 8,000 reads. One {sql-primary} takes about 3,000 writes, so it would run at 400%.",
+      "Courier ID: the biggest courier's 35% is 4,200 writes a second on one shard, 140% of what it takes, and 6% of requests fail, at any shard count.",
+      "Time of the update: every new write lands on one shard, 400% of what it can take, and 45% fail.",
+      "Van ID: writes spread evenly, but 85% of reads name the courier and ask all eight shards. The busiest runs at 70% and p99 reaches about 317ms against 300ms.",
+      "Courier ID, then van ID, over eight shards: the busiest runs at 50%, and p99 is about 278ms. Seven shards would run at 57% (p99 285ms), and about 74% in peak season.",
+      "Forty {app-server} instances: thirty can carry the traffic, but p99 reaches about 358ms. Forty bring it under 300ms.",
+      "Cost: about $183 for the {load-balancer} + 40 × $70 + 8 × 2 × $400 = $9,383 of $9,900.",
+    ],
+    tradeoffs: [
+      "The lookup table is one more thing to keep correct and available, so every {app-server} keeps a copy in memory.",
+      "A courier that grows into a giant has to be moved to courier-plus-van routing: a planned migration.",
+      "The giant's dispatch board asks several shards and waits for the slowest, which is slower than everyone else's.",
+    ],
+    alternatives: [
+      "Giving the giant a database of its own isolates it, but its 4,200 writes a second still need splitting by van. Its own shards, split by van, is this design with a stronger boundary.",
+      "Writing the latest position per van to a {nosql} store and keeping deliveries in SQL cuts SQL's writes to a fraction, at the cost of a second store.",
+      "Batching positions every 30 seconds cuts the writes several times over, if dispatchers can live with positions that old.",
+    ],
+  },
   "step-counter": {
     overview:
       "Syncs are small writes, keyed by user and day, and every read is for one user. That's what a {nosql} store is built for: it spreads users across partitions, so writes scale by adding capacity. One {sql-primary} would need four times its write limit.",

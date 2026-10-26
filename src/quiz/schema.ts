@@ -34,7 +34,7 @@ export const SCHEMA: Record<string, SchemaQuestion[]> = {
       [
         "The van's ID alone, for every courier",
         "The time the update was sent",
-        "An ID generated for each update",
+        "An ID generated for each update, so no two updates ever collide",
       ],
       "Small couriers stay on one shard; the giants spread out by van. A key generated per update would scatter every read.",
     ],
@@ -42,7 +42,7 @@ export const SCHEMA: Record<string, SchemaQuestion[]> = {
       "What does the lookup table that routes the giants hold?",
       "One row per big courier: its ID, and that it's split by van",
       [
-        "Every van's ID and the shard it lives on",
+        "Every van's ID across all couriers, and the shard each one lives on",
         "Every delivery's ID and its shard",
         "A copy of each courier's dispatch board",
       ],
@@ -54,7 +54,7 @@ export const SCHEMA: Record<string, SchemaQuestion[]> = {
       [
         "GET /vans?courier=:id, with the courier taken from the request",
         "GET /vans, filtered on the dispatcher's screen",
-        "POST /vans/search with every van's ID",
+        "POST /vans/search with every van's ID and the courier's ID in the body",
       ],
       "The session decides the courier, so nobody can ask for a competitor's vans. updatedSince keeps each refresh small.",
     ],

@@ -42,7 +42,7 @@ export const QUIZZES: Record<string, Question[]> = {
       "The biggest courier's rows all share one key, so they live on one shard",
       [
         "Courier IDs are too short to hash evenly",
-        "Eight is the most shards a database can have",
+        "Eight is the most shards a database can have, and the courier needs more",
         "More shards would need more {load-balancer} instances in front of them",
       ],
       "Its 35% is 4,200 writes a second on one shard, against about 3,000, whatever the shard count.",
@@ -52,7 +52,7 @@ export const QUIZZES: Record<string, Question[]> = {
       "Van ID spreads writes evenly. What's wrong with it here?",
       "Dispatch boards name the courier, so most reads ask every shard",
       [
-        "Vans change courier too often to be a key",
+        "Vans change courier too often, so their rows would keep moving between shards",
         "Van IDs would put every write on the newest shard",
         "It breaks the transaction between a delivery and its position",
       ],
@@ -75,7 +75,7 @@ export const QUIZZES: Record<string, Question[]> = {
       "All on one shard, so its dispatch board asks only that shard",
       [
         "Spread over every shard, one van each",
-        "On a shard reserved for the biggest courier",
+        "On a shard reserved for small couriers, apart from the biggest courier's shards",
         "In the lookup table, alongside the routing",
       ],
       "Only couriers too big for one shard are split by van. Everyone else stays whole.",
@@ -87,7 +87,7 @@ export const QUIZZES: Record<string, Question[]> = {
       [
         "Seven can't divide 12,000 evenly",
         "Shard counts have to be powers of two",
-        "Seven would put the biggest courier back on one shard",
+        "Seven would put the biggest courier back on a single shard of its own again",
       ],
       "Eight run at 50% normally and about 65% in peak season: room to spare without overspending.",
       7,
@@ -97,7 +97,7 @@ export const QUIZZES: Record<string, Question[]> = {
       "A delivery's status and the van's position are written in one transaction",
       [
         "{nosql} stores can't hold location data",
-        "SQL databases take more writes than {nosql} stores",
+        "SQL databases take more writes a second than {nosql} stores of the same cost",
         "Sharding only works for SQL databases",
       ],
       "'Delivered, here, at 14:02' must be all or nothing, and billing joins deliveries, vans and drivers.",
@@ -118,7 +118,7 @@ export const QUIZZES: Record<string, Question[]> = {
       "The lookup table that routes the big couriers is unavailable. How do you keep serving?",
       "Every {app-server} keeps a copy in memory, refreshed every few seconds",
       [
-        "Send every request to every shard until it's back",
+        "Send every request to every shard until the table is back, and merge the answers",
         "Route everyone by courier ID until it's back",
         "Stop all writes until the table is restored",
       ],
@@ -131,7 +131,7 @@ export const QUIZZES: Record<string, Question[]> = {
       [
         "Put each courier on a different shard",
         "Trust the courier ID the dispatch board sends",
-        "Hide other couriers' vans in the dispatch board's screen",
+        "Filter other couriers' vans out on the dispatch board's screen before showing it",
       ],
       "Routing isn't a security boundary: couriers share shards. The session decides who you are.",
       20,

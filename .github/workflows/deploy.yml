@@ -33,6 +33,7 @@ jobs:
       VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
       VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
       VITE_FIREBASE_APPCHECK_SITE_KEY: ${{ vars.VITE_FIREBASE_APPCHECK_SITE_KEY }}
+      VITE_ADMIN_UIDS: ${{ vars.VITE_ADMIN_UIDS }}
     steps:
       - uses: actions/checkout@v7
       # Third-party actions are pinned to a commit, not a movable tag.

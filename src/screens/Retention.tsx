@@ -12,6 +12,7 @@ import { levelById, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
 import { QUIZZES, type Question } from "~/quiz/questions"
 import { InfoTip } from "~/ui/InfoTip"
+import { ReportButton } from "~/ui/ReportButton"
 import { Rich } from "~/ui/Rich"
 
 type Item =
@@ -193,9 +194,35 @@ export function Retention({
             <div className="mt-2 rounded-3xl border border-white/10 bg-gradient-to-br from-slate-800/80 via-slate-900 to-emerald-950/60 p-6 shadow-2xl shadow-black/50">
               {item.kind !== "level" && (
                 <div className="mb-5 border-b border-white/5 pb-4">
-                  <p className="text-[13px] font-semibold text-emerald-200">
-                    {item.kind === "card" ? item.from : item.level.title}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[13px] font-semibold text-emerald-200">
+                      {item.kind === "card" ? item.from : item.level.title}
+                    </p>
+                    <ReportButton
+                      report={
+                        item.kind === "card"
+                          ? {
+                              id: item.card.id,
+                              kind: "Discussion card",
+                              lines: [
+                                item.card.prompt,
+                                ...item.card.points,
+                                item.card.followUp ?? "",
+                              ],
+                            }
+                          : {
+                              id: item.id,
+                              kind: "Quiz question",
+                              lines: [
+                                item.q.prompt,
+                                `✓ ${item.q.correct}`,
+                                ...item.q.wrong.map((w) => `✗ ${w}`),
+                                item.q.why,
+                              ],
+                            }
+                      }
+                    />
+                  </div>
                   <p className="mt-0.5 text-[13px] leading-snug text-slate-400">
                     <Rich
                       text={

@@ -15,6 +15,7 @@ import { answerEstimate, answerSchema, type ReviewState } from "~/game/review"
 import type { Provider } from "~/providers/names"
 import { ESTIMATES, type EstimateCard } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
+import { ReportButton } from "./ReportButton"
 import { Rich } from "./Rich"
 
 /** Same order every time for a given question, different between questions. */
@@ -182,14 +183,31 @@ function CardQuiz({
           tone.card,
         )}
       >
-        <span
-          className={clsx(
-            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold tracking-wider uppercase",
-            tone.tag,
-          )}
-        >
-          <Icon size={11} /> {label}
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold tracking-wider uppercase",
+              tone.tag,
+            )}
+          >
+            <Icon size={11} /> {label}
+          </span>
+          <ReportButton
+            report={{
+              id: key(index),
+              kind: label,
+              lines:
+                card.kind === "mc"
+                  ? [
+                      card.prompt,
+                      `✓ ${card.correct}`,
+                      ...card.wrong.map((w) => `✗ ${w}`),
+                      card.why,
+                    ]
+                  : [card.prompt, ...card.points, card.followUp ?? ""],
+            }}
+          />
+        </div>
         <p className="font-display mt-5 text-[20px] leading-snug font-semibold text-white sm:text-[22px]">
           <Rich text={card.prompt} provider={provider} />
         </p>

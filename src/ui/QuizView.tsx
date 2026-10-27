@@ -11,6 +11,7 @@ import type { Provider } from "~/providers/names"
 import { PASS_MARK, QUIZZES, type Question } from "~/quiz/questions"
 import { H } from "./panels"
 import { Rich } from "./Rich"
+import { ReportButton } from "./ReportButton"
 import { ModalHeader } from "./Modal"
 
 const shuffle = <T,>(items: T[]): T[] => {
@@ -219,9 +220,23 @@ export function QuizView({
         </div>
       </ModalHeader>
 
-      <p className="font-display text-[18px] leading-snug font-semibold text-white">
-        <Rich text={current.q.prompt} provider={provider} />
-      </p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-display text-[18px] leading-snug font-semibold text-white">
+          <Rich text={current.q.prompt} provider={provider} />
+        </p>
+        <ReportButton
+          report={{
+            id: `mc:${level.id}:${(QUIZZES[level.id] ?? []).indexOf(current.q)}`,
+            kind: "Quiz question",
+            lines: [
+              current.q.prompt,
+              `✓ ${current.q.correct}`,
+              ...current.q.wrong.map((w) => `✗ ${w}`),
+              current.q.why,
+            ],
+          }}
+        />
+      </div>
 
       <div className="space-y-2">
         {current.options.map((o, i) => {

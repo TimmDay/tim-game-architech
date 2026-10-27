@@ -24,6 +24,7 @@ import type { Provider } from "~/providers/names"
 import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
 import { InfoTip } from "~/ui/InfoTip"
+import { ReportButton } from "~/ui/ReportButton"
 import { Rich } from "~/ui/Rich"
 import { EstimateQuiz, SchemaQuiz } from "~/ui/SchemaQuiz"
 
@@ -369,7 +370,16 @@ export function Deck({
         ) : (
           <>
             {/* The card, with a 3D flip */}
-            <div className="mt-5 [perspective:1400px]">
+            <div className="relative mt-5 [perspective:1400px]">
+              {/* Outside the flip button: a link can't sit inside a button. */}
+              <ReportButton
+                className="absolute right-4 bottom-4 z-10"
+                report={{
+                  id: card.id,
+                  kind: "Discussion card",
+                  lines: [card.prompt, ...card.points, card.followUp ?? ""],
+                }}
+              />
               <button
                 type="button"
                 onClick={() => setFlipped((f) => !f)}

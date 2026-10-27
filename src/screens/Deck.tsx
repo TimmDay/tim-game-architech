@@ -96,19 +96,24 @@ export function Deck({
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
 
+  const isLevel = onPlay !== undefined
   const cards = useMemo(() => {
-    // Interview order by default: clarify first, observability last.
-    const ordered = [...all].sort(
-      (a, b) =>
-        CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category),
-    )
+    // A level's deck runs in interview order: clarify first, observability
+    // last. A Fundamentals deck teaches, so it keeps the order it's written in.
+    const ordered = isLevel
+      ? [...all].sort(
+          (a, b) =>
+            CATEGORY_ORDER.indexOf(a.category) -
+            CATEGORY_ORDER.indexOf(b.category),
+        )
+      : all
     const base = seed ? shuffled(ordered, seed) : ordered
     if (filter === "all") return base
     if (filter === "schema" || filter === "estimate") return []
     if (filter === "revisit")
       return base.filter((c) => marks[c.id] === "revisit")
     return base.filter((c) => c.category === filter)
-  }, [all, filter, seed, marks])
+  }, [all, filter, seed, marks, isLevel])
 
   const card: DeckCard | undefined = cards[Math.min(index, cards.length - 1)]
   const got = all.filter((c) => marks[c.id] === "got").length

@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
+  Lock,
   MessageCircleQuestion,
   RotateCcw,
   Shuffle,
@@ -70,6 +71,8 @@ export function Deck({
   onPlay,
   toggle,
   start,
+  practise,
+  onPractise,
 }: {
   /** Which deck: a level's id and title, or a topic's. */
   source: { id: string; title: string }
@@ -80,6 +83,9 @@ export function Deck({
   toggle: React.ReactNode
   /** Open on the schema and API questions, or the estimation cards. */
   start?: "schema" | "estimate"
+  /** Fundamentals decks: the scenarios that put this deck's ideas to work. */
+  practise?: { id: string; title: string; stars: number; locked: boolean }[]
+  onPractise?: (levelId: string) => void
 }) {
   const level = source
   const all = useMemo(() => DECKS[level.id] ?? [], [level.id])
@@ -498,6 +504,34 @@ export function Deck({
               </button>
             </div>
           </>
+        )}
+        {practise && practise.length > 0 && onPractise && (
+          <div className="mt-10 border-t border-white/5 pt-4">
+            <p className="font-mono text-[10px] tracking-[0.2em] text-slate-500 uppercase">
+              Practise this
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {practise.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onPractise(p.id)}
+                  title={
+                    p.locked ? "Locked: see what it needs first" : undefined
+                  }
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[12px] text-slate-400 hover:border-white/25 hover:text-white"
+                >
+                  {p.locked && <Lock size={11} className="text-slate-500" />}
+                  {p.title}
+                  {p.stars > 0 && (
+                    <span className="font-mono text-[10px] text-amber-300/80">
+                      {"★".repeat(p.stars)}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </main>
     </div>

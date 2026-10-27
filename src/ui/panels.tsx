@@ -112,6 +112,7 @@ export function TargetList({
           ))}
         </span>,
       ])
+  if (targets.keepApart) rows.push(["Each shard holds", targets.keepApart.what])
   if (targets.noBacklog)
     rows.push([
       "Async backlog",

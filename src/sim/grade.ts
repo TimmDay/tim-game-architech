@@ -1,5 +1,5 @@
 import { expectedPractices, missingPractices, type Stakes } from "./practices"
-import { simulate } from "./simulate"
+import { partitionKeyOf, shardsOf, simulate } from "./simulate"
 import type {
   ComponentKind,
   Fault,
@@ -24,6 +24,13 @@ export type Targets = {
   budgetUsd: number
   /** Each sink must receive (nearly) every write. */
   writesReach: WriteSink[]
+  /**
+   * Groups whose records must never share a shard (each country's patients,
+   * say). Every store taking writes must be split by one of `keys`, into at
+   * least `minShards` shards: one per group. This checks how the data is
+   * split, not where the machines physically are.
+   */
+  keepApart?: KeepApart
   /**
    * Async consumers must keep up with what's produced. "peak": at the normal
    * peak, but a burst may queue up during the chaos round and drain later.
@@ -54,6 +61,35 @@ export type Targets = {
   overkill?: Overkill[]
 }
 
+export type KeepApart = {
+  /** Partition key ids that keep each group on shards of its own. */
+  keys: string[]
+  minShards: number
+  /** What one shard may hold, for the sidebar: "one country's records". */
+  what: string
+}
+
+/** Stores taking writes that break a level's keep-apart rule. Empty: none do. */
+export function mixedStores(
+  graph: Graph,
+  load: LoadProfile,
+  peak: SimResult,
+  rule: KeepApart,
+) {
+  const stores = graph.components.filter(
+    (c) =>
+      (c.kind === "sql-primary" || c.kind === "nosql") &&
+      (peak.perComponent[c.id]?.writeRps ?? 0) > 0,
+  )
+  if (stores.length === 0) return graph.components.slice(0, 0)
+  return stores.filter((c) => {
+    const key = partitionKeyOf(c, load)
+    return (
+      !key || !rule.keys.includes(key.id) || shardsOf(c, load) < rule.minShards
+    )
+  })
+}
+
 /** Something a level doesn't need: a kind of component, or a second region. */
 export type Overkill = {
   kind?: ComponentKind
@@ -81,6 +117,7 @@ export type Check = {
     | "latency"
     | "budget"
     | "writes"
+    | "apart"
     | "backlog"
     | "availability"
     | "chaos"
@@ -171,6 +208,19 @@ export function grade(
             (k) => writesAt(graph, peak, k) >= allWrites * t.share * 0.99,
           ),
         ),
+      star: 1,
+    })
+  }
+  if (targets.keepApart) {
+    const rule = targets.keepApart
+    const wrote = graph.components.some(
+      (c) =>
+        (c.kind === "sql-primary" || c.kind === "nosql") &&
+        (peak.perComponent[c.id]?.writeRps ?? 0) > 0,
+    )
+    checks.push({
+      id: "apart",
+      pass: wrote && mixedStores(graph, load, peak, rule).length === 0,
       star: 1,
     })
   }

@@ -36,6 +36,230 @@ const q = (rows: Row[]): Question[] =>
   }))
 
 export const QUIZZES: Record<string, Question[]> = {
+  "clinic-records": q([
+    [
+      "Hashed clinic ID spreads the load evenly. Why doesn't it meet the rule?",
+      "Clinics land on shards by number, so countries end up mixed",
+      [
+        "With only 2,000 clinics, a hash can't spread them evenly over six shards",
+        "It sends every write to the newest shard",
+        "Hashing can't be used with a {sql-primary}",
+      ],
+      "It passes on load and latency, and every shard holds patients from several countries.",
+      10,
+    ],
+    [
+      "Why doesn't 'country' alone work as the key?",
+      "The biggest country's writes are more than one shard can take",
+      [
+        "Countries can't be used as partition keys",
+        "It mixes countries on every shard",
+        "Every read would have to ask all six shards and wait for the slowest one",
+      ],
+      "55% of 6,000 writes is 3,300 a second on one shard: 110% of what it takes.",
+      5,
+    ],
+    [
+      "Why six shards?",
+      "One per country, plus a second for the biggest country",
+      [
+        "Six is the most a {sql-primary} can be split into",
+        "Two for each of three regions, so each region survives losing a shard",
+        "The load needs six, and the rule needs only two",
+      ],
+      "The rule needs five; the biggest country's 3,300 writes need two of their own. The busiest then runs at about 56%.",
+      7,
+    ],
+    [
+      "Why place clinics with a lookup table rather than a hash of 'country, then clinic'?",
+      "A hash can still put two countries' clinics on the same shard",
+      [
+        "A lookup table answers faster than computing a hash on every single request",
+        "A hash can't include a country",
+        "The lookup table encrypts each country's records",
+      ],
+      "The table maps each clinic to a shard in its own country's group, which a hash can't promise.",
+      6,
+    ],
+    [
+      "Four of the six shards are far from busy. Why is that acceptable?",
+      "The rule sets the shard count here, not the load",
+      [
+        "Idle shards make the busy ones faster",
+        "The standbys borrow the idle capacity to serve reads for the busy shards",
+        "It isn't: two shards would be enough",
+      ],
+      "Small countries still need shards of their own. Smaller machines for them would trim the cost.",
+      9,
+    ],
+    [
+      "What does a separate database per country add over shard groups?",
+      "Its own credentials, region and backups, at the cost of five systems to run",
+      [
+        "It removes the need to shard the biggest country, since it gets a whole database",
+        "Nothing: they are the same thing",
+        "It lets reports join across countries freely",
+      ],
+      "The strongest separation, and much more to operate. The big country still needs sharding inside its own.",
+      12,
+    ],
+    [
+      "What does keeping only names and ID numbers in a per-country vault buy?",
+      "Less data falls under the strictest rule, and the rest can be pooled",
+      [
+        "Charts no longer need the vault, since names are copied into every record",
+        "No shards are needed at all",
+        "The data no longer needs a backup",
+      ],
+      "Everything else refers to patients by a meaningless ID. But every chart still reads the vault, and notes may count as sensitive too.",
+      13,
+    ],
+    [
+      "How should backups be kept, under this rule?",
+      "Per shard, so each country's backups hold only its patients",
+      [
+        "One backup of everything, encrypted with a single key held by the operators",
+        "Only the busiest country's shards need backups",
+        "Standbys replace the need for backups",
+      ],
+      "A single backup of everything would quietly put every country's records together again.",
+      19,
+    ],
+    [
+      "One shard's primary crashes. Who is affected?",
+      "Only the clinics on that shard, in one country",
+      [
+        "Every country, until the failed primary has been replaced and restored",
+        "Only the biggest country",
+        "Nobody: shards can't fail on their own",
+      ],
+      "Its standby takes over within a minute or two, and the other countries never notice.",
+      18,
+    ],
+    [
+      "What does 'each shard holds one country's records' promise?",
+      "That no shard mixes two countries' patients",
+      [
+        "That each shard's machines run inside that country",
+        "That copies stay in one zone",
+        "That records can never be read across countries",
+      ],
+      "Where the machines physically run is a second rule, met by where each shard is placed.",
+      0,
+    ],
+  ]),
+  "fleet-tracker": q([
+    [
+      "Why can't more shards rescue courier ID as the key?",
+      "The biggest courier's rows all share one key, so they live on one shard",
+      [
+        "Courier IDs are too short to hash evenly",
+        "Eight is the most shards a database can have, and the courier needs more",
+        "More shards would need more {load-balancer} instances in front of them",
+      ],
+      "Its 35% is 4,200 writes a second on one shard, against about 3,000, whatever the shard count.",
+      5,
+    ],
+    [
+      "Van ID spreads writes evenly. What's wrong with it here?",
+      "Dispatch boards name the courier, so most reads ask every shard",
+      [
+        "Vans change courier too often, so their rows would keep moving between shards",
+        "Van IDs would put every write on the newest shard",
+        "It breaks the transaction between a delivery and its position",
+      ],
+      "85% of reads scatter to all eight shards and wait for the slowest: p99 reaches about 317ms.",
+      10,
+    ],
+    [
+      "Why is the time of the update a bad key?",
+      "Every new update lands on the newest shard",
+      [
+        "Clocks on vans can't be trusted",
+        "Old positions would be deleted when shards are added",
+        "Time can't be combined with a courier ID",
+      ],
+      "New rows all have the current time, so one shard takes every write: 400% of what it can.",
+      5,
+    ],
+    [
+      "With 'courier ID, then van ID', where does a small courier's data live?",
+      "All on one shard, so its dispatch board asks only that shard",
+      [
+        "Spread over every shard, one van each",
+        "On a shard reserved for small couriers, apart from the biggest courier's shards",
+        "In the lookup table, alongside the routing",
+      ],
+      "Only couriers too big for one shard are split by van. Everyone else stays whole.",
+      6,
+    ],
+    [
+      "12,000 writes a second, about 3,000 per primary. Why eight shards rather than seven?",
+      "Seven work today, but peak season would push the busiest to about 74%",
+      [
+        "Seven can't divide 12,000 evenly",
+        "Shard counts have to be powers of two",
+        "Seven would put the biggest courier back on a single shard of its own again",
+      ],
+      "Eight run at 50% normally and about 65% in peak season: room to spare without overspending.",
+      7,
+    ],
+    [
+      "Why does this level keep the data in SQL?",
+      "A delivery's status and the van's position are written in one transaction",
+      [
+        "{nosql} stores can't hold location data",
+        "SQL databases take more writes a second than {nosql} stores of the same cost",
+        "Sharding only works for SQL databases",
+      ],
+      "'Delivered, here, at 14:02' must be all or nothing, and billing joins deliveries, vans and drivers.",
+      2,
+    ],
+    [
+      "The biggest courier asks for a database of its own. Does that remove the need to split by van?",
+      "No: their 35% alone is more than one primary takes",
+      [
+        "Yes: one courier can always fit on one primary",
+        "Yes, as long as their database has a standby",
+        "No, because couriers can't have their own databases",
+      ],
+      "4,200 writes a second needs splitting whatever database it's in. Their own shards, split by van, is the same design.",
+      9,
+    ],
+    [
+      "The lookup table that routes the big couriers is unavailable. How do you keep serving?",
+      "Every {app-server} keeps a copy in memory, refreshed every few seconds",
+      [
+        "Send every request to every shard until the table is back, and merge the answers",
+        "Route everyone by courier ID until it's back",
+        "Stop all writes until the table is restored",
+      ],
+      "The table is tiny and changes rarely, so a local copy keeps routing working through an outage.",
+      19,
+    ],
+    [
+      "How do you stop one courier seeing another's vans?",
+      "Take the courier from the signed-in session and put it in every query",
+      [
+        "Put each courier on a different shard",
+        "Trust the courier ID the dispatch board sends",
+        "Filter other couriers' vans out on the dispatch board's screen before showing it",
+      ],
+      "Routing isn't a security boundary: couriers share shards. The session decides who you are.",
+      20,
+    ],
+    [
+      "Peak season brings 1.3 times the traffic. What happens to the busiest shard?",
+      "It goes from 50% to about 65%",
+      [
+        "It goes from 50% to 130%",
+        "Nothing: shards scale on their own",
+        "It moves to the biggest courier's shard",
+      ],
+      "1.3 × 50% is 65%, still comfortably under capacity.",
+      14,
+    ],
+  ]),
   "step-counter": q([
     [
       "Why can't one {sql-primary} take the syncs, however many standbys it has?",

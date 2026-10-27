@@ -692,6 +692,53 @@ describe("the CAP shelf's traps", () => {
     expect(failed(l, sql)).toContain("traffic")
   })
 
+  it("fleet tracker: by courier, the biggest courier overloads its shard at any count", () => {
+    const l = level("fleet-tracker")
+    for (const shards of [4, 8]) {
+      const g = patch(l.reference, "db", { partitionKey: "courier", shards })
+      expect(failed(l, g)).toContain("traffic")
+      expect(concepts(l, g)).toContain("hot-keys")
+    }
+  })
+
+  it("fleet tracker: by van, dispatch boards ask every shard and p99 misses", () => {
+    const l = level("fleet-tracker")
+    const g = patch(l.reference, "db", { partitionKey: "van" })
+    expect(failed(l, g)).toEqual(["latency"])
+  })
+
+  it("clinic records: hashed clinic IDs pass on load but mix countries", () => {
+    const l = level("clinic-records")
+    const g = patch(l.reference, "db", { partitionKey: "clinic" })
+    expect(failed(l, g)).toEqual(["apart"])
+    const r = run(l, g)
+    const f = findings(g, l.load, r.peak, l.targets, r.chaos, l.chaos.label)
+    expect(f.map((x) => x.concept)).toContain("data-isolation")
+    expect(f.map((x) => x.text).join(" ")).toMatch(/mixes them on every shard/)
+  })
+
+  it("clinic records: five shards keep countries apart but can't hold the biggest", () => {
+    const l = level("clinic-records")
+    const g = patch(l.reference, "db", { shards: 5 })
+    expect(failed(l, g)).toEqual(["apart"])
+    const r = run(l, g)
+    const f = findings(g, l.load, r.peak, l.targets, r.chaos, l.chaos.label)
+    expect(f.map((x) => x.text).join(" ")).toMatch(/at least 6 shards/)
+  })
+
+  it("clinic records: by country alone, the biggest country overloads its shard", () => {
+    const l = level("clinic-records")
+    const g = patch(l.reference, "db", { partitionKey: "country" })
+    expect(failed(l, g)).not.toContain("apart")
+    expect(failed(l, g)).toContain("traffic")
+  })
+
+  it("clinic records: a store with no shards at all fails the rule", () => {
+    const l = level("clinic-records")
+    const g = patch(l.reference, "db", { shards: 1, partitionKey: undefined })
+    expect(failed(l, g)).toContain("apart")
+  })
+
   it("tenant split: one primary can't take the writes, however many standbys", () => {
     const l = level("tenant-split")
     const one = patch(l.reference, "db", { shards: 1, instances: 3, zones: 3 })

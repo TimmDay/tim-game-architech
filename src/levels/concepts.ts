@@ -42,6 +42,7 @@ export type ConceptId =
   | "id-generation"
   | "partitioning"
   | "copies-vs-shards"
+  | "data-isolation"
   | "delivery-guarantees"
   | "fan-out-on-write"
   | "hot-keys"
@@ -188,6 +189,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "A copy (a replica or a standby) holds the same data as the original: it buys survival and, for read replicas, more reads, but every write still lands on every copy. A shard holds different data: the rows are split by a key, so each shard takes only its share of the writes. Real stores do both. Each shard has its own primary and standbys, so a sharded {sql-primary} with three copies over three zones is a grid: shards down, zones across. Your app still sees one database, and the driver or the store routes each query to its shard.",
     interview:
       "Keep the words apart: say replicas when you mean copies and shards or partitions when you mean splitting. Then size each on its own: shards from the write rate one primary can take, copies from the failures you must survive.",
+  },
+  "data-isolation": {
+    title: "Keeping data apart",
+    body: "Sometimes the rule isn't how evenly data spreads but which records may sit together: each country's patients, each regulated customer, each tenant that pays for isolation. Sharding can enforce it if the key starts with the group, and shards are placed by a lookup table or by ranges so each holds one group. A hash mixes groups on every shard. A bug, a breach or a bad migration on one shard then touches one group, and deleting or exporting a group's data is a job for its own shards.",
+    interview:
+      "Say the rule first ('a shard never holds two countries' records'), then the key that enforces it and how shards are placed. Separate it from physical location: where each shard's machines run is a deployment choice on top.",
   },
   "delivery-guarantees": {
     title: "Delivery guarantees",

@@ -39,6 +39,56 @@ const talk = (
 ): EstimateCard => ({ kind: "talk", prompt, points, followUp })
 
 export const ESTIMATES: Record<string, EstimateCard[]> = {
+  "clinic-records": [
+    mc(
+      "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",
+      "About 6,000 a second",
+      ["About 667 a second", "About 2,000 a second", "About 20,000 a second"],
+      "2,000 × 3 is 6,000: twice what one {sql-primary} takes. Dividing instead gives 667.",
+    ),
+    mc(
+      "The biggest country is 55% of the 6,000 writes. How many shards does it need to itself, at about 3,000 writes each?",
+      "2 shards",
+      ["1 shard", "4 shards", "6 shards"],
+      "55% of 6,000 is 3,300: more than one primary, so two, at about 55% each. Six is the total, with the other four countries.",
+    ),
+    talk(
+      "How many shards in all, and what sets the number?",
+      [
+        "The rule: at least one per country, so five.",
+        "The load: the biggest country needs two of its own.",
+        "Six in all. Most run far below capacity, because the rule sets the count, not the load.",
+      ],
+      "A sixth country joins. What changes, and what doesn't?",
+    ),
+  ],
+  "fleet-tracker": [
+    mc(
+      "Say 60,000 vans each send an update every 5 seconds at peak. How many writes a second?",
+      "About 12,000 a second",
+      ["About 300,000 a second", "About 200 a second", "About 60,000 a second"],
+      "60,000 ÷ 5 is 12,000: four times what one {sql-primary} takes. Multiplying by 5 instead gives 300,000.",
+    ),
+    mc(
+      "The biggest courier sends 35% of the 12,000 writes. Keyed by courier, what does its shard take?",
+      "About 4,200 writes a second",
+      [
+        "About 1,500 writes a second",
+        "About 525 writes a second",
+        "About 12,000 writes a second",
+      ],
+      "35% of 12,000 is 4,200, past the 3,000 one primary takes, at any shard count. 1,500 is the average of eight shards, not the busiest.",
+    ),
+    talk(
+      "How many shards, with 'courier ID, then van ID'?",
+      [
+        "12,000 writes ÷ 3,000 per primary is 4 flat out; at about 50% each, 8.",
+        "Check the busiest key: with the giants split by van, no single key is more than about 6% of the traffic.",
+        "Then peak season: 1.3 × 50% is 65%, still comfortable.",
+      ],
+      "What if the vans sent updates every 30 seconds instead?",
+    ),
+  ],
   "first-customers": [
     mc(
       "Peak is 1,500 requests a second and one {app-server} handles about 1,000. How many do you run so that losing one still carries peak?",

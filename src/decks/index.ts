@@ -16,6 +16,8 @@ import {
   FULL_BASKET,
   LIKE_STORM,
   TENANT_SPLIT,
+  FLEET_TRACKER,
+  CLINIC_RECORDS,
 } from "./cap"
 import {
   GROUP_CHAT,
@@ -86,6 +88,8 @@ export const DECKS: Record<string, DeckCard[]> = {
   "balance-sheet": BALANCE_SHEET,
   "full-basket": FULL_BASKET,
   "tenant-split": TENANT_SPLIT,
+  "fleet-tracker": FLEET_TRACKER,
+  "clinic-records": CLINIC_RECORDS,
   "like-storm": LIKE_STORM,
   "claim-your-name": CLAIM_YOUR_NAME,
   worldwide: WORLDWIDE,

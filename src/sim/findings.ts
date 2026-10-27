@@ -3,6 +3,7 @@ import { CATALOGUE, inlineJobMs, SATURATION_WARN } from "./catalogue"
 import {
   DURABLE_KINDS,
   MAJORITY_SERVES,
+  mixedStores,
   overkillUsed,
   type Targets,
   writesAt,
@@ -15,6 +16,7 @@ import {
   GLOBAL_KINDS,
   partitionKeyOf,
   regionsOf,
+  shardsOf,
 } from "./simulate"
 import type {
   Fault,
@@ -291,6 +293,23 @@ export function findings(
         severity: "error",
         concept: queueSplit ? "queue-vs-log" : "read-replicas",
         text: `Only ${rps(got)} of ${rps(expectedWrites)} writes reach ${label}. The rest are lost.`,
+      })
+    }
+  }
+
+  if (targets?.keepApart) {
+    const rule = targets.keepApart
+    for (const c of mixedStores(graph, load, peak, rule)) {
+      const key = partitionKeyOf(c, load)
+      const n = shardsOf(c, load)
+      out.push({
+        severity: "error",
+        concept: "data-isolation",
+        text: !key
+          ? `Each shard must hold ${rule.what}, but the {${c.kind}} isn't split by anything that keeps them apart.`
+          : !rule.keys.includes(key.id)
+            ? `Each shard must hold ${rule.what}, but splitting by "${key.label}" mixes them on every shard.`
+            : `Each shard must hold ${rule.what}: that takes at least ${rule.minShards} shards, and the {${c.kind}} has ${n}.`,
       })
     }
   }

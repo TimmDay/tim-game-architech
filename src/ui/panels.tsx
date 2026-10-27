@@ -917,6 +917,14 @@ export function InspectPanel({
           Drag a component to move it. Pinch or scroll to zoom, drag the floor
           to pan.
         </p>
+        <p className="hidden lg:block">
+          Keyboard: <b className="text-slate-200">Tab</b> to a component and
+          press <b className="text-slate-200">Enter</b> to select it,{" "}
+          <b className="text-slate-200">Shift</b> and the arrows to move it,{" "}
+          <b className="text-slate-200">D</b> to remove it. After picking one to
+          add, the arrows and <b className="text-slate-200">Enter</b> choose its
+          tile.
+        </p>
       </div>
     )
   }

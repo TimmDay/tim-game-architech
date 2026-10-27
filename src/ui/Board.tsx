@@ -6,12 +6,13 @@ import {
   useRef,
   useState,
 } from "react"
-import { COLS, ROWS, clientTile, inBounds } from "~/game/edit"
+import { COLS, ROWS, clientTile, inBounds, occupied } from "~/game/edit"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
 import { carries } from "~/sim/simulate"
 import type { Graph, SimResult } from "~/sim/types"
 import { CLIENT_ID, type TrafficType } from "~/sim/types"
 import { Block, ClientBlock } from "./Block"
+import { edgeLabel, nodeLabel } from "./boardLabels"
 import { TH, TW, diamond, iso, tileAt } from "./iso"
 import { useParticles } from "./particles"
 
@@ -56,6 +57,21 @@ type Pt = { x: number; y: number }
 
 const TAP_SLOP = 8
 
+/**
+ * Arrow keys step along the grid. Each axis runs diagonally on screen, so
+ * each key takes the axis whose screen direction shares its own: Right goes
+ * down-right, Up goes up-right.
+ */
+const STEPS: Record<string, Pt> = {
+  ArrowRight: { x: 1, y: 0 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowDown: { x: 0, y: 1 },
+  ArrowUp: { x: 0, y: -1 },
+}
+
+/** A synthetic click: a screen reader activating an element, not a pointer. */
+const fromAssistiveTech = (e: React.MouseEvent) => e.detail === 0
+
 function nodePos(graph: Graph, id: string) {
   if (id === CLIENT_ID) {
     const u = clientTile(graph)
@@ -70,6 +86,11 @@ export function Board(p: BoardProps) {
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 })
   const [hover, setHover] = useState<Pt | null>(null)
+  /** The keyboard's tile while placing, and whether to draw it. */
+  const [cursor, setCursor] = useState<Pt | null>(null)
+  const [cursorShown, setCursorShown] = useState(false)
+  /** The component with keyboard focus, so its ring can be drawn. */
+  const [focused, setFocused] = useState<string | null>(null)
   const fitted = useRef(false)
 
   // Frame the part of the board in use, not all of it: blocks should be big
@@ -116,6 +137,66 @@ export function Board(p: BoardProps) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [fit])
+
+  // Picking something to place hands the keyboard to the board, starting
+  // beside the users. The cursor shows only for keyboard players: after a
+  // mouse click, the focus isn't :focus-visible.
+  const [wasPlacing, setWasPlacing] = useState(p.placing)
+  if (wasPlacing !== p.placing) {
+    setWasPlacing(p.placing)
+    setCursor(null)
+    setCursorShown(false)
+  }
+  useEffect(() => {
+    if (p.placing) wrap.current?.focus({ preventScroll: true })
+  }, [p.placing])
+  const tile = p.placing ? (cursor ?? nearestFree(p.graph)) : null
+
+  const onBoardKey = (e: React.KeyboardEvent) => {
+    if (!tile) return
+    const step = STEPS[e.key]
+    if (step) {
+      e.preventDefault()
+      setCursorShown(true)
+      const next = { x: tile.x + step.x, y: tile.y + step.y }
+      if (inBounds(next.x, next.y)) setCursor(next)
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      p.onTapTile(tile.x, tile.y)
+    }
+  }
+
+  /** Keys on a focused component: Enter selects, Shift+arrows move it. */
+  const onNodeKey = (e: React.KeyboardEvent, id: string, at: Pt) => {
+    const step = STEPS[e.key]
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      e.stopPropagation()
+      p.onTapNode(id)
+    } else if (step && e.shiftKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      p.onMove(id, at.x + step.x, at.y + step.y)
+      // Moving re-sorts the blocks for painting, which can drop the focus.
+      requestAnimationFrame(() =>
+        wrap.current
+          ?.querySelector<SVGGElement>(`[data-node="${CSS.escape(id)}"]`)
+          ?.focus({ preventScroll: true }),
+      )
+    }
+  }
+
+  const focusProps = (id: string, label: string, at: Pt) => ({
+    tabIndex: 0,
+    role: "button",
+    "aria-label": label,
+    className: "cursor-pointer outline-none",
+    onKeyDown: (e: React.KeyboardEvent) => onNodeKey(e, id, at),
+    onClick: (e: React.MouseEvent) => fromAssistiveTech(e) && p.onTapNode(id),
+    onFocus: (e: React.FocusEvent) =>
+      setFocused(e.currentTarget.matches(":focus-visible") ? id : null),
+    onBlur: () => setFocused((f) => (f === id ? null : f)),
+  })
 
   // --- gestures -----------------------------------------------------------
   const pointers = useRef(new Map<number, Pt>())
@@ -266,6 +347,12 @@ export function Board(p: BoardProps) {
   const users = clientTile(p.graph)
   occupiedSet.add(`${users.x},${users.y}`)
 
+  const nameOf = (id: string) => {
+    if (id === CLIENT_ID) return CLIENT_NAME.name
+    const c = p.graph.components.find((c) => c.id === id)
+    return c ? serviceName(c.kind, p.provider).name : id
+  }
+
   const edges = p.graph.edges.flatMap((e) => {
     const a = nodePos(p.graph, e.from)
     const b = nodePos(p.graph, e.to)
@@ -283,7 +370,15 @@ export function Board(p: BoardProps) {
           ? READS_COLOR
           : ALL_COLOR
     const dash = typed ? "2 5" : async || toAsync ? "7 6" : undefined
-    return [{ e, a, b, color, dash }]
+    const types = (e.carries ?? [])
+      .filter((x) => x !== "reads" && x !== "writes")
+      .map((id) => p.traffic?.find((t) => t.id === id)?.label ?? id)
+    const label = edgeLabel(
+      nameOf(e.from),
+      nameOf(e.to),
+      [c === "none" ? "" : c, ...types].filter(Boolean).join(", "),
+    )
+    return [{ e, a, b, color, dash, label }]
   })
 
   const particleFlows = useMemo(
@@ -315,7 +410,15 @@ export function Board(p: BoardProps) {
   return (
     <div
       ref={wrap}
-      className="relative h-full w-full touch-none overflow-hidden select-none"
+      className="relative h-full w-full touch-none overflow-hidden outline-none select-none"
+      role="group"
+      aria-label="Board"
+      tabIndex={p.placing ? 0 : -1}
+      onKeyDown={onBoardKey}
+      onFocus={(e) => {
+        if (e.target === e.currentTarget)
+          setCursorShown(e.currentTarget.matches(":focus-visible"))
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -371,14 +474,31 @@ export function Board(p: BoardProps) {
             )
           })}
 
-          {edges.map(({ e, a, b, color, dash }) => {
+          {tile && cursorShown && (
+            <TileCursor
+              at={tile}
+              taken={occupiedSet.has(`${tile.x},${tile.y}`)}
+            />
+          )}
+
+          {edges.map(({ e, a, b, color, dash, label }) => {
             const sel = e.id === p.selectedEdgeId
             const mx = a.sx + (b.sx - a.sx) * 0.55
             const my = a.sy + (b.sy - a.sy) * 0.55
             const rps = p.result?.perEdge[e.id]?.rps ?? 0
             const idle = p.live && rps <= 0
             return (
-              <g key={e.id} data-edge={e.id} className="cursor-pointer">
+              <g
+                key={e.id}
+                data-edge={e.id}
+                className="cursor-pointer outline-none"
+                // Out of the tab order (the inspector lists connections),
+                // but a screen reader can still find and open one.
+                role="button"
+                tabIndex={-1}
+                aria-label={label}
+                onClick={(ev) => fromAssistiveTech(ev) && p.onTapEdge(e.id)}
+              >
                 <line
                   x1={a.sx}
                   y1={a.sy}
@@ -429,12 +549,20 @@ export function Board(p: BoardProps) {
                   key={n.id}
                   data-node={n.id}
                   transform={`translate(${sx} ${sy})`}
-                  className="cursor-pointer"
+                  {...focusProps(
+                    n.id,
+                    nodeLabel({
+                      name: CLIENT_NAME.name,
+                      selected: p.selectedId === CLIENT_ID,
+                    }),
+                    n,
+                  )}
                 >
                   <polygon
                     points={diamond(TW / 2, TH / 2)}
                     fill="transparent"
                   />
+                  {focused === n.id && <FocusRing />}
                   <ClientBlock
                     selected={
                       p.selectedId === CLIENT_ID ||
@@ -453,12 +581,24 @@ export function Board(p: BoardProps) {
                 key={c.id}
                 data-node={c.id}
                 transform={`translate(${sx} ${sy})`}
-                className="cursor-pointer"
+                {...focusProps(
+                  c.id,
+                  nodeLabel({
+                    name: serviceName(c.kind, p.provider).name,
+                    instances: c.instances,
+                    shards: m?.shards,
+                    utilization: p.live ? m?.utilization : undefined,
+                    dead: p.live && m?.aliveInstances === 0,
+                    selected: p.selectedId === c.id,
+                  }),
+                  n,
+                )}
               >
                 <polygon
                   points={diamond(TW / 2, TH / 2 + 10, -14)}
                   fill="transparent"
                 />
+                {focused === c.id && <FocusRing />}
                 <g className="block-in">
                   <Block
                     kind={c.kind}
@@ -540,6 +680,11 @@ export function Board(p: BoardProps) {
                   data-handle={`${kind}:${n.id}`}
                   transform={`translate(${sx + 30} ${sy - 34})`}
                   className="cursor-pointer"
+                  role="button"
+                  onClick={(e) =>
+                    fromAssistiveTech(e) &&
+                    (kind === "start" ? h.onStart(n.id) : h.onReceive(n.id))
+                  }
                   aria-label={
                     kind === "receive"
                       ? "Connect here"
@@ -597,6 +742,52 @@ export function Board(p: BoardProps) {
         Recenter
       </button>
     </div>
+  )
+}
+
+/** The free tile nearest the users: where keyboard placing starts. */
+function nearestFree(g: Graph): Pt {
+  const u = clientTile(g)
+  let best: Pt = u
+  let bestD = Infinity
+  for (let y = 0; y < ROWS; y++)
+    for (let x = 0; x < COLS; x++) {
+      const d = Math.abs(x - u.x) + Math.abs(y - u.y)
+      if (d < bestD && !occupied(g, x, y)) {
+        best = { x, y }
+        bestD = d
+      }
+    }
+  return best
+}
+
+/** The keyboard's tile while placing: solid when free, dashed when taken. */
+function TileCursor({ at, taken }: { at: Pt; taken: boolean }) {
+  const { sx, sy } = iso(at.x, at.y)
+  return (
+    <polygon
+      transform={`translate(${sx} ${sy})`}
+      points={diamond(TW / 2 - 3, TH / 2 - 1.5)}
+      fill={taken ? "transparent" : "hsl(188 100% 60% / 0.35)"}
+      stroke={taken ? "hsl(352 100% 70%)" : "white"}
+      strokeWidth={2.5}
+      strokeDasharray={taken ? "6 4" : undefined}
+      pointerEvents="none"
+    />
+  )
+}
+
+/** Keyboard focus on a component: drawn, because SVG outlines aren't reliable. */
+function FocusRing() {
+  return (
+    <polygon
+      points={diamond(TW / 2 + 2, TH / 2 + 1)}
+      fill="none"
+      stroke="white"
+      strokeWidth={2}
+      strokeDasharray="5 3"
+      pointerEvents="none"
+    />
   )
 }
 

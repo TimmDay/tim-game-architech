@@ -36,6 +36,118 @@ const q = (rows: Row[]): Question[] =>
   }))
 
 export const QUIZZES: Record<string, Question[]> = {
+  "clinic-records": q([
+    [
+      "Hashed clinic ID spreads the load evenly. Why doesn't it meet the rule?",
+      "Clinics land on shards by number, so countries end up mixed",
+      [
+        "With only 2,000 clinics, a hash can't spread them evenly over six shards",
+        "It sends every write to the newest shard",
+        "Hashing can't be used with a {sql-primary}",
+      ],
+      "It passes on load and latency, and every shard holds patients from several countries.",
+      10,
+    ],
+    [
+      "Why doesn't 'country' alone work as the key?",
+      "The biggest country's writes are more than one shard can take",
+      [
+        "Countries can't be used as partition keys",
+        "It mixes countries on every shard",
+        "Every read would have to ask all six shards and wait for the slowest one",
+      ],
+      "55% of 6,000 writes is 3,300 a second on one shard: 110% of what it takes.",
+      5,
+    ],
+    [
+      "Why six shards?",
+      "One per country, plus a second for the biggest country",
+      [
+        "Six is the most a {sql-primary} can be split into",
+        "Two for each of three regions, so each region survives losing a shard",
+        "The load needs six, and the rule needs only two",
+      ],
+      "The rule needs five; the biggest country's 3,300 writes need two of their own. The busiest then runs at about 56%.",
+      7,
+    ],
+    [
+      "Why place clinics with a lookup table rather than a hash of 'country, then clinic'?",
+      "A hash can still put two countries' clinics on the same shard",
+      [
+        "A lookup table answers faster than computing a hash on every single request",
+        "A hash can't include a country",
+        "The lookup table encrypts each country's records",
+      ],
+      "The table maps each clinic to a shard in its own country's group, which a hash can't promise.",
+      6,
+    ],
+    [
+      "Four of the six shards are far from busy. Why is that acceptable?",
+      "The rule sets the shard count here, not the load",
+      [
+        "Idle shards make the busy ones faster",
+        "The standbys borrow the idle capacity to serve reads for the busy shards",
+        "It isn't: two shards would be enough",
+      ],
+      "Small countries still need shards of their own. Smaller machines for them would trim the cost.",
+      9,
+    ],
+    [
+      "What does a separate database per country add over shard groups?",
+      "Its own credentials, region and backups, at the cost of five systems to run",
+      [
+        "It removes the need to shard the biggest country, since it gets a whole database",
+        "Nothing: they are the same thing",
+        "It lets reports join across countries freely",
+      ],
+      "The strongest separation, and much more to operate. The big country still needs sharding inside its own.",
+      12,
+    ],
+    [
+      "What does keeping only names and ID numbers in a per-country vault buy?",
+      "Less data falls under the strictest rule, and the rest can be pooled",
+      [
+        "Charts no longer need the vault, since names are copied into every record",
+        "No shards are needed at all",
+        "The data no longer needs a backup",
+      ],
+      "Everything else refers to patients by a meaningless ID. But every chart still reads the vault, and notes may count as sensitive too.",
+      13,
+    ],
+    [
+      "How should backups be kept, under this rule?",
+      "Per shard, so each country's backups hold only its patients",
+      [
+        "One backup of everything, encrypted with a single key held by the operators",
+        "Only the busiest country's shards need backups",
+        "Standbys replace the need for backups",
+      ],
+      "A single backup of everything would quietly put every country's records together again.",
+      19,
+    ],
+    [
+      "One shard's primary crashes. Who is affected?",
+      "Only the clinics on that shard, in one country",
+      [
+        "Every country, until the failed primary has been replaced and restored",
+        "Only the biggest country",
+        "Nobody: shards can't fail on their own",
+      ],
+      "Its standby takes over within a minute or two, and the other countries never notice.",
+      18,
+    ],
+    [
+      "What does 'each shard holds one country's records' promise?",
+      "That no shard mixes two countries' patients",
+      [
+        "That each shard's machines run inside that country",
+        "That copies stay in one zone",
+        "That records can never be read across countries",
+      ],
+      "Where the machines physically run is a second rule, met by where each shard is placed.",
+      0,
+    ],
+  ]),
   "fleet-tracker": q([
     [
       "Why can't more shards rescue courier ID as the key?",

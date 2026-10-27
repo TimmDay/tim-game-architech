@@ -2851,6 +2851,101 @@ const CAP: Level[] = [
     hint: "Check the biggest courier against one shard's share: if it can't fit, no shard count helps. Then ask which key the dispatch boards name. Can a key keep small couriers together and still spread the big one?",
   },
   {
+    id: "clinic-records",
+    mode: "build",
+    track: "cap",
+    requires: ["tenant-split"],
+    title: "Clinic Records",
+    tagline: "Shard to keep data apart, not just to spread it.",
+    scenario: {
+      product: "the patient-records system",
+      reads: "clinicians opening patients' charts and their day's list",
+      writes: "notes, prescriptions and test results",
+      hot: "today's appointments at each clinic",
+      records: "patients, visits, notes and results",
+    },
+    brief:
+      "A patient-records system serves 2,000 clinics in five countries. Peak is 12,000 requests a second, half of them writes: twice what one {sql-primary} takes. There's a new rule as well as the load: each country's health law says its patients' records must never share a shard with another country's. The biggest country is 55% of the traffic; the other four share the rest. Reads are a clinic's day list and one patient's chart, never across countries. Pick the key and shard count in the sidebar: this level checks how the data is split, not where the machines are.",
+    load: {
+      peakRps: 12_000,
+      readFraction: 0.5,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      partitionKeys: [
+        {
+          id: "patient",
+          label: "Patient ID",
+          hotShare: 0.0001,
+          scatterReads: 0.5,
+        },
+        {
+          id: "clinic",
+          label: "Clinic ID, hashed",
+          hotShare: 0.01,
+          scatterReads: 0.02,
+        },
+        { id: "visit", label: "Visit date", hotShare: 1, scatterReads: 0 },
+        { id: "country", label: "Country", hotShare: 0.55, scatterReads: 0 },
+        {
+          id: "country-clinic",
+          label: "Country, then clinic, by lookup table",
+          // The biggest country's 55% over its two shards.
+          hotShare: 0.28,
+          scatterReads: 0.02,
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 7_500,
+      writesReach: ["sql-primary"],
+      keepApart: {
+        keys: ["country", "country-clinic"],
+        // Two shards for the biggest country, one each for the other four.
+        minShards: 6,
+        what: "one country's records",
+      },
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "kill-instance", target: "sql-primary" }],
+      label: "A primary crashes",
+    },
+    palette: ["dns", "load-balancer", "app-server", "sql-primary"],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 24, 2],
+        [
+          "db",
+          "sql-primary",
+          7,
+          4,
+          2,
+          2,
+          { shards: 6, partitionKey: "country-clinic" },
+        ],
+      ],
+      [`${C}>lb`, "lb>app", "app>db"],
+    ),
+    concepts: [
+      "data-isolation",
+      "partitioning",
+      "hot-keys",
+      "copies-vs-shards",
+    ],
+    topics: ["topic-sharding"],
+    hint: "Hashing spreads data evenly and mixes everyone together. Which key keeps each country on shards of its own, and how many shards does the biggest country need to itself?",
+  },
+  {
     id: "like-storm",
     mode: "build",
     track: "cap",

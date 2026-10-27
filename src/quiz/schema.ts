@@ -27,6 +27,38 @@ const s = (rows: Row[]): SchemaQuestion[] =>
   rows.map(([prompt, correct, wrong, why]) => ({ prompt, correct, wrong, why }))
 
 export const SCHEMA: Record<string, SchemaQuestion[]> = {
+  "clinic-records": s([
+    [
+      "What does the lookup table that places clinics hold?",
+      "One row per clinic: its country and the shard it lives on",
+      [
+        "One row per patient: their clinic, their country and the shard they live on",
+        "A hash function for each country",
+        "A copy of every patient's chart",
+      ],
+      "2,000 rows, changed rarely: small enough for every {app-server} to keep in memory.",
+    ],
+    [
+      "What should a patient's record be keyed by on its shard?",
+      "The clinic's ID, then the patient's",
+      [
+        "The patient's national ID number, which is unique in each country",
+        "The date of their last visit",
+        "Their name, for quick lookups",
+      ],
+      "The clinic keeps them on its country's shard. A national ID number is exactly what the vault exists to keep out of keys and logs.",
+    ],
+    [
+      "Which request opens a clinic's day list?",
+      "GET /clinics/me/appointments?date=today, scoped by the session",
+      [
+        "GET /appointments?country=:country&clinic=:clinic",
+        "GET /appointments, filtered on the clinician's screen",
+        "POST /appointments/search with the clinic's name and today's date",
+      ],
+      "The session decides the clinic and so the country: the client can't ask for another country's records.",
+    ],
+  ]),
   "fleet-tracker": s([
     [
       "What's the shard key on a van's position update?",

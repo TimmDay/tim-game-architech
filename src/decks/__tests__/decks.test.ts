@@ -93,3 +93,11 @@ describe("fundamentals links from levels", () => {
       expect(l.topics, l.id).toContain("topic-sharding")
   })
 })
+
+it("gives every Fundamentals deck scenarios to practise in, except the interview itself", () => {
+  for (const t of TOPICS) {
+    if (t.id === "topic-interview") continue
+    const n = LEVELS.filter((l) => l.topics?.includes(t.id)).length
+    expect(n, t.id).toBeGreaterThan(0)
+  }
+})

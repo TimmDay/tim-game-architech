@@ -179,6 +179,7 @@ const BUILD: Level[] = [
       [`${C}>lb`, "lb>app", "app>db"],
     ),
     concepts: ["horizontal-scaling", "n-plus-one-redundancy", "standby"],
+    topics: ["topic-estimation", "topic-internals"],
     hint: "Two {app-server} instances can serve peak, but can they still serve it with one gone? And a single {sql-primary} lives in one zone.",
   },
   {
@@ -237,6 +238,7 @@ const BUILD: Level[] = [
       [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
     ),
     concepts: ["cache-aside", "read-replicas", "latency-under-load"],
+    topics: ["topic-estimation", "topic-apis"],
     hint: "Put a {cache} between the {app-server} tier and the {sql-primary}: hits never touch the database. Then check the database can survive the cache going cold.",
   },
   {
@@ -289,6 +291,7 @@ const BUILD: Level[] = [
       [`${C}>dns`, "dns>cdn", "cdn>blobs"],
     ),
     concepts: ["cdn", "static-vs-dynamic", "object-storage"],
+    topics: ["topic-estimation"],
     hint: "Static files belong in an {object-store}, served from a {cdn} at the edge. Nothing in this level needs a server you run.",
   },
   {
@@ -354,6 +357,7 @@ const BUILD: Level[] = [
       [`${C}>lb`, "lb>app", "app>db", "app>q", "q>workers", "workers>blobs"],
     ),
     concepts: ["async-processing", "competing-consumers", "backpressure"],
+    topics: ["topic-event-logs"],
     hint: "The {app-server} should accept the upload and drop a message on a {queue}. A pool of {worker} instances does the slow part, and needs enough of them to drain it.",
   },
   {
@@ -415,6 +419,7 @@ const BUILD: Level[] = [
       [`${C}>lb`, "lb>app", "app>steps"],
     ),
     concepts: ["key-value-modelling", "partitioning", "horizontal-scaling"],
+    topics: ["topic-storage"],
     hint: "Count the writes against what one {sql-primary} can take, then look at how the data is read: always one user, one day, never joined. What kind of store is built for that?",
   },
   {
@@ -467,6 +472,7 @@ const BUILD: Level[] = [
       [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
     ),
     concepts: ["availability-zones", "standby", "availability-math"],
+    topics: ["topic-internals"],
     hint: "Spread instances over two or more zones, and make sure what's left after losing one zone can still carry the whole peak. A {sql-primary} needs a standby in another zone.",
   },
   {
@@ -534,6 +540,7 @@ const BUILD: Level[] = [
       ],
     ),
     concepts: ["queue-vs-log", "fan-out", "oltp-vs-olap"],
+    topics: ["topic-storage", "topic-event-logs"],
     hint: "A {queue} gives each message to ONE consumer. An {event-stream} gives every consumer every message.",
   },
 ]
@@ -829,6 +836,7 @@ const REPAIR: Level[] = [
       [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
     ),
     concepts: ["finding-the-bottleneck", "cache-aside"],
+    topics: ["topic-estimation"],
     hint: "Run the load test and look for the red block. It isn't the one with twenty instances.",
   },
   {
@@ -1116,6 +1124,7 @@ const REPAIR: Level[] = [
       ],
     ),
     concepts: ["queue-vs-log", "competing-consumers", "fan-out"],
+    topics: ["topic-event-logs"],
     hint: "Compare how many writes per second reach each consumer with how many orders come in.",
   },
 ]
@@ -1188,6 +1197,7 @@ const CLASSICS: Level[] = [
       [`${C}>dns`, "dns>lb", "lb>app", "app>cache", "cache>db"],
     ),
     concepts: ["cache-aside", "cache-stampede", "id-generation"],
+    topics: ["topic-storage", "topic-apis"],
     hint: "A {cache} takes most clicks off the {sql-primary}. Then ask what happens to the database the moment that cache disappears.",
   },
   {
@@ -1259,6 +1269,7 @@ const CLASSICS: Level[] = [
       [`${C}>dns`, "dns>lb", "lb>app", "app>kv", "app>stream", "stream>push"],
     ),
     concepts: ["partitioning", "delivery-guarantees", "availability-zones"],
+    topics: ["topic-consensus"],
     hint: "Count the writes before choosing the store. Something that scales writes out by adding partitions beats one primary that can't.",
   },
   {
@@ -1408,6 +1419,7 @@ const CLASSICS: Level[] = [
       ],
     ),
     concepts: ["waiting-room", "inventory-contention", "read-replicas"],
+    topics: ["topic-transactions"],
     hint: "Seat maps can be a second stale; seat holds can't be wrong. Serve the first from the edge and replicas, and put the second in a line that the {sql-primary} drains at its own pace.",
   },
   {
@@ -1629,6 +1641,7 @@ const CLASSICS: Level[] = [
       ],
     ),
     concepts: ["precomputation", "latency-budget", "cdn"],
+    topics: ["topic-storage"],
     hint: "There's no time to search on every keystroke. Work out the top suggestions for each prefix ahead of time, keep them in memory, and let the {cdn} answer the most common prefixes.",
   },
   {
@@ -1883,6 +1896,7 @@ const CLASSICS: Level[] = [
       ],
     ),
     concepts: ["idempotency", "timeouts-and-retries", "standby"],
+    topics: ["topic-transactions"],
     hint: "Record the payment, then charge it in the background with a timeout, backoff and an idempotency key. Then ask what the ledger and the workers lose when a zone goes dark.",
   },
   {
@@ -2215,7 +2229,7 @@ const CLASSICS: Level[] = [
       ],
     ),
     concepts: ["queue-vs-log", "hot-keys", "idempotency"],
-    topics: ["topic-sharding"],
+    topics: ["topic-sharding", "topic-event-logs"],
     hint: "Publish each click to an {event-stream} and redirect at once. Let {worker} instances count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
   },
   {
@@ -2310,7 +2324,7 @@ const CLASSICS: Level[] = [
       "partitioning",
       "cap-theorem",
     ],
-    topics: ["topic-network-splits", "topic-sharding"],
+    topics: ["topic-network-splits", "topic-sharding", "topic-consensus"],
     hint: "Key the edit log by document, so opening one reads one partition. Then decide: during a split, should people on the cut-off side keep typing?",
   },
   {
@@ -2620,7 +2634,7 @@ const CAP: Level[] = [
       [`${C}>lb`, "lb>app", "app>db"],
     ),
     concepts: ["network-split", "cap-theorem", "quorum", "pacelc"],
-    topics: ["topic-network-splits"],
+    topics: ["topic-network-splits", "topic-transactions"],
     hint: "Count the {sql-primary}'s copies: during a split, a side can keep writing only if it holds a majority of them. Is there a majority on either side of two?",
   },
   {
@@ -2672,7 +2686,7 @@ const CAP: Level[] = [
       [`${C}>lb`, "lb>app", "app>baskets"],
     ),
     concepts: ["network-split", "cap-theorem", "conflict-resolution", "pacelc"],
-    topics: ["topic-network-splits"],
+    topics: ["topic-network-splits", "topic-consensus"],
     hint: "Here it's the opposite of a bank: during a split, every side should keep taking writes. Then think about how two versions of a basket become one.",
   },
   {
@@ -2759,7 +2773,7 @@ const CAP: Level[] = [
       "scatter-gather",
       "hot-keys",
     ],
-    topics: ["topic-sharding"],
+    topics: ["topic-sharding", "topic-internals"],
     hint: "For each key, ask two things: does every new write land on the same shard, and does opening a task list name the key? A key the common reads don't name sends them to every shard.",
   },
   {
@@ -2942,7 +2956,7 @@ const CAP: Level[] = [
       "hot-keys",
       "copies-vs-shards",
     ],
-    topics: ["topic-sharding"],
+    topics: ["topic-sharding", "topic-styles"],
     hint: "Hashing spreads data evenly and mixes everyone together. Which key keeps each country on shards of its own, and how many shards does the biggest country need to itself?",
   },
   {
@@ -3027,7 +3041,7 @@ const CAP: Level[] = [
       "conflict-resolution",
       "scatter-gather",
     ],
-    topics: ["topic-network-splits", "topic-sharding"],
+    topics: ["topic-network-splits", "topic-sharding", "topic-consensus"],
     hint: "No key that keeps one post's likes together can spread them. Split the hot post's likes across several keys, cache the counts, and let a split be reconciled afterwards.",
   },
   {
@@ -3102,7 +3116,7 @@ const CAP: Level[] = [
       [`${C}>lb`, "lb>app", "app>db"],
     ),
     concepts: ["network-split", "quorum", "partitioning", "cap-theorem"],
-    topics: ["topic-network-splits", "topic-sharding"],
+    topics: ["topic-network-splits", "topic-sharding", "topic-transactions"],
     hint: "A uniqueness check is only safe if the name's shard can't be written on both sides of a split. And a key that sends every new sign-up to the same place doesn't spread anything.",
   },
   {
@@ -3172,6 +3186,7 @@ const CAP: Level[] = [
       { lb: 2, app: 2, cache: 2, kv: 2 },
     ),
     concepts: ["multi-region", "pacelc", "conflict-resolution"],
+    topics: ["topic-styles"],
     hint: "Distant users wait an ocean crossing on every request unless everything they touch runs near them. Then think about writes: which kind of store can accept them in both regions?",
   },
 ]
@@ -3250,6 +3265,7 @@ const OPS: Level[] = [
       ],
     ),
     concepts: ["timeouts-and-retries", "idempotency", "async-processing"],
+    topics: ["topic-observability"],
     hint: "Charge orders from workers behind a {queue}, not while the customer waits. Then ask what a worker does while the provider takes five seconds: how long does it wait, and how often does it try again?",
   },
   {
@@ -3322,6 +3338,7 @@ const OPS: Level[] = [
       ],
     ),
     concepts: ["dead-letter-queue", "async-processing", "backpressure"],
+    topics: ["topic-observability"],
     hint: "Adding workers is an expensive way to keep retrying a file that will never work. What should happen to a message after its third failure?",
   },
   {
@@ -3380,6 +3397,7 @@ const OPS: Level[] = [
       [`${C}>lb`, "lb>app", "app>cache", "cache>db"],
     ),
     concepts: ["rate-limiting", "authn-authz", "finding-the-bottleneck"],
+    topics: ["topic-shipping", "topic-apis"],
     hint: "Four times the traffic is far more than any budget buys. Stop it where it first lands, and make sure the code behind checks who's calling.",
   },
   {
@@ -3458,6 +3476,7 @@ const OPS: Level[] = [
       [`${C}>lb`, "lb>app", "app>db", "app>files"],
     ),
     concepts: ["backups-and-rpo", "standby", "read-replicas"],
+    topics: ["topic-shipping"],
     hint: "Standbys and replicas copy the mistake. What restores the notebook to ten minutes before the migration, and what about the files?",
   },
   {
@@ -3521,6 +3540,7 @@ const OPS: Level[] = [
       [`${C}>lb`, "lb>app", "app>db", "app>jobs", "jobs>render", "render>pdfs"],
     ),
     concepts: ["alerting", "n-plus-one-redundancy", "backpressure"],
+    topics: ["topic-observability"],
     hint: "A hung worker looks healthy from outside. What would tell someone the invoices have stopped, and how many workers do you need while one is being replaced?",
   },
 ]

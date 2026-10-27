@@ -502,6 +502,8 @@ function SurvivalSection({
 
 /** Discussion decks that aren't tied to a scenario. Always unlocked. */
 function FundamentalsSection({ onDeck }: { onDeck: (id: string) => void }) {
+  const practised = (id: string) =>
+    LEVELS.filter((l) => l.topics?.includes(id)).length
   return (
     <Shelf
       id="fundamentals"
@@ -527,6 +529,12 @@ function FundamentalsSection({ onDeck }: { onDeck: (id: string) => void }) {
             </span>
             <span className="mt-3 inline-flex items-center gap-1.5 font-mono text-[11px] text-sky-200/80">
               <Layers size={12} /> {t.cards.length} cards
+              {practised(t.id) > 0 && (
+                <span className="text-slate-500">
+                  · {practised(t.id)} scenario
+                  {practised(t.id) === 1 ? "" : "s"} to practise
+                </span>
+              )}
             </span>
           </button>
         ))}

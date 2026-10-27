@@ -215,6 +215,19 @@ function AppScreens({
         provider={provider}
         onBack={() => history.back()}
         onPlay={level ? () => go(`/play/${level.id}`) : undefined}
+        practise={
+          level
+            ? undefined
+            : LEVELS.filter((l) => l.topics?.includes(route.levelId)).map(
+                (l) => ({
+                  id: l.id,
+                  title: l.title,
+                  stars: progress[l.id]?.stars ?? 0,
+                  locked: !isUnlocked(l, progress),
+                }),
+              )
+        }
+        onPractise={(id) => go(`/play/${id}`)}
         toggle={toggle}
       />
     )

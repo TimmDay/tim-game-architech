@@ -701,6 +701,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Snapshots trade storage for speed: more often means faster opens and more writes.",
     ],
     alternatives: [
+      "A managed {realtime-gateway} holding the open connections: it takes the connection count off your servers, but every edit must still reach the one server that orders its document, so it adds a hop and a fee per message. Here that's about $7,900 a month, taking the design to $17,185 against $10,200.",
       "Locking a paragraph while someone types in it: simple, and no merging, but people wait on each other, and a lost connection leaves a lock behind.",
       "Last writer wins on the whole document: easy, and it silently throws away everyone else's typing.",
       "A {sql-primary} for the edit log: fine for a small product, but 6,000 edits a second is twice what one takes.",

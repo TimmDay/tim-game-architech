@@ -2299,6 +2299,7 @@ const CLASSICS: Level[] = [
       "event-stream",
       "worker",
       "object-store",
+      "realtime-gateway",
     ],
     reference: graph(
       [

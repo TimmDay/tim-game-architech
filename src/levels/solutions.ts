@@ -101,6 +101,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "A {sql-primary} with writes queued behind a {queue} still takes them at 3,000 a second: the queue grows by 500 a second, forever.",
       "Sharding SQL by user works too. Split users across, say, two {sql-primary} shards by a hash of the user ID, and have the app (or a routing proxy) send each query to its user's shard. Each shard is a full database with its own standby and backups. Growing means moving users between shards; starting with many small logical shards, a few per database, lets you move whole ones instead of re-hashing everyone. It's a lot to run for data that never joins, which is what a {nosql} store does for you. Tenant Split, in CAP trade-offs, has you shard a {sql-primary} yourself: pick the shard count and key, and watch a bad key pile the writes onto one shard.",
+      "A {time-series-db}, since these are readings over time: here each user is a series of their own, so a million wristbands means a million series. Many time-series stores handle that kind of cardinality worst; they shine on a few thousand series with many points each, like servers' metrics. And every read is one user and one day, which is a key lookup. Use one for the app's own metrics, not for users' steps.",
       "Batching samples on the wristband (sync every ten minutes instead of five) halves the writes for free, if the product allows it.",
     ],
   },
@@ -183,7 +184,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Checking sessions on every request costs a little CPU, which a cache of valid sessions mostly removes.",
     ],
     alternatives: [
-      "A managed edge with attack protection, a {cdn} or a web firewall in front of the {load-balancer}: it absorbs floods before they reach you, and recognises attacks it has seen on other sites. It costs per request, and you still need per-account limits behind it, because a slow attack spread over many addresses can look like normal traffic.",
+      "A managed edge with attack protection in front of the {load-balancer}, a {cdn} or a web firewall (the {rate-limiter} here): it absorbs floods before they reach you, and recognises attacks it has seen on other sites. It's billed per request, about $4,700 a month at this traffic, which takes the design to $7,059 against $2,500; the load balancer's own limit does the job here for almost nothing. You still need per-account limits behind it, because a slow attack spread over many addresses can look like normal traffic.",
       "A CAPTCHA after a few failed sign-ins stops automated guessing without blocking people outright.",
       "Checking new passwords against lists of leaked ones, and offering passkeys, makes stolen passwords far less useful.",
       "An {api-gateway} can do both the limit and the sign-in check in one place, in front of every service.",
@@ -357,7 +358,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     ],
     alternatives: [
       "Keying by the user who liked spreads writes too, but every count read then scans the whole table: even behind the {cache}, the store runs at 278% on reads.",
-      "Sending likes through a {queue} and adding them up in batches cuts writes further, at the cost of counts that lag more.",
+      "Publishing likes to an {event-stream} and adding them up in a {stream-processor}: each post's total is written once per window, so the singer's 1,200 likes a second become one write every few seconds, with no suffix and no ten-key reads. The price is counts that lag by the window, and one more system to run.",
       "A single counter in memory is fastest, but it's lost on a restart unless something durable records the likes.",
     ],
   },
@@ -451,7 +452,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     overview:
       "A write-heavy system: half of all requests are messages. A single {sql-primary} can't take 5,000 writes a second, so messages go to a partitioned {nosql} store, keyed by conversation. Each message also goes onto an {event-stream}, and push senders notify recipients who are offline.",
     walkthrough: [
-      "Phones keep a connection open to an {app-server}, through the {load-balancer}.",
+      "Phones keep a WebSocket connection open to an {app-server}, through the {load-balancer}. Running these connection servers yourself is what keeps the cost down at this volume.",
       "Sending a message: the app writes it to the {nosql} store, partitioned by conversation ID and sorted by time, then acknowledges to the sender (one tick).",
       "It publishes a message-sent event to the {event-stream}. Recipients connected to an app server get it over their open connection (two ticks).",
       "{serverless} push senders consume the same stream and send a push notification to anyone offline.",
@@ -473,6 +474,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "A second region: overkill here, where the chaos round is a zone and the users aren't spread across continents. It would double the cost of every store. It earns its place once users are worldwide, so a message doesn't cross an ocean on its way to someone in the same city.",
       "Sharding the relational database by conversation works, but you'd be building a partitioned store by hand.",
+      "A managed {realtime-gateway} holding the connections instead of your own servers: less to run, but it's billed per message, about $7,900 a month at 10,000 a second. That takes the design to $17,547 against $10,500, and its extra hop pushes p99 to 322ms. Below a few hundred messages a second, the managed one is the easier choice.",
       "Polling for new messages instead of open connections: simpler, but slower to deliver and far more requests.",
       "Delivering through a {queue}: each message would go to one consumer only, so either the connection servers or the push senders would miss it.",
     ],
@@ -672,6 +674,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Polling a time-indexed table is simple and durable. It's less precise than an in-memory timer wheel, which is faster but has to be rebuilt from the table after a restart.",
     ],
     alternatives: [
+      "A managed {scheduler} instead of your own table of due jobs: it holds the timers and fires each job at a target, with nothing to poll. Check its limits against the brief first. One major provider delivers 1,000 jobs a second by default, exactly this peak with no room for retries, and delays the rest; another caps a region at 5,000 jobs, far short of a million customers' schedules.",
       "A timer wheel in memory: jobs sorted into buckets by second, very cheap to fire, but every scheduler restart reloads the next stretch of jobs from the database.",
       "The queue's own delayed delivery: enqueue each job with a delay. Simple for one-off jobs, but long delays and recurring schedules still need the table.",
       "One cron process on one machine: fine for a handful of jobs, and a single point of failure for a service.",
@@ -901,8 +904,8 @@ export const SOLUTIONS: Record<string, Solution> = {
       "The {sql-primary} is 40% busy on writes, and 80% during the goal.",
       "A provider call takes about 150ms, nearly all waiting, so each worker keeps 100 in flight and sends about 667 a second. Three send 2,000 a second, exactly the provider's quota, and run at 60% at peak.",
       "The goal brings 2,400 notifications a second. 2,000 go out and the line grows by 400 a second; when the burst passes, the spare capacity drains it.",
-      "Calling the provider inside the request instead puts its 600ms p99, and every refusal, on the app's critical path: p99 is 1.8 seconds on a normal day, and when the goal goes in, the 400 sends a second over quota are refused and 7% of requests fail.",
-      "Cost: $1 + about $49 for the {load-balancer} + 9 × $70 + 2 × $400 + about $1,135 for the {queue} + 3 × $120 = $2,975 of $3,250. The provider's own fees are a business cost, not counted here.",
+      "Calling the {push-service} inside the request instead puts its 800ms p99, and every refusal, on the app's critical path: p99 is 2.3 seconds on a normal day, and when the goal goes in, the 400 sends a second over quota are refused and 7% of requests fail.",
+      "Cost: $1 + about $49 for the {load-balancer} + 9 × $70 + 2 × $400 + about $1,135 for the {queue} + 3 × $120 + about $473 for the {push-service} = $3,448 of $3,750. Its quota costs nothing; each message sent does, at about $0.50 a million.",
     ],
     tradeoffs: [
       "A notification can arrive seconds late during a burst. For a goal alert that's fine; for a sign-in code it isn't, so time-critical messages deserve their own queue that bulk alerts can't hold up.",
@@ -910,9 +913,10 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Delivery is at-least-once, so a retry can send a push twice. A notification ID the worker checks before sending keeps duplicates rare, and a collapse key lets the phone show only one.",
     ],
     alternatives: [
-      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
-      "Buying more quota instead of queueing: the provider caps it, and a goal would still overshoot it for a minute. Queueing is cheaper than paying for a peak you hit twice a season.",
+      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. With three shards it passes at $2,388, about $1,060 less, because the queue charges per message at 1,200 a second. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
+      "Raising the quota instead of queueing: providers grant increases on usage you've already shown, one of them a quarter more at a time, so it can't be bought the week before the final. A goal would still overshoot the raised quota for a minute, and queueing costs nothing extra.",
       "{serverless} senders: they scale per message with nothing to run, but every one still counts against the same quota, so you still need the queue to pace them.",
+      "A {cache} in front of the {sql-primary} passes too, at $3,748, and buys nothing: each user reads their own inbox, so few reads repeat, and p99 goes from about 183ms to 186ms.",
     ],
   },
   typeahead: {

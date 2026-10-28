@@ -55,6 +55,7 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
   "load-balancer": ["rateLimit", "alerts"],
   "api-gateway": ["auth", "rateLimit", "alerts"],
   "rate-limiter": ["rateLimit", "alerts"],
+  "realtime-gateway": ["rateLimit", "alerts"],
   "app-server": [
     "auth",
     "rateLimit",
@@ -82,6 +83,7 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
   "data-warehouse": ["encrypted", "alerts"],
   queue: ["dlq", "alerts"],
   "event-stream": ["alerts"],
+  pubsub: ["alerts"],
 }
 
 const REQUEST_TIERS: ComponentKind[] = ["app-server", "serverless"]

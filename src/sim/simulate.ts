@@ -474,6 +474,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
     }),
   )
   const visits = new Map<string, number>()
+  let cacheHits = 0
   // Workers pace what's behind them: anything beyond their throughput waits
   // in the queue in front, rather than reaching the next component.
   const workerPassed = new Map<string, number>()
@@ -497,6 +498,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
     // A dead cache is a cold cache: everything falls through to what's behind it.
     if (CATALOGUE[c.kind].caches && (alive.get(c.id) ?? 0) > 0) {
       const hits = next.flow.cacheable * CACHE_HIT_EFFICIENCY
+      cacheHits += hits
       out = {
         reads: next.flow.reads - hits,
         writes: next.flow.writes,
@@ -700,6 +702,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
         }, 0),
     ),
     backlogGrowthRps: backlog,
+    cacheHitRps: cacheHits,
     connected,
   }
 }

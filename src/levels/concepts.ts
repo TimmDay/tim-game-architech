@@ -69,6 +69,7 @@ export type ConceptId =
   | "alerting"
   | "simplest-design"
   | "stateless-tokens"
+  | "vector-search"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
   "simplest-design": {
@@ -106,6 +107,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "At sign-in, the {auth-service} gives the user a short-lived access token, signed with its private key, and a longer-lived refresh token. Each server checks the signature with the matching public key, which it fetches once and caches, so ordinary requests never call the {auth-service}. The price is revocation: a stolen access token works until it expires. So access tokens live minutes to an hour, and the refresh is where a signed-out or banned user is caught.",
     interview:
       "Say what the token holds (who, their roles, when it expires), who checks it (every service, on its own), and how long it lives. Then say how you'd cut someone off right now: short expiry, and a small deny list in a {cache} for emergencies.",
+  },
+  "vector-search": {
+    title: "Vector search",
+    body: "An embedding model turns text into a list of numbers, a vector, so that passages with similar meaning get vectors close together. A {vector-db} indexes them and finds the nearest ones to a question's vector, approximately, in tens of milliseconds. Embedding is a model call, so new content is embedded in the background, and the question itself is embedded when it's asked. Keyword search still wins for exact terms: error codes, product names, part numbers.",
+    interview:
+      "Say how content gets in (split into passages, embedded by a {worker}, written with its source ID), how a question is answered (embed, find the nearest passages, filter by product or permissions), and what happens when you change the model: everything is embedded again.",
   },
   "rate-limiting": {
     title: "Rate limiting",

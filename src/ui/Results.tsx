@@ -49,6 +49,18 @@ function checkLabel(
           ))}
         </>
       )
+    case "reads":
+      return (
+        <>
+          Every read a cache doesn't answer reaches{" "}
+          {(t.readsReach ?? []).map((k, i) => (
+            <span key={k}>
+              {i > 0 && " or "}
+              <Rich text={`{${k}}`} provider={provider} />
+            </span>
+          ))}
+        </>
+      )
     case "apart":
       return `Each shard holds ${t.keepApart?.what ?? "one group's records"} (at least ${t.keepApart?.minShards ?? 1} shards, split to keep them apart)`
     case "backlog":

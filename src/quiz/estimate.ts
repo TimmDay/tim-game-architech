@@ -39,6 +39,35 @@ const talk = (
 ): EstimateCard => ({ kind: "talk", prompt, points, followUp })
 
 export const ESTIMATES: Record<string, EstimateCard[]> = {
+  "ask-the-docs": [
+    mc(
+      "200,000 help articles, each split into about 30 passages. How many vectors does the {vector-db} hold?",
+      "About 6 million",
+      ["About 200,000", "About 600,000", "About 60 million"],
+      "One vector per passage: 200,000 × 30. Counting articles instead of passages gives 200,000.",
+    ),
+    mc(
+      "Each vector is 1,024 numbers of 4 bytes. Roughly how much memory do 6 million take?",
+      "About 25 GB",
+      ["About 2.5 GB", "About 250 GB", "About 25 MB"],
+      "1,024 × 4 is about 4 KB a vector, and 6 million × 4 KB is about 25 GB, before the index's own overhead.",
+    ),
+    mc(
+      "1,960 questions a second. 40% repeat a popular one, and the {cache} answers 95% of those. How many reach the {vector-db}?",
+      "About 1,215 a second",
+      ["About 1,176 a second", "About 784 a second", "About 1,960 a second"],
+      "1,960 × 0.4 × 0.95 is about 745 answered, leaving 1,215. Forgetting the 95% gives 1,176; 784 is the share that repeats.",
+    ),
+    talk(
+      "You switch embedding models. How long does embedding all 200,000 articles again take?",
+      [
+        "One batched call per article: 200,000 calls.",
+        "At the model's quota of 100 calls a second, about 2,000 seconds: half an hour, if nothing else needs the quota.",
+        "New edits share the quota, so run it at a lower rate over a few hours, into a new index.",
+      ],
+      "What does it cost, if the model is billed per word?",
+    ),
+  ],
   "clinic-records": [
     mc(
       "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",

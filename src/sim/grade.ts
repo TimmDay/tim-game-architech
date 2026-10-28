@@ -25,6 +25,11 @@ export type Targets = {
   /** Each sink must receive (nearly) every write. */
   writesReach: WriteSink[]
   /**
+   * Reads no cache answers must reach one of these: a help centre's questions
+   * need the {vector-db}, not a {cache} with nothing behind it.
+   */
+  readsReach?: ComponentKind[]
+  /**
    * Groups whose records must never share a shard (each country's patients,
    * say). Every store taking writes must be split by one of `keys`, into at
    * least `minShards` shards: one per group. This checks how the data is
@@ -117,6 +122,7 @@ export type Check = {
     | "latency"
     | "budget"
     | "writes"
+    | "reads"
     | "apart"
     | "backlog"
     | "availability"
@@ -165,6 +171,28 @@ export function writesAt(
   return best
 }
 
+/** Reads arriving at the best-fed component of these kinds. */
+export function readsAt(
+  graph: Graph,
+  result: SimResult,
+  kinds: ComponentKind[],
+) {
+  let best = 0
+  for (const c of graph.components)
+    if (kinds.includes(c.kind))
+      best = Math.max(best, result.perComponent[c.id]?.readRps ?? 0)
+  return best
+}
+
+/** Reads no cache answered, which something behind it must. */
+export function unansweredReads(load: LoadProfile, result: SimResult) {
+  const typed = (load.traffic ?? [])
+    .filter((t) => t.of === "reads")
+    .reduce((s, t) => s + t.share, 0)
+  const reads = result.offeredRps * load.readFraction * (1 - typed)
+  return Math.max(0, reads - result.cacheHitRps)
+}
+
 /** Errors under chaos get a little slack: degraded is fine, down is not. */
 export const CHAOS_ERROR_BUDGET = 0.01
 
@@ -209,6 +237,15 @@ export function grade(
             (k) => writesAt(graph, peak, k) >= allWrites * t.share * 0.99,
           ),
         ),
+      star: 1,
+    })
+  }
+  if (targets.readsReach?.length) {
+    checks.push({
+      id: "reads",
+      pass:
+        readsAt(graph, peak, targets.readsReach) >=
+        unansweredReads(load, peak) * 0.99,
       star: 1,
     })
   }

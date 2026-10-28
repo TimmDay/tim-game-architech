@@ -49,6 +49,37 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Your own servers can relay sign-ins to the provider, so the browser only ever talks to your domain. That works in real life; this level only models users signing in with the provider directly.",
     ],
   },
+  "ask-the-docs": {
+    overview:
+      "Questions are answered by finding the passages closest in meaning in a {vector-db}, with a {cache} in front for the questions everyone asks. Articles are embedded in the background: the app puts each new or edited article on a {queue}, and {worker} instances call the embedding model and write the passages' vectors. Nobody waits two seconds for a model, and the {vector-db}'s per-query bill only pays for questions the {cache} hasn't seen.",
+    walkthrough: [
+      "A question: {load-balancer} → {app-server}. The app tidies it (case, spacing) and looks it up in the {cache}. About 40% of questions repeat a popular one word for word, and come straight back.",
+      "Otherwise the app embeds the question, a quick call for a few words that isn't modelled here, and asks the {vector-db} for the nearest passages, filtered to the customer's product. It returns them with links to their articles, and caches the answer for an hour.",
+      "An edited article: the app puts a message on the {queue}. A {worker} splits the article into passages, sends them to the embedding model ({third-party-api}) in one batch, and writes each passage's vector with the article's ID.",
+      "Edits replace that article's old passages, and drop cached answers that link to it.",
+    ],
+    numbers: [
+      "2,000 requests a second: 1,960 questions and 40 new or edited articles.",
+      "The {cache} answers about 745 questions a second, so the {vector-db} gets 1,215. Three units run at 41%, with a p99 of about 252ms; two would run at 61%, push p99 to about 527ms, and reach 122% in the spike.",
+      "Without the {cache}, all 1,960 questions are billed: about $3,876 a month in query fees, $4,694 in all, and p99 is about 574ms.",
+      "Embedding while the author waits adds two seconds to every save, and p99 reaches about 5.1s.",
+      "Embedding is mostly waiting on the model, so each {worker} keeps about 100 articles in flight: 50 a second. Two run at 40%, 80% in the spike. One would pass at 80%, but falls behind in the spike, and if it dies nothing new becomes searchable.",
+      "Five {app-server} instances run at 40%, 80% in the spike; four would sit at exactly 100%.",
+      "Cost: about $41 for the {load-balancer} + 5 × $70 + 2 × $150 for the {cache} + $2,551 for the {vector-db} (3 × $50 + $2,401 in query fees) + $38 for the {queue} + 2 × $120 = $3,520 of $3,600.",
+    ],
+    tradeoffs: [
+      "Nearest-neighbour search is approximate: it trades a little recall for speed. Measure it against a set of questions with known right answers.",
+      "Changing the embedding model means embedding every passage again, and old and new vectors can't be mixed. Build the new index alongside, then switch.",
+      "An edited article is searchable a few seconds later, not at once.",
+      "Caching by exact wording only catches word-for-word repeats. 'Reset password' and 'forgot my password' are two entries.",
+    ],
+    alternatives: [
+      "Vector search misses exact terms: an error code, a product name. Hybrid search runs a keyword {search-index} alongside and merges the two lists, which is what most production systems do.",
+      "A vector extension in a {sql-primary} you already run is simpler for thousands of articles. At millions of passages and thousands of questions a second, a dedicated store pays off.",
+      "Caching by meaning (a question whose vector is very close to a cached one gets that answer) catches more repeats, at the risk of answering a slightly different question.",
+      "Handing the top passages to a language model to write an answer is the usual next step. It adds seconds and a per-call cost, so it's often streamed, or offered as a button.",
+    ],
+  },
   "clinic-records": {
     overview:
       "Writes are twice what one {sql-primary} takes, so the data is sharded, but the rule matters more than the load: no shard may hold two countries' records. The key is the country, then the clinic, and clinics are placed by a lookup table so each shard belongs to one country. The biggest country gets two shards and the other four get one each: six in all.",

@@ -4,6 +4,13 @@ import type { ComponentKind, Consistency, Graph, Practices } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import { CLIENT_TILE } from "~/levels"
 
+/** Longest note, in characters. */
+export const NOTE_MAX = 280
+
+/** A fresh note id, unique on this board. */
+export const nextNoteId = (g: Graph) =>
+  `note-${1 + Math.max(0, ...(g.notes ?? []).map((n) => Number(n.id.slice(5)) || 0))}`
+
 /** Board size in tiles. */
 export const COLS = 12
 export const ROWS = 9
@@ -17,7 +24,14 @@ export type Action =
   /** What a connection carries. Unset or empty: inferred from its ends. */
   | { type: "set-edge"; id: string; carries?: string[] }
   | ({ type: "set"; id: string } & Settings)
+  /** Replaces the design. The player's notes stay: they're their working. */
   | { type: "reset"; graph: Graph }
+  | { type: "add-note"; id: string; x: number; y: number }
+  | { type: "move-note"; id: string; x: number; y: number }
+  /** Empty text deletes the note. */
+  | { type: "set-note"; id: string; text: string }
+  | { type: "remove-note"; id: string }
+  | { type: "clear-notes" }
 
 /** What the sidebar can change on a component. */
 export type Settings = {
@@ -127,6 +141,31 @@ export function edit(g: Graph, a: Action): Graph {
         }),
       }
     case "reset":
-      return a.graph
+      return g.notes?.length ? { ...a.graph, notes: g.notes } : a.graph
+    case "add-note":
+      return {
+        ...g,
+        notes: [...(g.notes ?? []), { id: a.id, x: a.x, y: a.y, text: "" }],
+      }
+    case "move-note":
+      return {
+        ...g,
+        notes: g.notes?.map((n) =>
+          n.id === a.id ? { ...n, x: a.x, y: a.y } : n,
+        ),
+      }
+    case "set-note": {
+      const text = a.text.trim().slice(0, NOTE_MAX)
+      return {
+        ...g,
+        notes: text
+          ? g.notes?.map((n) => (n.id === a.id ? { ...n, text } : n))
+          : g.notes?.filter((n) => n.id !== a.id),
+      }
+    }
+    case "remove-note":
+      return { ...g, notes: g.notes?.filter((n) => n.id !== a.id) }
+    case "clear-notes":
+      return { components: g.components, edges: g.edges, client: g.client }
   }
 }

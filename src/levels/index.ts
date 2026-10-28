@@ -582,6 +582,7 @@ const LATER_BUILD: Level[] = [
       availability: 0.999,
       budgetUsd: 45_000,
       writesReach: ["sql-primary", "object-store"],
+      jobsReach: ["doc-ai"],
       noBacklog: true,
       stakes: { signedIn: true, personalData: true, money: false, abuse: true },
     },
@@ -2187,7 +2188,7 @@ const CLASSICS: Level[] = [
       maxErrorRate: 0.001,
       availability: 0.999,
       budgetUsd: 9_000,
-      writesReach: ["data-warehouse"],
+      writesReach: ["data-warehouse", "durable"],
       noBacklog: true,
       stakes: {
         signedIn: false,
@@ -2613,6 +2614,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 3_600,
       writesReach: ["vector-db"],
       readsReach: ["vector-db"],
+      jobsReach: ["third-party-api"],
       noBacklog: "peak",
       stakes: {
         signedIn: false,

@@ -1,5 +1,6 @@
 import {
   CATALOGUE,
+  consumerJobsPerSecond,
   DEFAULT_JOB,
   inlineJobCost,
   inlineJobMs,
@@ -174,8 +175,38 @@ export const AGGREGATORS = new Set<ComponentKind>([
   "stream-processor",
 ])
 
+/**
+ * A request tier fed only by queues or streams, in a level with slow jobs:
+ * it's doing the jobs, the way a {worker} would.
+ */
+export function consumesJobs(
+  graph: Graph,
+  c: PlacedComponent,
+  load: LoadProfile,
+): boolean {
+  if (!REQUEST_TIERS.has(c.kind) || load.heavyWriteFraction <= 0) return false
+  const into = graph.edges.filter((e) => e.to === c.id)
+  return (
+    into.length > 0 &&
+    into.every((e) => {
+      const from = graph.components.find((x) => x.id === e.from)
+      return from !== undefined && CATALOGUE[from.kind].async
+    })
+  )
+}
+
 export function doesHeavyWorkInline(graph: Graph, c: PlacedComponent): boolean {
   if (!REQUEST_TIERS.has(c.kind)) return false
+  // Fed only by queues, nobody is waiting on it: see consumesJobs.
+  const into = graph.edges.filter((e) => e.to === c.id)
+  if (
+    into.length > 0 &&
+    into.every((e) => {
+      const from = graph.components.find((x) => x.id === e.from)
+      return from !== undefined && CATALOGUE[from.kind].async
+    })
+  )
+    return false
   return !graph.edges.some((e) => {
     if (e.from !== c.id) return false
     const to = graph.components.find((t) => t.id === e.to)
@@ -647,13 +678,20 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
       (inline ? 1 + load.heavyWriteFraction * (inlineJobCost(load) - 1) : 1) +
       (relays ? relay.writes : 0)
     const readCost = 1 + (relays ? relay.reads : 0)
-    // A worker's throughput depends on the job this level gives it.
-    const perUnit =
+    // A worker's throughput depends on the job this level gives it, and so
+    // does a request tier's when it takes those jobs from a queue.
+    const jobsPerUnit =
       c.kind === "worker"
-        ? {
-            readRps: workerJobsPerSecond(load),
-            writeRps: workerJobsPerSecond(load),
-          }
+        ? workerJobsPerSecond(load)
+        : relays && consumesJobs(graph, c, load)
+          ? Math.min(
+              spec.capacity.writeRps,
+              consumerJobsPerSecond(c.kind, load),
+            )
+          : undefined
+    const perUnit =
+      jobsPerUnit !== undefined
+        ? { readRps: jobsPerUnit, writeRps: jobsPerUnit }
         : spec.capacity
     const readCap = (perUnit.readRps * units) / readCost
     const writeCap = (perUnit.writeRps * units) / writeCost

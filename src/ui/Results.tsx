@@ -29,6 +29,20 @@ function checkLabel(
   switch (c.id) {
     case "traffic":
       return `Errors at peak ${pct(g.peak.errorRate, 2)} (≤ ${pct(t.maxErrorRate, 1)})`
+    case "structure":
+      return "Every part has what it needs in front of it: a load balancer, code before a store, a worker after a queue"
+    case "jobs":
+      return (
+        <>
+          Every slow job reaches{" "}
+          {(t.jobsReach ?? []).map((k, i) => (
+            <span key={k}>
+              {i > 0 && " or "}
+              <Rich text={`{${k}}`} provider={provider} />
+            </span>
+          ))}
+        </>
+      )
     case "latency":
       return `p99 ${ms(g.peak.p99Ms)} (≤ ${ms(t.p99Ms)})`
     case "budget":

@@ -573,7 +573,7 @@ describe("the interview classics' traps", () => {
       ...l.reference,
       edges: l.reference.edges.filter((e) => e.id !== "answers>vectors"),
     }
-    expect(failed(l, g)).toEqual(["reads"])
+    expect(failed(l, g)).toContain("reads")
   })
 
   it("order placed: one shared queue gives each team a third of the orders", () => {
@@ -583,7 +583,7 @@ describe("the interview classics' traps", () => {
       ["orders", "q-stock"],
       ["app>q-email", "q-email>stock", "q-email>dw"],
     )
-    expect(failed(l, g)).toEqual(["writes"])
+    expect(failed(l, g)).toContain("writes")
   })
 
   it("order placed: sending the email inside the checkout puts the provider on every order", () => {

@@ -2,6 +2,7 @@ import type { ConceptId } from "~/levels/concepts"
 import { CATALOGUE, inlineJobMs, SATURATION_WARN } from "./catalogue"
 import {
   DURABLE_KINDS,
+  jobsDone,
   MAJORITY_SERVES,
   mixedStores,
   overkillUsed,
@@ -30,6 +31,7 @@ import type {
   SimResult,
 } from "./types"
 import { CLIENT_ID } from "./types"
+import { structureProblems } from "./structure"
 import {
   floodLimitPoints,
   missingPractices,
@@ -170,6 +172,9 @@ export function findings(
       },
     ]
   }
+
+  for (const p of structureProblems(graph, load, peak))
+    out.push({ severity: "error", ...p })
 
   const asyncSet = behindAsync(graph, load)
   const reachable = new Set<string>([...asyncSet])
@@ -379,6 +384,26 @@ export function findings(
         severity: "error",
         concept: "cache-aside",
         text: `Only ${rps(got)} of the ${rps(want)} reads no cache answers reach ${targets.readsReach.map((k) => `{${k}}`).join(" or ")}. A {cache} only knows what it was given: put the store behind it.`,
+      })
+  }
+
+  const jobs = expectedWrites * load.heavyWriteFraction
+  const done = jobsDone(graph, peak, load)
+  if (targets && jobs > 0 && done < jobs * 0.99)
+    out.push({
+      severity: "error",
+      concept: "async-processing",
+      text: `Only ${rps(done)} of ${rps(jobs)} ${load.heavyWriteFraction < 1 ? "slow jobs" : "jobs"} are done by anything. Whatever does them (an {app-server} while the user waits, or a {worker} behind a {queue}) has to receive them.`,
+    })
+  if (targets?.jobsReach?.length) {
+    const got = Math.max(
+      ...targets.jobsReach.map((k) => writesAt(graph, peak, k)),
+    )
+    if (got < jobs * 0.99)
+      out.push({
+        severity: "error",
+        concept: "async-processing",
+        text: `Only ${rps(got)} of ${rps(jobs)} ${load.heavyWriteFraction < 1 ? "slow jobs" : "jobs"} reach ${targets.jobsReach.map((k) => `{${k}}`).join(" or ")}, which has to do them.`,
       })
   }
 

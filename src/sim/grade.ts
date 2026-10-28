@@ -1,5 +1,13 @@
 import { expectedPractices, missingPractices, type Stakes } from "./practices"
-import { AGGREGATORS, partitionKeyOf, shardsOf, simulate } from "./simulate"
+import {
+  AGGREGATORS,
+  doesHeavyWorkInline,
+  partitionKeyOf,
+  shardsOf,
+  simulate,
+} from "./simulate"
+import { CATALOGUE } from "./catalogue"
+import { structureProblems } from "./structure"
 import type {
   ComponentKind,
   Fault,
@@ -32,6 +40,11 @@ export type Targets = {
    * need the {vector-db}, not a {cache} with nothing behind it.
    */
   readsReach?: ComponentKind[]
+  /**
+   * The level's slow jobs (its heavy share of writes) must reach one of
+   * these: every receipt photo goes through the OCR.
+   */
+  jobsReach?: ComponentKind[]
   /**
    * Groups whose records must never share a shard (each country's patients,
    * say). Every store taking writes must be split by one of `keys`, into at
@@ -122,11 +135,13 @@ export const MAJORITY_SERVES = 0.5
 export type Check = {
   id:
     | "traffic"
+    | "structure"
     | "latency"
     | "budget"
     | "writes"
     | "reads"
     | "once"
+    | "jobs"
     | "apart"
     | "backlog"
     | "availability"
@@ -183,6 +198,38 @@ export function onceEach(load: LoadProfile, result: SimResult): boolean {
   return got >= t.rps * 0.99 && got <= t.rps * 1.01
 }
 
+/**
+ * Slow jobs something actually does: a request tier doing them inline, or
+ * the first code after a queue or stream. Writes that only land in a store
+ * are jobs nobody did.
+ */
+export function jobsDone(
+  graph: Graph,
+  result: SimResult,
+  load: LoadProfile,
+): number {
+  let done = 0
+  for (const c of graph.components) {
+    const w = result.perComponent[c.id]?.writeRps ?? 0
+    if (w <= 0) continue
+    if (doesHeavyWorkInline(graph, c)) {
+      done += w * load.heavyWriteFraction
+      continue
+    }
+    const consumer =
+      CATALOGUE[c.kind].category === "compute" &&
+      graph.edges.some(
+        (e) =>
+          e.to === c.id &&
+          graph.components.some(
+            (q) => q.id === e.from && CATALOGUE[q.kind].async,
+          ),
+      )
+    if (consumer) done += w
+  }
+  return done
+}
+
 /** Reads arriving at the best-fed component of these kinds. */
 export function readsAt(
   graph: Graph,
@@ -230,6 +277,11 @@ export function grade(
       star: 1,
     },
     {
+      id: "structure",
+      pass: structureProblems(graph, load, peak).length === 0,
+      star: 1,
+    },
+    {
       id: "latency",
       pass: peak.connected && peak.p99Ms <= targets.p99Ms,
       star: 1,
@@ -265,6 +317,19 @@ export function grade(
       pass:
         readsAt(graph, peak, targets.readsReach) >=
         unansweredReads(load, peak) * 0.99,
+      star: 1,
+    })
+  }
+  const jobs = expectedWrites * load.heavyWriteFraction
+  if (jobs > 0) {
+    checks.push({
+      id: "jobs",
+      pass:
+        jobsDone(graph, peak, load) >= jobs * 0.99 &&
+        (!targets.jobsReach?.length ||
+          targets.jobsReach.some(
+            (k) => writesAt(graph, peak, k) >= jobs * 0.99,
+          )),
       star: 1,
     })
   }

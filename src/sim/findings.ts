@@ -295,6 +295,18 @@ export function findings(
         text: `Only ${rps(got)} of ${rps(expectedWrites)} writes reach ${label}. The rest are lost.`,
       })
     }
+    // Typed writes (sign-ins, file chunks) have stores of their own.
+    for (const t of load.traffic ?? []) {
+      if (t.of !== "writes") continue
+      const want = peak.offeredRps * (1 - load.readFraction) * t.share
+      const got = Math.max(...t.to.map((k) => writesAt(graph, peak, k)))
+      if (got >= want * 0.99) continue
+      out.push({
+        severity: "error",
+        concept: "signed-urls",
+        text: `Only ${rps(got)} of ${rps(want)} ${t.label.toLowerCase()} reach ${t.to.map((k) => `{${k}}`).join(" or ")}. Connect Users to it, and set that connection to carry them.`,
+      })
+    }
   }
 
   if (targets?.keepApart) {

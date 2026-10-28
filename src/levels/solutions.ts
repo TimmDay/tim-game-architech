@@ -18,6 +18,37 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "token-check": {
+    overview:
+      "The {auth-service} signs people in, and nothing else. Users sign in with it directly and get a signed access token, valid for an hour. Every {app-server} checks that token's signature itself, with the provider's public key, so ordinary requests never call the provider. It sees 200 calls a second instead of 6,000, and a slow evening there only slows sign-ins.",
+    walkthrough: [
+      "Signing in: the app sends the student to the {auth-service}'s sign-in page, or talks to it through the provider's client library. Passwords never touch your servers.",
+      "The {auth-service} returns a signed access token that says who this is, their role (student or teacher) and when it expires, plus a refresh token.",
+      "Every request: {load-balancer} → {app-server}, with the token in a header. The app checks the signature and the expiry, using the public key it fetched once and keeps in memory, then checks the record belongs to this student or their class.",
+      "Before the hour is up, the client trades its refresh token for a new access token. That's where a signed-out or suspended account is caught.",
+    ],
+    numbers: [
+      "6,000 requests a second: 5,100 reads, 700 homework submissions, and 200 sign-ins and token refreshes.",
+      "Checking each request with the {auth-service} sends it all 6,000: 1,200% of the 500 a second quota, and 92% of requests fail. Even the 120 a second some providers allow by default would be far too few for sign-ins alone.",
+      "Sign-ins and refreshes only: 200 a second, 40% of the quota, with a p99 of about 250ms for a sign-in.",
+      "Ten {app-server} instances run at 58%, with p99 about 261ms. Nine pass too, at 64% and about 295ms, with less room for a busy night.",
+      "The {sql-primary} runs at 51% on reads and well under its write limit. A standby in a second zone keeps it up through a zone failure.",
+      "When the provider slows by three seconds, sign-ins take three seconds and every other request is untouched: no errors. Calling it per request, every request waits, and all of them fail.",
+      "Cost: about $71 for the {load-balancer} + 10 × $70 + 2 × $400 = $1,571 of $1,800. The {auth-service} is billed per monthly active user, which isn't modelled here.",
+    ],
+    tradeoffs: [
+      "A stolen access token works until it expires. An hour is a common compromise; a deny list in a {cache}, checked on each request, can cut off an account at once in an emergency.",
+      "Shorter tokens mean more refreshes. With 360,000 people signed in, one-hour tokens are 100 refreshes a second; five-minute tokens would be 1,200, more than twice the quota.",
+      "When the provider rotates its signing key, servers must fetch the new public key. Cache it with a short lifetime, and fetch again when a token names a key you don't have.",
+      "If the provider is down, nobody new can sign in, but everyone already signed in carries on until their token expires.",
+    ],
+    alternatives: [
+      "Asking the {auth-service} about every request (token introspection) lets you revoke a token instantly, but puts the provider's quota, latency and outages on every request. Caching each answer for a minute brings the calls down, and brings back up to a minute of revocation delay.",
+      "An {api-gateway} can check tokens for you, in one place, before anything reaches the app. Here it would cost about $6,073 a month, against $1,800, and its availability added in series takes the design to 99.888%, short of 99.9%.",
+      "Session cookies stored in a {cache} or database are simpler to revoke, and fine for one web app. Each request then reads the session store, which is one more thing on every path. Tokens suit several services and mobile apps.",
+      "Your own servers can relay sign-ins to the provider, so the browser only ever talks to your domain. That works in real life; this level only models users signing in with the provider directly.",
+    ],
+  },
   "clinic-records": {
     overview:
       "Writes are twice what one {sql-primary} takes, so the data is sharded, but the rule matters more than the load: no shard may hold two countries' records. The key is the country, then the clinic, and clinics are placed by a lookup table so each shard belongs to one country. The biggest country gets two shards and the other four get one each: six in all.",

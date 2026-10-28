@@ -1023,3 +1023,207 @@ export const NOBODY_NOTICED = deck("nobody-noticed", [
     ],
   ],
 ])
+
+export const TOKEN_CHECK = deck("token-check", [
+  [
+    "clarify",
+    "What would you ask about the sign-in provider?",
+    [
+      "What's the quota on sign-ins and token refreshes, and how long does a raise take? One major provider starts at 120 a second.",
+      "Does it issue signed tokens your servers can check on their own, and where does it publish the public keys?",
+      "How is it billed: per monthly active user, per sign-in, or flat?",
+    ],
+    "If the quota can't be raised before term starts, what do you change?",
+  ],
+  [
+    "clarify",
+    "How many people are signed in at the busiest time, and for how long?",
+    [
+      "Signed-in people and token lifetime decide the refresh rate: 360,000 people with one-hour tokens is 100 refreshes a second.",
+      "Sign-ins cluster at the start of the evening and of each lesson.",
+      "Requests per signed-in person decide the API load, which is a separate number.",
+    ],
+  ],
+  [
+    "clarify",
+    "How fast must a removed user lose access?",
+    [
+      "A student who leaves the school: by tomorrow is fine. A stolen account: within minutes.",
+      "That number sets the access token's lifetime, or says you need a deny list.",
+      "Ask who removes users: the school's admin, or a sync from its records.",
+    ],
+  ],
+  [
+    "product",
+    "What does a student see when their token expires mid-homework?",
+    [
+      "Nothing: the app refreshes it in the background before it expires.",
+      "If the refresh fails, keep their unsent work and ask them to sign in again.",
+      "Never lose a half-written answer to an expired token.",
+    ],
+  ],
+  [
+    "product",
+    "Should students sign in with the school's accounts?",
+    [
+      "Single sign-on (SSO) with the school's identity provider means one less password for children to forget.",
+      "The {auth-service} can federate with it, so tokens look the same either way.",
+      "Some schools won't have one, so keep passwords or email links as a fallback.",
+    ],
+  ],
+  [
+    "decision",
+    "Why can't every request ask the {auth-service} who's calling?",
+    [
+      "That's 6,000 calls a second against a quota of 500: twelve times over.",
+      "It also puts the provider's latency and outages on every request.",
+      "Check a signed token locally instead, and call the provider only to sign in and refresh.",
+    ],
+    "What do you lose by not asking it each time?",
+  ],
+  [
+    "decision",
+    "How does an {app-server} check a token without calling anyone?",
+    [
+      "The token is signed with the provider's private key. The server checks the signature with the public key.",
+      "It also checks the expiry, the issuer and that the token was meant for this app.",
+      "The public key is fetched once and kept in memory, refreshed now and then.",
+    ],
+  ],
+  [
+    "decision",
+    "What goes in the access token?",
+    [
+      "Who the user is, their role and school, when it was issued and when it expires.",
+      "Nothing secret: the token is signed, not encrypted, so anyone holding it can read it.",
+      "Not whole permission lists that change often: they'd be out of date until the next refresh.",
+    ],
+  ],
+  [
+    "decision",
+    "Why do users sign in with the provider directly?",
+    [
+      "Passwords never reach your servers, so they can't leak from your logs.",
+      "The provider handles the sign-in page, second factors and password resets.",
+      "Your servers only ever see tokens.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How long should an access token live?",
+    [
+      "Short limits how long a stolen token works.",
+      "Short also means more refreshes: five-minute tokens would be 1,200 a second here, more than twice the quota.",
+      "An hour is a common middle ground, with a deny list for emergencies.",
+    ],
+    "Where would you keep the deny list, and what if it's unreachable?",
+  ],
+  [
+    "tradeoff",
+    "Signed tokens or sessions in a store?",
+    [
+      "Sessions in a {cache} are easy to revoke, but every request reads the store.",
+      "Signed tokens need no lookup, but can't be taken back before they expire.",
+      "One web app: sessions are fine. Several services and mobile apps: tokens.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Check tokens in an {api-gateway} or in the app?",
+    [
+      "A gateway checks once, in one place, before anything reaches the app.",
+      "Here it would cost about $6,073 a month against a $1,800 budget.",
+      "The app still checks that the record belongs to this student, whoever checked the token.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you cache the {auth-service}'s answer for each token?",
+    [
+      "Yes: a minute's cache cuts the calls to one per token per minute.",
+      "Every new token still costs a call, and revocation is up to a minute late again.",
+      "It's what you'd do with opaque tokens the app can't read itself.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you run sign-in yourself instead of using a provider?",
+    [
+      "You'd own password storage, resets, second factors and attack protection.",
+      "No quota but your own servers, and no per-user bill.",
+      "It's a lot of security-critical code. Most teams buy it.",
+    ],
+  ],
+  [
+    "scale",
+    "A new school district joins with 500,000 students. What changes?",
+    [
+      "API traffic grows with the app tier, which scales out as it always has.",
+      "Sign-ins and refreshes grow too: work out whether the quota still fits, and ask for a raise weeks ahead.",
+      "The token check costs the same per request however many users there are.",
+    ],
+  ],
+  [
+    "scale",
+    "Everyone signs in at 9am when the first lesson starts. What then?",
+    [
+      "Sign-ins arrive in a few minutes, not spread over the evening: the quota has to cover that burst.",
+      "Refresh tokens that last the school day keep morning sign-ins to once per student.",
+      "The client should retry a throttled sign-in with backoff, not hammer the button.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A teacher's role changes mid-term. When does the app know?",
+    [
+      "Not until their next token: the old one still says 'teacher' until it expires.",
+      "For changes that must take effect at once, check the role in the database for that action.",
+      "Or force a refresh by revoking their refresh token.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {auth-service} is down for an hour. What still works?",
+    [
+      "Everyone already signed in carries on until their token expires.",
+      "New sign-ins and refreshes fail, so after an hour, people start being signed out.",
+      "Accepting expired tokens for a short grace period is a choice to make in advance, not during the outage.",
+    ],
+  ],
+  [
+    "resilience",
+    "The provider rotates its signing key. What breaks?",
+    [
+      "Tokens signed with the new key fail if servers only know the old one.",
+      "Providers publish both keys for a while; fetch the list again when a token names a key you don't have.",
+      "Rate-limit those fetches, so forged tokens can't make you hammer the provider.",
+    ],
+  ],
+  [
+    "security",
+    "A token is stolen from a student's browser. What limits the damage?",
+    [
+      "A short expiry, and a refresh token that's rotated each time it's used.",
+      "Signing them out everywhere revokes the refresh token, so the thief can't renew.",
+      "Keep tokens out of URLs and logs, where they leak most often.",
+    ],
+  ],
+  [
+    "security",
+    "What must the app check besides the token?",
+    [
+      "That the student may see this record: their own homework, their own class.",
+      "The token proves who; the database decides what.",
+      "Probing other students' IDs is the attack, so test for it.",
+    ],
+  ],
+  [
+    "observability",
+    "What would you watch?",
+    [
+      "Calls to the {auth-service} against the quota, with an alert well before 100%.",
+      "Failed token checks per minute: a spike is an attack, or a key rotation going wrong.",
+      "Sign-in latency and errors at the provider, separate from your API's.",
+    ],
+  ],
+])

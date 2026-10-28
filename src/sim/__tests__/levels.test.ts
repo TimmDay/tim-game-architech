@@ -946,6 +946,48 @@ describe("the production incidents' traps", () => {
     const g = set(l.reference, "render", { alerts: false })
     expect(run(l, g).chaos.backlogGrowthRps).toBe(0)
   })
+
+  /** Every Request Checks with the {auth-service} asked about each request. */
+  const perRequest = (g: Graph): Graph => ({
+    ...g,
+    edges: [
+      ...g.edges.filter((e) => e.to !== "auth"),
+      { id: "app>auth", from: "app", to: "auth" },
+    ],
+  })
+
+  it("every request checks: asking the auth service about each request swamps its quota", () => {
+    const l = level("token-check")
+    const g = perRequest(l.reference)
+    expect(failed(l, g)).toEqual(
+      expect.arrayContaining(["traffic", "latency", "chaos"]),
+    )
+    expect(run(l, g).peak.perComponent.auth?.utilization).toBeCloseTo(12)
+    // The quota is the account's: more instances can't be bought.
+    expect(run(l, size(g, "auth", 10)).peak.errorRate).toBeGreaterThan(0.9)
+  })
+
+  it("every request checks: sign-ins that never reach the auth service are lost", () => {
+    const l = level("token-check")
+    const g = {
+      ...l.reference,
+      edges: l.reference.edges.filter((e) => e.to !== "auth"),
+    }
+    expect(failed(l, g)).toEqual(["writes"])
+    expect(concepts(l, g)).toContain("signed-urls")
+  })
+
+  it("every request checks: a slow provider only slows sign-ins, unless every request waits on it", () => {
+    const l = level("token-check")
+    expect(run(l, l.reference).chaos.errorRate).toBe(0)
+    expect(run(l, perRequest(l.reference)).chaos.errorRate).toBe(1)
+  })
+
+  it("every request checks: without the token check, the probe gets answers", () => {
+    const l = level("token-check")
+    const g = set(l.reference, "app", { auth: false })
+    expect(failed(l, g)).toEqual(["chaos", "practices"])
+  })
 })
 
 describe("step counter's traps", () => {

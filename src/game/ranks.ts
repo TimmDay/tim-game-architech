@@ -34,20 +34,20 @@ export const RANKS: Rank[] = [
   {
     title: "Student Intern",
     quip: "omg I might actually get a job",
-    points: 0.055,
-    stars: 0.08,
+    points: 0.048,
+    stars: 0.07,
   },
   {
     title: "Slopapotamus",
     quip: "Work pays the tokens, I make the memes",
-    points: 0.085,
-    stars: 0.12,
+    points: 0.075,
+    stars: 0.11,
   },
   {
     title: "Junior Engineer",
     quip: "Do I even exist?",
-    points: 0.11,
-    stars: 0.165,
+    points: 0.095,
+    stars: 0.15,
   },
   {
     title: "Engineer",

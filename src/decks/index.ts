@@ -53,6 +53,7 @@ import {
   NOBODY_NOTICED,
   POISON_PILL,
   SLOW_PARTNER,
+  TOKEN_CHECK,
 } from "./ops"
 import { TOPICS } from "./topics"
 import type { DeckCard } from "./types"
@@ -98,6 +99,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "login-flood": LOGIN_FLOOD,
   "bad-migration": BAD_MIGRATION,
   "nobody-noticed": NOBODY_NOTICED,
+  "token-check": TOKEN_CHECK,
   "lost-writes": LOST_WRITES,
   "black-friday": BLACK_FRIDAY,
   "slow-checkout": SLOW_CHECKOUT,

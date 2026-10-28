@@ -2,6 +2,7 @@ import type { ConceptId } from "~/levels/concepts"
 import { CATALOGUE, inlineJobMs, SATURATION_WARN } from "./catalogue"
 import {
   DURABLE_KINDS,
+  jobsDone,
   MAJORITY_SERVES,
   mixedStores,
   overkillUsed,
@@ -386,8 +387,15 @@ export function findings(
       })
   }
 
+  const jobs = expectedWrites * load.heavyWriteFraction
+  const done = jobsDone(graph, peak, load)
+  if (targets && jobs > 0 && done < jobs * 0.99)
+    out.push({
+      severity: "error",
+      concept: "async-processing",
+      text: `Only ${rps(done)} of ${rps(jobs)} ${load.heavyWriteFraction < 1 ? "slow jobs" : "jobs"} are done by anything. Whatever does them (an {app-server} while the user waits, or a {worker} behind a {queue}) has to receive them.`,
+    })
   if (targets?.jobsReach?.length) {
-    const jobs = expectedWrites * load.heavyWriteFraction
     const got = Math.max(
       ...targets.jobsReach.map((k) => writesAt(graph, peak, k)),
     )

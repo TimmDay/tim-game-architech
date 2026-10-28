@@ -155,6 +155,22 @@ describe("a request tier behind a queue", () => {
 })
 
 describe("the service a level depends on", () => {
+  it("poison pill: uploads that only land in a bucket are previews nobody made", () => {
+    const l = levelById("poison-pill")
+    if (!l) throw new Error("missing level")
+    const files = l.reference.components.find((c) => c.kind === "object-store")
+    if (!files) throw new Error("no bucket")
+    const g: Graph = {
+      ...l.reference,
+      edges: [
+        ...l.reference.edges.filter((e) => e.from !== C),
+        { id: `${C}>${files.id}`, from: C, to: files.id },
+      ],
+    }
+    const r = grade(g, l.load, l.targets, l.chaos.faults)
+    expect(r.checks.find((c) => c.id === "jobs")?.pass).toBe(false)
+  })
+
   it("ask the docs: every article must be embedded by the model", () => {
     const l = levelById("ask-the-docs")
     if (!l) throw new Error("missing level")

@@ -899,8 +899,8 @@ export const SOLUTIONS: Record<string, Solution> = {
       "The {sql-primary} is 40% busy on writes, and 80% during the goal.",
       "A provider call takes about 150ms, nearly all waiting, so each worker keeps 100 in flight and sends about 667 a second. Three send 2,000 a second, exactly the provider's quota, and run at 60% at peak.",
       "The goal brings 2,400 notifications a second. 2,000 go out and the line grows by 400 a second; when the burst passes, the spare capacity drains it.",
-      "Calling the provider inside the request instead puts its 600ms p99, and every refusal, on the app's critical path: p99 is 1.8 seconds on a normal day, and when the goal goes in, the 400 sends a second over quota are refused and 7% of requests fail.",
-      "Cost: $1 + about $49 for the {load-balancer} + 9 × $70 + 2 × $400 + about $1,135 for the {queue} + 3 × $120 = $2,975 of $3,250. The provider's own fees are a business cost, not counted here.",
+      "Calling the {push-service} inside the request instead puts its 800ms p99, and every refusal, on the app's critical path: p99 is 2.3 seconds on a normal day, and when the goal goes in, the 400 sends a second over quota are refused and 7% of requests fail.",
+      "Cost: $1 + about $49 for the {load-balancer} + 9 × $70 + 2 × $400 + about $1,135 for the {queue} + 3 × $120 + about $473 for the {push-service} = $3,448 of $3,750. Its quota costs nothing; each message sent does, at about $0.50 a million.",
     ],
     tradeoffs: [
       "A notification can arrive seconds late during a burst. For a goal alert that's fine; for a sign-in code it isn't, so time-critical messages deserve their own queue that bulk alerts can't hold up.",
@@ -908,9 +908,10 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Delivery is at-least-once, so a retry can send a push twice. A notification ID the worker checks before sending keeps duplicates rare, and a collapse key lets the phone show only one.",
     ],
     alternatives: [
-      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
-      "Buying more quota instead of queueing: the provider caps it, and a goal would still overshoot it for a minute. Queueing is cheaper than paying for a peak you hit twice a season.",
+      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. With three shards it passes at $2,388, about $1,060 less, because the queue charges per message at 1,200 a second. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
+      "Raising the quota instead of queueing: providers grant increases on usage you've already shown, one of them a quarter more at a time, so it can't be bought the week before the final. A goal would still overshoot the raised quota for a minute, and queueing costs nothing extra.",
       "{serverless} senders: they scale per message with nothing to run, but every one still counts against the same quota, so you still need the queue to pace them.",
+      "A {cache} in front of the {sql-primary} passes too, at $3,748, and buys nothing: each user reads their own inbox, so few reads repeat, and p99 goes from about 183ms to 186ms.",
     ],
   },
   typeahead: {

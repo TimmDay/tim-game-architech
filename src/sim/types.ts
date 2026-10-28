@@ -208,7 +208,12 @@ export type Graph = {
   edges: Edge[]
   /** Where the Users block sits, once moved. Unset: CLIENT_TILE. Layout only. */
   client?: { x: number; y: number }
+  /** The player's own notes. The engine never reads them. */
+  notes?: Note[]
 }
+
+/** A note on the board, at a free point in board space (not a tile). */
+export type Note = { id: string; x: number; y: number; text: string }
 
 export type LoadProfile = {
   peakRps: number

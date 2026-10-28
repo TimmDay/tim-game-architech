@@ -224,14 +224,18 @@ export function grade(
     },
     { id: "budget", pass: peak.monthlyCostUsd <= targets.budgetUsd, star: 1 },
   ]
-  if (targets.writesReach.length > 0 && expectedWrites > 0) {
+  const ordinary = targets.writesReach.length > 0 && expectedWrites > 0
+  // A level whose writes are all of one type (metric points) checks only those.
+  if (ordinary || (typedWrites.length > 0 && allWrites > 0)) {
     checks.push({
       id: "writes",
       pass:
-        targets.writesReach.every(
-          (s) =>
-            writesAt(graph, peak, s, load.job?.emits) >= expectedWrites * 0.99,
-        ) &&
+        (!ordinary ||
+          targets.writesReach.every(
+            (s) =>
+              writesAt(graph, peak, s, load.job?.emits) >=
+              expectedWrites * 0.99,
+          )) &&
         typedWrites.every((t) =>
           t.to.some(
             (k) => writesAt(graph, peak, k) >= allWrites * t.share * 0.99,

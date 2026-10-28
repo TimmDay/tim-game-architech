@@ -4071,3 +4071,206 @@ export const ORDER_PLACED = deck("order-placed", [
     ],
   ],
 ])
+
+export const SERVER_METRICS = deck("server-metrics", [
+  [
+    "clarify",
+    "What would you ask about the metrics?",
+    [
+      "How many servers, how many metrics each, and how often? That's the point rate: 5,000 × 40 every ten seconds is 20,000 a second.",
+      "What tags does each metric carry, and could any of them have unbounded values?",
+      "Does anyone send their own custom metrics, and who limits them?",
+    ],
+    "If one team wants a tag per customer, what happens to the series count?",
+  ],
+  [
+    "clarify",
+    "How long must the data be kept, and at what detail?",
+    [
+      "Ten-second points for a couple of weeks covers most incident work.",
+      "Capacity planning wants a year or more, but one-minute or hourly rollups will do.",
+      "Retention and rollups decide the storage, more than the point rate does.",
+    ],
+  ],
+  [
+    "clarify",
+    "Who reads the data, and how?",
+    [
+      "Dashboards, refreshed every few seconds by everyone watching an incident.",
+      "Alert rules, evaluated every minute over the last few minutes.",
+      "Occasional big queries: a quarter of data for capacity planning.",
+    ],
+  ],
+  [
+    "product",
+    "What should a dashboard show when a server stops reporting?",
+    [
+      "A gap, not a line drawn to zero, which looks like an outage that didn't happen.",
+      "A clear 'no data' state, and an alert if a whole group goes quiet.",
+      "Silence is often the first sign the server is down.",
+    ],
+  ],
+  [
+    "product",
+    "What makes an alert useful rather than noise?",
+    [
+      "It fires on symptoms users feel (errors, latency), not every busy CPU.",
+      "It waits for a few minutes of bad data, so one spike doesn't page anyone.",
+      "It says what's wrong and links to the dashboard.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a {time-series-db} rather than SQL or {nosql}?",
+    [
+      "One {sql-primary} takes about 3,000 writes a second: 20,000 is 667%.",
+      "{nosql} would need 20 blocks: about $19,000 a month, against $600.",
+      "A time-series store appends, compresses and rolls up points, and reads time ranges fast.",
+    ],
+    "What would make SQL the right answer?",
+  ],
+  [
+    "decision",
+    "Why collectors in front of the store?",
+    [
+      "They batch and check points: allowed names, allowed tags, sane timestamps.",
+      "They drop a tag with unbounded values before it multiplies the series.",
+      "Agents need only collector credentials, not the store's.",
+    ],
+  ],
+  [
+    "decision",
+    "How many collectors, and where?",
+    [
+      "The work is about 1,500 requests a second, so two would do on a normal day.",
+      "A zone outage takes half, so four in two zones: 38% normally, 75% after.",
+      "Monitoring must outlive the outage it's watching.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you keep a year of data affordable?",
+    [
+      "Keep ten-second points for 15 days, then one-minute rollups for a year.",
+      "A one-minute rollup is six times fewer points; hourly is 360 times fewer.",
+      "Store each rollup's minimum, maximum and average, so spikes still show.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How long should raw points be kept?",
+    [
+      "Longer means more detail for investigations that start late.",
+      "Shorter means less storage, and faster queries over the data that's left.",
+      "Ask how far back incident reviews actually look.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Let teams add any tag they like, or limit them?",
+    [
+      "Free tags make metrics more useful: per endpoint, per region, per version.",
+      "Each new value is a new series: a tag per user turns 200,000 series into millions.",
+      "Allow tags with a small, known set of values; put per-user detail in logs or traces.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Agents write to the store directly, or through collectors?",
+    [
+      "Directly is cheaper here, about $913 against $1,071, and one less tier.",
+      "Collectors give you one place to check tags, limit noisy agents and change stores.",
+      "Managed stores offer direct writes; their own limits then do the guarding.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you shard SQL for this?",
+    [
+      "Yes: seven or more shards by series at 20,000 points a second.",
+      "A time-series extension for SQL adds compression and rollups.",
+      "It suits smaller fleets, or teams that want metrics next to their other data.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the agents keep the data and you query them?",
+    [
+      "Pulling from each server on demand avoids a central store.",
+      "A server that's down can't answer, which is exactly when you need its history.",
+      "Central storage is the norm; agents keep a small buffer for when the collectors are unreachable.",
+    ],
+  ],
+  [
+    "scale",
+    "The fleet grows tenfold. What changes?",
+    [
+      "200,000 points a second: the store needs more instances, or shards by series.",
+      "Collectors scale out as they do now.",
+      "Rollups and retention matter more: storage grows with every point you keep.",
+    ],
+  ],
+  [
+    "scale",
+    "Every engineer opens dashboards during an incident. What holds?",
+    [
+      "Reads jump while writes stay steady; the store's reads are the first limit.",
+      "Popular dashboards can be cached for a few seconds, which costs little freshness.",
+      "Put limits on expensive queries, so one quarter-long graph doesn't slow everyone.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A team deploys code that tags every metric with a request ID. What happens?",
+    [
+      "Every request makes new series: millions in an hour, and the store slows for everyone.",
+      "The collectors should drop the tag, or reject the metric, and tell the team.",
+      "Set a series limit per team, and alert when one grows fast.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone goes down. What keeps monitoring working?",
+    [
+      "Collectors in two zones with room to lose one: four at 38%, two at 75% after.",
+      "A managed store spans zones on its own.",
+      "Agents buffer a few minutes of points if they can't reach a collector.",
+    ],
+  ],
+  [
+    "resilience",
+    "The store is down for ten minutes. What's lost?",
+    [
+      "Nothing, if collectors or agents buffer and retry, or an {event-stream} sits in between.",
+      "Alerting is blind meanwhile: alert on the monitoring itself, from somewhere else.",
+      "Late points arrive in a burst when it's back, so leave headroom for catching up.",
+    ],
+  ],
+  [
+    "security",
+    "Who may send points?",
+    [
+      "Only agents with credentials, so nobody can fake a calm graph during an attack.",
+      "Each team's agents write only their own metric names.",
+      "Limit points per agent, so one broken agent can't flood the store.",
+    ],
+  ],
+  [
+    "security",
+    "Can metrics leak anything sensitive?",
+    [
+      "Tags can: a customer's name or email in a tag ends up on every dashboard.",
+      "Keep personal data out of metrics; that's what access-controlled logs are for.",
+      "Dashboards need sign-in: they show traffic, errors and what's deployed.",
+    ],
+  ],
+  [
+    "observability",
+    "How do you monitor the monitoring?",
+    [
+      "Track points received against points expected: a drop means agents or collectors are failing.",
+      "Watch the series count, and alert when it jumps.",
+      "Run a small check from outside, so an outage of the whole system still pages someone.",
+    ],
+  ],
+])

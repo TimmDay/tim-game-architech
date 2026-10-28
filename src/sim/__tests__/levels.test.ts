@@ -626,6 +626,30 @@ describe("the interview classics' traps", () => {
     }
   })
 
+  it("server metrics: one SQL primary can't take the points, and NoSQL breaks the budget", () => {
+    const l = level("server-metrics")
+    const sql = patch(l.reference, "tsdb", {
+      kind: "sql-primary",
+      instances: 2,
+      zones: 2,
+    })
+    expect(failed(l, sql)).toContain("traffic")
+    const kv = patch(l.reference, "tsdb", { kind: "nosql", instances: 20 })
+    expect(failed(l, kv)).toContain("budget")
+  })
+
+  it("server metrics: three collectors can't lose a zone", () => {
+    const l = level("server-metrics")
+    const g = patch(l.reference, "collect", { instances: 3 })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("server metrics: points that never reach a store fail the writes check", () => {
+    const l = level("server-metrics")
+    const g = rewire(l.reference, ["tsdb"])
+    expect(failed(l, g)).toContain("writes")
+  })
+
   it("overkill works, but costs the third star", () => {
     const first = level("first-customers")
     const cached: Graph = {

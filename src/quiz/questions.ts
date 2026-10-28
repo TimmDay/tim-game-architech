@@ -932,6 +932,118 @@ export const QUIZZES: Record<string, Question[]> = {
       18,
     ],
   ]),
+  "server-metrics": q([
+    [
+      "How many series does the fleet make?",
+      "200,000: 5,000 servers × 40 metrics",
+      [
+        "20,000: one per point sent each second",
+        "5,000: one per server, holding all forty of its metrics together in a single row",
+        "1.7 billion: every point sent in a day",
+      ],
+      "A series is one metric on one server. The point rate is the series count divided by ten seconds.",
+      0,
+    ],
+    [
+      "Why not one {sql-primary}?",
+      "20,000 writes a second is about 667% of what it takes",
+      [
+        "SQL can't store timestamps precisely enough for ten-second points",
+        "Its reads would be too slow, though writing the points would be well within its limits",
+        "It would cost far more than the budget, even though it could take the writes",
+      ],
+      "One primary takes about 3,000 writes a second. 81% of requests fail.",
+      5,
+    ],
+    [
+      "What does {nosql} cost for the same points?",
+      "About $19,000 a month for 20 blocks",
+      [
+        "About $600, the same as the time-series store",
+        "Nothing extra: it's billed per request, and points are tiny",
+        "About $1,900 for two blocks, because each block takes 10,000 writes a second",
+      ],
+      "Each block takes about 1,000 writes a second, so 20 blocks, at 100%. The {time-series-db} does it on one instance.",
+      5,
+    ],
+    [
+      "What are the collectors for, besides passing points on?",
+      "Checking tags, so one bad tag can't multiply the series",
+      [
+        "Nothing: they're only there because agents can't reach the store",
+        "Storing the last hour of points, so dashboards never touch the store",
+        "Compressing points, which the store can't do itself",
+      ],
+      "They drop unbounded tags, such as request IDs, before they reach the store. Agents can write directly, at the cost of that guard.",
+      6,
+    ],
+    [
+      "Why four collectors when two carry a normal day?",
+      "A zone outage takes half, and monitoring must outlive it",
+      [
+        "Each collector can only talk to one zone of the store",
+        "Four is the minimum any load balancer will route to",
+        "The store needs one collector for each 5,000 points a second it takes",
+      ],
+      "Four at 38% become two at 75%. With three, the surviving zone has one at 150%, and a third of requests fail.",
+      7,
+    ],
+    [
+      "How do you keep a year of data affordable?",
+      "Keep raw points for two weeks, then rollups",
+      [
+        "Delete everything after a week",
+        "Store every ten-second point for the full year, and buy enough disk to hold all of them",
+        "Sample one server in ten",
+      ],
+      "One-minute rollups are six times fewer points. Keep the maximum too, so spikes still show.",
+      8,
+    ],
+    [
+      "A team wants a tag per customer on every metric. What's the problem?",
+      "Each customer is a new series: millions of them",
+      [
+        "Tags can't contain numbers, and customer IDs usually do, so the store rejects them",
+        "Dashboards can only show ten tags",
+        "Nothing, as long as the points are compressed",
+      ],
+      "Unbounded tag values are what usually breaks a time-series store. Per-customer detail belongs in logs or traces.",
+      10,
+    ],
+    [
+      "Agents write straight to the store. What do you give up?",
+      "One place to check tags and limit noisy agents",
+      [
+        "Nothing, and it costs more",
+        "The ability to read the data back, since managed stores only accept writes from collectors",
+        "Compression",
+      ],
+      "It's about $913 against $1,071 here, and managed stores offer it. Their own limits then do the guarding.",
+      11,
+    ],
+    [
+      "Someone tags every metric with a request ID. What should happen?",
+      "The collectors drop the tag and tell the team",
+      [
+        "The store adapts automatically, merging the new series once they're older than a day",
+        "Nothing until the store slows down",
+        "Dashboards hide the new series",
+      ],
+      "Every request would make a new series, millions in an hour. Set a series limit per team, and alert when it grows fast.",
+      16,
+    ],
+    [
+      "How do you know the monitoring itself has broken?",
+      "Compare points received with points expected, and check from outside",
+      [
+        "The dashboards go blank, and someone notices",
+        "The store alerts on its own failures",
+        "You can't, by design",
+      ],
+      "A drop in points means agents or collectors are failing. An outside check still pages someone if the whole system is down.",
+      21,
+    ],
+  ]),
   "login-flood": q([
     [
       "Where should the rate limit go?",

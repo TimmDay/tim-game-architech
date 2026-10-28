@@ -328,6 +328,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Sharding SQL by user works too. Split users across, say, two {sql-primary} shards by a hash of the user ID, and have the app (or a routing proxy) send each query to its user's shard. Each shard is a full database with its own standby and backups. Growing means moving users between shards; starting with many small logical shards, a few per database, lets you move whole ones instead of re-hashing everyone. It's a lot to run for data that never joins, which is what a {nosql} store does for you. Tenant Split, in CAP trade-offs, has you shard a {sql-primary} yourself: pick the shard count and key, and watch a bad key pile the writes onto one shard.",
       "Batching samples on the wristband (sync every ten minutes instead of five) halves the writes for free, if the product allows it.",
     ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {nosql} store",
+        save: "Without it, at $6,394, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $6,694, and it buys nothing you'd notice. Each user reads only their own days; p99 goes from about 225ms to 228ms, the extra hop.",
+      },
+    ],
   },
   "slow-partner": {
     overview:
@@ -700,6 +708,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Sharding the relational database by conversation works, but you'd be building a partitioned store by hand.",
       "Polling for new messages instead of open connections: simpler, but slower to deliver and far more requests.",
       "Delivering through a {queue}: each message would go to one consumer only, so either the connection servers or the push senders would miss it.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {nosql} store",
+        save: "Without it, at $9,767, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $10,067, and it buys nothing you'd notice. Each conversation's recent messages are read by its own members, so few reads repeat; p99 stays about 282ms.",
+      },
     ],
   },
   "home-timeline": {

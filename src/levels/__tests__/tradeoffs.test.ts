@@ -57,6 +57,8 @@ const OTHER_SIDE: Record<string, (g: Graph) => Graph> = {
   "web-crawler": (g) => cacheBefore(g, "seen"),
   "pay-button": (g) => cacheBefore(g, "ledger"),
   "sync-folder": (g) => cacheBefore(g, "db"),
+  "group-chat": (g) => cacheBefore(g, "kv"),
+  "step-counter": (g) => cacheBefore(g, "steps"),
 }
 
 describe("trade-offs", () => {

@@ -65,7 +65,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Embedding while the author waits adds two seconds to every save, and p99 reaches about 5.1s.",
       "Embedding is mostly waiting on the model, so each {worker} keeps about 100 articles in flight: 50 a second. Two run at 40%, 80% in the spike. One would pass at 80%, but falls behind in the spike, and if it dies nothing new becomes searchable.",
       "Five {app-server} instances run at 40%, 80% in the spike; four would sit at exactly 100%.",
-      "Cost: about $41 for the {load-balancer} + 5 × $70 + 2 × $150 for the {cache} + $2,551 for the {vector-db} (3 × $50 + $2,401 in query fees) + $38 for the {queue} + 2 × $120 = $3,520 of $3,600.",
+      "Cost: about $41 for the {load-balancer} + 5 × $70 + 2 × $150 for the {cache} + $2,558 for the {vector-db} (3 × $50 + $2,408 in query fees) + $38 for the {queue} + 2 × $120 = $3,526 of $3,600.",
     ],
     tradeoffs: [
       "Nearest-neighbour search is approximate: it trades a little recall for speed. Measure it against a set of questions with known right answers.",

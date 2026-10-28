@@ -733,13 +733,13 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "What does the {cache} in front of the {vector-db} save here?",
-      "About $1,475 a month in query fees, for $300 of {cache}",
+      "About $1,470 a month in query fees, for $300 of {cache}",
       [
         "Nothing: the {vector-db} is already as fast as a {cache}",
         "Storage: the {vector-db} no longer needs to keep every passage",
         "The embedding model's calls for new articles, which it batches up overnight",
       ],
-      "It answers 745 questions a second. Query fees drop from about $3,876 to $2,401 a month, and p99 from about 574ms to 397ms.",
+      "It answers 745 questions a second. Query fees drop from about $3,876 to $2,408 a month, and p99 from about 574ms to 397ms.",
       7,
     ],
     [

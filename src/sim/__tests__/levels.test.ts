@@ -47,6 +47,14 @@ describe.each(LEVELS)("$id", (level) => {
     ).toBe(true)
   })
 
+  it("only marks what a line carries where the level offers that choice", () => {
+    // The picker appears only in levels with traffic types: a reference that
+    // needs a marked line elsewhere is one no player can draw.
+    if (!level.load.traffic?.length)
+      for (const e of level.reference.edges)
+        expect(e.carries, e.id).toBeUndefined()
+  })
+
   it("only uses palette components in its reference", () => {
     for (const c of level.reference.components)
       expect(level.palette).toContain(c.kind)

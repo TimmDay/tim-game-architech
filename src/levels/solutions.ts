@@ -73,6 +73,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A database row lock lets every dispatcher share the work with no cluster at all: each one claims a batch of due reminders, skipping rows another has locked. It works whenever the work lives in one database.",
       "Taking a lock from the {coordination} cluster on every request is the classic misuse: every write needs a majority, so it's small and slow to write by design. Locks belong to rare events, like who leads.",
       "Leader election earns its place for work that must run on your own servers, once: assigning shards, one writer for a sequence, the consumer of a feed that mustn't be read twice.",
+      "The leader calling the senders directly, with no {queue} between them, passes at $2,041, $284 less. But a slow text provider then stalls dispatch, and reminders that fall due during an outage pile up in the leader's memory instead of waiting safely in a queue.",
     ],
   },
   "people-you-may-know": {
@@ -101,7 +102,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Ranking by shared connections alone favours people with huge networks. Real systems mix in workplace, school and what members ignore.",
     ],
     alternatives: [
-      "Keeping connections as adjacency lists in a {sql-primary} or {nosql} store passes here too, at $3,421 and $3,571, and several of the largest social networks do it. Two hops is two rounds of lookups, done by the workers, not the home page.",
+      "Keeping connections as adjacency lists in a {sql-primary} or {nosql} store passes here too: $3,021 with one primary, $3,421 with a standby, or $3,571 in {nosql}, and several of the largest social networks do it. Two hops is two rounds of lookups, done by the workers, not the home page.",
       "A batch job over the whole graph every night (a big data job, not a database) works out everyone's suggestions at once, cheaply, but a new connection takes a day to show.",
       "Questions asked live and open-ended, such as 'how am I connected to this person?' three hops out, are where a {graph-db} is hard to beat.",
       "Splitting the graph across machines cuts some paths: partitioning by community keeps most friends together, and the rest are cross-machine hops.",
@@ -169,6 +170,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "An {event-stream} that each team reads at its own pace costs about $4,144 and passes too. It keeps history, so the fourth team can replay last month. But a team reads each partition in order: one event it can't process stalls that partition until you build a way to set it aside.",
       "The checkout writing to each team's {queue} itself doesn't pass here. Analytics needs a third queue and loader of its own, which takes it to about $5,210, just over budget; writing to the {data-warehouse} directly puts it on the checkout's path, and p99 reaches about 80s. It also couples the checkout to every team: a fourth means changing the checkout, and a failure halfway through leaves some teams told and others not.",
       "Change data capture, reading new orders from the {sql-primary}'s log, publishes events without the app's help, and can't miss one. It ties the teams to the table's shape.",
+      "An {event-stream} per team behind the topic, instead of a {queue}, passes at about $4,287: each team can replay its own history, at the cost of in-order reading and its stalls.",
     ],
     tradeOffs: [
       {
@@ -326,6 +328,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Sharding SQL by user works too. Split users across, say, two {sql-primary} shards by a hash of the user ID, and have the app (or a routing proxy) send each query to its user's shard. Each shard is a full database with its own standby and backups. Growing means moving users between shards; starting with many small logical shards, a few per database, lets you move whole ones instead of re-hashing everyone. It's a lot to run for data that never joins, which is what a {nosql} store does for you. Tenant Split, in CAP trade-offs, has you shard a {sql-primary} yourself: pick the shard count and key, and watch a bad key pile the writes onto one shard.",
       "A {time-series-db}, since these are readings over time: here each user is a series of their own, so a million wristbands means a million series. Many time-series stores handle that kind of cardinality worst; they shine on a few thousand series with many points each, like servers' metrics. And every read is one user and one day, which is a key lookup. Use one for the app's own metrics, not for users' steps.",
       "Batching samples on the wristband (sync every ten minutes instead of five) halves the writes for free, if the product allows it.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {nosql} store",
+        save: "Without it, at $6,394, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $6,694, and it buys nothing you'd notice. Each user reads only their own days; p99 goes from about 225ms to 228ms, the extra hop.",
+      },
     ],
   },
   "slow-partner": {
@@ -496,7 +506,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Reading balances from a replica would be cheaper, but it can show money that was just spent. Fine for a statement page, not for the check before a transfer.",
       "Five copies survive two zones failing, but cost more and add latency for a risk the business may not need to cover.",
       "A store that keeps serving, with a rule to undo overdrafts afterwards, is what some card networks do for small amounts: the business accepts a little risk to never decline a coffee.",
-      "A {nosql} store with three copies, set to refuse during a split: also consistent, and cheaper here, but a transfer touches two accounts, so it needs the store's multi-item transactions, which are slower and more limited than a relational database's.",
+      "A {nosql} store with three copies, set to refuse during a split: also consistent, and cheaper here at $1,190 against $1,440, but a transfer touches two accounts, so it needs the store's multi-item transactions, which are slower and more limited than a relational database's.",
     ],
   },
   "full-basket": {
@@ -666,7 +676,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Counter-based codes are unique without a lookup, but sequential codes are guessable. Shuffle or encrypt the counter if links must not be enumerable.",
     ],
     alternatives: [
-      "A {nosql} key-value store in place of the {sql-primary}: it suits the lookup, and scales reads by adding capacity rather than replicas. One block costs $950 a month against $800 for the primary and its standby. The relational database wins on everything around the lookup: listing a customer's links is just a query, a unique constraint protects custom aliases, and the team almost certainly runs one already.",
+      "A {nosql} key-value store in place of the {sql-primary}: it suits the lookup, and scales reads by adding capacity rather than replicas. One block costs $950 a month against $800 for the primary and its standby: $3,674 in all, against $3,524. The relational database wins on everything around the lookup: listing a customer's links is just a query, a unique constraint protects custom aliases, and the team almost certainly runs one already.",
       "Hashing the long URL gives the same code for the same URL, but needs a collision check on every create.",
       "Redirecting from the {cdn}: fast and cheap, but every edge-served redirect is a click you don't count.",
     ],
@@ -701,6 +711,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Polling for new messages instead of open connections: simpler, but slower to deliver and far more requests.",
       "Delivering through a {queue}: each message would go to one consumer only, so either the connection servers or the push senders would miss it.",
     ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {nosql} store",
+        save: "Without it, at $9,767, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $10,067, and it buys nothing you'd notice. Each conversation's recent messages are read by its own members, so few reads repeat; p99 stays about 282ms.",
+      },
+    ],
   },
   "home-timeline": {
     overview:
@@ -728,7 +746,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "Pure fan-out on read: simple, and fine for small apps, but the work repeats on every scroll.",
       "Pure fan-out on write: a celebrity post becomes millions of writes at once and takes minutes to land.",
-      "A {queue} instead of the stream works for fan-out alone, but the stream lets search, notifications and analytics read the same posts.",
+      "A {queue} instead of the stream works for fan-out alone and passes at $9,883, about $660 more here: per-message fees on every post. The stream also lets search, notifications and analytics read the same posts.",
     ],
   },
   "ticket-drop": {
@@ -758,6 +776,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Holding seats in a {cache} is fast, but a cache can lose a hold or disagree with the database. Inventory belongs in the system of record.",
       "Scaling the app tier doesn't help: the limit is the database's writes, not the servers'.",
       "Selling general admission as a counter rather than named seats is far less contended, if the product allows it.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {sql-primary}",
+        save: "Without it, at $6,978, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $7,278, and it buys nothing you'd notice. The primary only takes the workers' holds, which can't be cached; seat reads already come from the replicas. p99 stays about 196ms.",
+      },
     ],
   },
   "video-night": {
@@ -1009,6 +1035,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Relaying everything through the app tier: simpler permissions, but it pays for every byte twice and can't scale here.",
       "Storing small files inline with their metadata in the database: fewer requests for tiny files, at the cost of a bigger database.",
     ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {sql-primary}",
+        save: "Without it, at $10,253, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $10,553, and it buys nothing you'd notice. Each device asks about its own changes, so answers rarely repeat; p99 goes from about 233ms to 236ms.",
+      },
+    ],
   },
   "save-game": {
     overview:
@@ -1099,6 +1133,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A {nosql} ledger scales writes further, but double entry needs both sides of each movement written together, which relational transactions do best.",
       "Reconciling straight from the {sql-primary}: simple, but heavy queries compete with payments. Feeding the warehouse from the event stream keeps them apart.",
     ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {sql-primary}",
+        save: "Without it, at $4,294, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $4,594, and it buys nothing you'd notice. Every ledger write must reach the store, and reads are per payment; p99 stays about 195ms.",
+      },
+    ],
   },
   "web-crawler": {
     overview:
@@ -1127,6 +1169,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A {sql-primary} for the seen set works at first, but it grows by 130 million rows a day, and every lookup is by one key. A partitioned key-value store is built for exactly that.",
       "A Bloom filter in memory in front of the seen set answers 'definitely new' without a lookup, and saves most of the reads for a small chance of skipping a URL that was new.",
       "Revisiting with conditional requests: an unchanged page answers 'not modified' with no body, so recrawling for freshness costs far less than the first fetch.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {nosql}",
+        save: "Without it, at $13,921, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $14,221, and it buys nothing you'd notice. Each URL is checked once, so almost nothing repeats; p99 goes from about 242ms to 245ms.",
+      },
     ],
   },
   "push-alerts": {
@@ -1187,6 +1237,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A trie in each app server's memory: fastest of all, but each server needs a copy, and rebuilding it means a redeploy or a swap.",
       "Prefix queries on a {search-index}: flexible and always fresh, but too slow on every keystroke at this scale.",
       "Only suggesting after three characters cuts load a lot, at the cost of the first keystrokes.",
+      "Keeping each prefix's top ten in a {nosql} store instead of the {cache} passes at $10,198, $650 more. It's durable, so a lost node needs no reload, but it's slower under the news spike: p99 about 504ms against 254ms.",
     ],
     tradeOffs: [
       {
@@ -1225,6 +1276,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "On-device OCR in the mobile app: free per scan and instant, but less accurate on crumpled receipts, and you still need a server path for web uploads.",
       "Batching overnight: cheaper, but users filing on deadline day can't wait until tomorrow.",
     ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {sql-primary}",
+        save: "Without it, at $40,696, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $40,996, and it buys nothing you'd notice. Receipts are mostly written and rarely re-read; p99 stays about 179ms.",
+      },
+    ],
   },
   "plug-finder": {
     overview:
@@ -1253,6 +1312,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Querying the {nosql} store for 'near me' directly: workable with geohash keys, but range queries across cells get fiddly. A search index with geo support does it natively.",
       "Pushing live status to every open app over websockets: fresher, but millions of idle connections cost far more than a 30-second cache for a map that changes every few minutes.",
       "Polling charger operators' APIs: operators can push changes to apps instead (the OCPI protocol supports pushing updates), which is fresher and cheaper than polling.",
+      "A {queue} instead of the {event-stream} feeding the {search-index} passes at $12,389, about $420 more in per-message fees. It's fine with one reader, but the stream lets a second one (a status history, analytics) read the same changes later.",
     ],
     tradeOffs: [
       {
@@ -1363,6 +1423,14 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "{serverless} functions triggered by each upload: no pool to size, but cold starts and per-invocation pricing at 100 a second.",
       "More app servers with inline resizing: the capacity can be bought, but the half-second wait can't be bought off.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {sql-primary}",
+        save: "Without it, at $3,000, with one less thing to run: nothing here repeats enough to be worth caching.",
+        spend:
+          "About $300 a month more, $3,300, and it buys nothing you'd notice. Upload records are written once and read by ID; the database runs at 3%, so p99 goes from about 128ms to 131ms, the extra hop.",
+      },
     ],
   },
   "zone-outage": {

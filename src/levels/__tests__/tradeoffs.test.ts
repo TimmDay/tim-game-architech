@@ -51,6 +51,14 @@ const OTHER_SIDE: Record<string, (g: Graph) => Graph> = {
   "order-placed": (g) => sized(without(g, "cache"), { app: 5 }),
   "video-night": (g) => cacheBefore(g, "videos"),
   typeahead: (g) => sized(without(g, "cdn"), { app: 22 }),
+  "upload-rush": (g) => cacheBefore(g, "db"),
+  "shoebox-receipts": (g) => cacheBefore(g, "db"),
+  "ticket-drop": (g) => cacheBefore(g, "db"),
+  "web-crawler": (g) => cacheBefore(g, "seen"),
+  "pay-button": (g) => cacheBefore(g, "ledger"),
+  "sync-folder": (g) => cacheBefore(g, "db"),
+  "group-chat": (g) => cacheBefore(g, "kv"),
+  "step-counter": (g) => cacheBefore(g, "steps"),
 }
 
 describe("trade-offs", () => {

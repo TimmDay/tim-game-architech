@@ -20,7 +20,7 @@ export type Solution = {
 export const SOLUTIONS: Record<string, Solution> = {
   "order-placed": {
     overview:
-      "The checkout saves the order and publishes one order-placed event to a {pubsub} topic, then answers the shopper. The topic copies the event to each team: a {queue} for the email service, a {queue} for the stock service, and a delivery straight into the {data-warehouse}. Each team works at its own pace, retries on its own and deploys on its own. A slow email provider is the email team's problem alone.",
+      "The checkout saves the order and publishes one order-placed event to a {pubsub}, then answers the shopper. The topic copies the event to each team: a {queue} for the email service, a {queue} for the stock service, and a delivery straight into the {data-warehouse}. Each team works at its own pace, retries on its own and deploys on its own. A slow email provider is the email team's problem alone.",
     walkthrough: [
       "Browsing: {load-balancer} → {app-server} → {cache} → {sql-primary}. Product pages and prices are mostly cached.",
       "Checkout: the app writes the order to the {sql-primary}, publishes 'order placed' with the order's ID and contents, and answers the shopper. An outbox table, written in the same transaction, makes sure the event goes out even if the app dies in between.",

@@ -117,9 +117,9 @@ export const CONCEPTS: Record<ConceptId, Card> = {
   },
   "queue-per-subscriber": {
     title: "A queue per subscriber",
-    body: "A {pubsub} topic pushes each message to every subscriber as it's published. A subscriber that can't take it (busy, deploying, down) fails the delivery, and the provider retries on its own schedule: a minute by default and an hour at most for one major provider's web endpoints, a day for another, a week for a third. After that the message is dropped, or dead-lettered if you set that up. Subscribing a {queue} for each consumer makes the wait yours to choose: each one can fall behind and catch up, scale and fail on its own, with its own dead-letter queue. Publishing is still one call.",
+    body: "A {pubsub} pushes each message to every subscriber as it's published. A subscriber that can't take it (busy, deploying, down) fails the delivery, and the provider retries on its own schedule: a minute by default and an hour at most for one major provider's web endpoints, a day for another, a week for a third. After that the message is dropped, or dead-lettered if you set that up. Subscribing a {queue} for each consumer makes the wait yours to choose: each one can fall behind and catch up, scale and fail on its own, with its own dead-letter queue. Publishing is still one call.",
     interview:
-      "Name the three: a {queue} shares work between copies of one consumer, a {pubsub} topic copies each message to every subscriber, and an {event-stream} keeps a log each reader can replay. Then say the usual fan-out: one topic, a queue per subscriber.",
+      "Name the three: a {queue} shares work between copies of one consumer, a {pubsub} copies each message to every subscriber, and an {event-stream} keeps a log each reader can replay. Then say the usual fan-out: one topic, a queue per subscriber.",
   },
   "rate-limiting": {
     title: "Rate limiting",

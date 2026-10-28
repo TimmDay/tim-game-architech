@@ -2167,7 +2167,7 @@ const CLASSICS: Level[] = [
       job: "adding clicks into per-ad, per-minute counts",
     },
     brief:
-      "An ad network: advertisers pay per click, and watch their counts on a dashboard. Peak is 15,000 clicks a second, each one a redirect that must be fast, and each one recorded so finance can bill it and check the bill later. One ad can take 5% of all clicks, and any one {nosql} key takes about 1,000 writes a second. In the chaos round a big game's half-time ad doubles everything.",
+      "An ad network: advertisers pay per click, and watch their counts on a dashboard. Peak is 15,000 clicks a second, each one a redirect that must be fast, and each one recorded so finance can bill it and check the bill later. One ad can take 5% of all clicks, and any one {nosql} key takes about 1,000 writes a second. A {stream-processor} is built for counting over a stream: it keeps running totals per window, checkpoints them, and writes each window's result. In the chaos round a big game's half-time ad doubles everything.",
     load: {
       peakRps: 15_000,
       readFraction: 0,
@@ -2209,6 +2209,7 @@ const CLASSICS: Level[] = [
       "queue",
       "event-stream",
       "worker",
+      "stream-processor",
       "data-warehouse",
     ],
     reference: graph(
@@ -2217,7 +2218,7 @@ const CLASSICS: Level[] = [
         ["lb", "load-balancer", 3, 4],
         ["app", "app-server", 5, 4, 40, 2],
         ["clicks", "event-stream", 7, 4, 40],
-        ["agg", "worker", 9, 2, 20, 2],
+        ["agg", "stream-processor", 9, 2, 8],
         ["counts", "nosql", 11, 2, 1, 1, { partitionKey: "ad" }],
         ["raw", "data-warehouse", 9, 6],
       ],
@@ -2233,7 +2234,7 @@ const CLASSICS: Level[] = [
     ),
     concepts: ["queue-vs-log", "hot-keys", "idempotency"],
     topics: ["topic-sharding", "topic-event-logs"],
-    hint: "Publish each click to an {event-stream} and redirect at once. Let {worker} instances count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
+    hint: "Publish each click to an {event-stream} and redirect at once. Let a {stream-processor} count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
   },
   {
     id: "shared-doc",

@@ -68,6 +68,35 @@ export const ESTIMATES: Record<string, EstimateCard[]> = {
       "What does it cost, if the model is billed per word?",
     ),
   ],
+  "order-placed": [
+    mc(
+      "The shop takes 9 million orders on a busy day, and peak is about three times the average. How many orders a second at peak?",
+      "About 300 a second",
+      ["About 100 a second", "About 2,500 a second", "About 900 a second"],
+      "9 million ÷ 86,400 is about 104 a second on average; three times that is about 300. Dividing by an hour's seconds instead gives 2,500.",
+    ),
+    mc(
+      "Each email takes a quarter of a second, mostly waiting, and a {worker} keeps about 100 in flight. How many emails a second does one send?",
+      "About 400",
+      ["About 4", "About 100", "About 25"],
+      "100 at a time, each done in 0.25 seconds: 100 ÷ 0.25 is 400. One at a time would be 4.",
+    ),
+    mc(
+      "Three teams each get every order through their own {queue}. At 300 orders a second, how many messages a second do the queues carry in all?",
+      "About 900",
+      ["About 300", "About 100", "About 2,700"],
+      "Each team gets every order: 3 × 300. One shared queue would carry 300, a third to each.",
+    ),
+    talk(
+      "The email provider is down for 20 minutes at peak. How big does the email queue get, and how long does it take to drain?",
+      [
+        "300 a second for 1,200 seconds: about 360,000 emails waiting.",
+        "Two workers send 800 a second, 500 more than arrive, so about 12 minutes to catch up, if the provider's quota allows 800.",
+        "Here it's 400 a second, only 100 spare: an hour. Ask for more quota, or accept the delay.",
+      ],
+      "Does anyone need an alert before the 20 minutes are up?",
+    ),
+  ],
   "clinic-records": [
     mc(
       "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",

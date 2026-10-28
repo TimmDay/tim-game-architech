@@ -3,6 +3,7 @@ import { LEVELS } from "~/levels"
 import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
 import { simulate } from "../simulate"
+import { withPractices } from "../practices"
 import { SOLUTIONS } from "~/levels/solutions"
 import type { Graph, PlacedComponent, Practices } from "../types"
 import { CLIENT_ID as C } from "../types"
@@ -573,6 +574,56 @@ describe("the interview classics' traps", () => {
       edges: l.reference.edges.filter((e) => e.id !== "answers>vectors"),
     }
     expect(failed(l, g)).toEqual(["reads"])
+  })
+
+  it("order placed: one shared queue gives each team a third of the orders", () => {
+    const l = level("order-placed")
+    const g = rewire(
+      l.reference,
+      ["orders", "q-stock"],
+      ["app>q-email", "q-email>stock", "q-email>dw"],
+    )
+    expect(failed(l, g)).toEqual(["writes"])
+  })
+
+  it("order placed: sending the email inside the checkout puts the provider on every order", () => {
+    const l = level("order-placed")
+    const g = rewire(l.reference, ["q-email", "email"], ["app>mail"])
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["latency", "chaos"]))
+  })
+
+  it("order placed: pushing straight to the workers, or a stream, passes too", () => {
+    // The engine can't see a provider's retry window or a stalled partition,
+    // so the solution weighs these in words. Pinned so that stays true.
+    const l = level("order-placed")
+    const push = rewire(
+      l.reference,
+      ["q-email", "q-stock"],
+      ["orders>email", "orders>stock"],
+    )
+    const stream = rewire(
+      {
+        ...l.reference,
+        components: [
+          ...l.reference.components,
+          {
+            id: "log",
+            kind: "event-stream",
+            x: 6,
+            y: 6,
+            instances: 1,
+            zones: 1,
+          },
+        ],
+      },
+      ["orders", "q-email", "q-stock"],
+      ["app>log", "log>email", "log>stock", "log>dw"],
+    )
+    for (const g of [push, stream]) {
+      const stakes = l.targets.stakes
+      const ready = stakes ? withPractices(g, stakes) : g
+      expect(failed(l, ready)).toEqual([])
+    }
   })
 
   it("overkill works, but costs the third star", () => {

@@ -820,6 +820,118 @@ export const QUIZZES: Record<string, Question[]> = {
       19,
     ],
   ]),
+  "order-placed": q([
+    [
+      "Why publish one event instead of calling each team from the checkout?",
+      "The checkout answers at once, and a slow team can't slow it",
+      [
+        "Calling three services from one request is forbidden by most payment providers' rules",
+        "Events are faster to send than calls, so each team hears sooner",
+        "It guarantees every team handles each order exactly once, with no extra work",
+      ],
+      "Sending the email inside the checkout puts the provider on every order: p99 about 2.6s, and 12% fail in the slowdown.",
+      5,
+    ],
+    [
+      "Three teams share one {queue}. What goes wrong?",
+      "Each team gets about a third of the orders",
+      [
+        "Every team gets every order three times, once for each of the three teams reading from it",
+        "The {queue} can't hold more than one consumer, so two teams get nothing",
+        "Nothing, as long as each team runs at least two workers",
+      ],
+      "A queue gives each message to one consumer. A topic copies it to every subscriber.",
+      6,
+    ],
+    [
+      "What does a {queue} per team behind the topic add?",
+      "A wait you choose, plus each team's own retries and dead letters",
+      [
+        "Exactly-once delivery, so no team ever sees an order twice",
+        "Ordering across all three teams, so they see orders in the same sequence",
+        "Nothing here: the topic already stores every message for each team for as long as needed",
+      ],
+      "Without one, a failed push waits only as long as the provider retries: from a minute to a week, depending on the provider.",
+      7,
+    ],
+    [
+      "How do you make sure the event goes out once the order is saved?",
+      "Write it to an outbox table in the same transaction",
+      [
+        "Publish first, then save the order, so the event is never missed",
+        "Publish and save at the same time, from two threads",
+        "Ask each team to poll the orders table every few seconds instead",
+      ],
+      "Saving and publishing separately can do one without the other. A relay publishes from the outbox.",
+      8,
+    ],
+    [
+      "When would an {event-stream} beat topic and queues here?",
+      "When a new team needs to replay past orders",
+      [
+        "When each order must be handled on its own, with retries and dead letters built in",
+        "Never: a stream can only have one reader at a time",
+        "When the teams can't cope with the same order twice",
+      ],
+      "A stream keeps history. Its cost: one event a team can't process stalls that partition until you set it aside.",
+      9,
+    ],
+    [
+      "Push straight to each team's {worker}: what's the risk?",
+      "A failed push waits only as long as the provider retries it",
+      [
+        "Pushes skip the email provider's quota",
+        "Each worker gets a third of the orders",
+        "Pushes can't carry an order's contents, only its ID, so every team has to call the order service back",
+      ],
+      "It's about $568 a month cheaper and passes here, but every team must keep up as orders arrive.",
+      10,
+    ],
+    [
+      "The checkout writes to each team's {queue} itself. What's wrong with that?",
+      "It must know every team, and a failure halfway tells only some",
+      [
+        "Queues can't be written to from an {app-server}",
+        "It sends each order to only one team",
+        "It's slower, because writing to three queues takes three times as long as writing to one topic would, on every order",
+      ],
+      "A fourth team means changing the checkout. One publish to a topic avoids both.",
+      12,
+    ],
+    [
+      "The email worker crashes after sending, before deleting the message. What happens next?",
+      "The message comes back, and the email is sent twice unless the worker checks",
+      [
+        "The message is lost, so the customer gets no email",
+        "The {queue} knows the email was sent and deletes the message for it",
+        "The email provider refuses the second send automatically",
+      ],
+      "At-least-once delivery: record which orders have been emailed, and skip repeats.",
+      16,
+    ],
+    [
+      "The email provider slows to five seconds a call. Who notices?",
+      "Only the email workers, which need timeouts to keep up",
+      [
+        "Everyone: the topic waits for the slowest subscriber before delivering to the others",
+        "The checkout, which fails orders until the email provider recovers",
+        "Nobody, because the topic holds the emails",
+      ],
+      "Cut off at half a second, three email workers run at about 85%. Stock, analytics and the checkout carry on.",
+      17,
+    ],
+    [
+      "One order's event makes the stock worker fail every time. What stops it blocking the rest?",
+      "A dead-letter queue, after a few tries",
+      [
+        "Retrying it faster",
+        "Adding more stock workers, so the others process good orders around it while it's retried forever",
+        "Deleting the stock service's queue and starting again",
+      ],
+      "Without one, it's retried forever and uses capacity meant for good orders.",
+      18,
+    ],
+  ]),
   "login-flood": q([
     [
       "Where should the rate limit go?",

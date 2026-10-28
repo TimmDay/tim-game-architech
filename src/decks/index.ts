@@ -39,6 +39,7 @@ import {
   CLICK_COUNTER,
   VIDEO_NIGHT,
   ASK_THE_DOCS,
+  ORDER_PLACED,
 } from "./classics"
 import {
   ANALYTICS_ATE_PROD,
@@ -88,6 +89,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "shared-doc": SHARED_DOC,
   "click-counter": CLICK_COUNTER,
   "ask-the-docs": ASK_THE_DOCS,
+  "order-placed": ORDER_PLACED,
   "balance-sheet": BALANCE_SHEET,
   "full-basket": FULL_BASKET,
   "tenant-split": TENANT_SPLIT,

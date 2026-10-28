@@ -3866,3 +3866,207 @@ export const ASK_THE_DOCS = deck("ask-the-docs", [
     ],
   ],
 ])
+
+export const ORDER_PLACED = deck("order-placed", [
+  [
+    "clarify",
+    "What would you ask the three teams?",
+    [
+      "How quickly must each one hear about an order? Email within a minute; analytics within the hour.",
+      "Can each one cope with hearing about the same order twice?",
+      "Does any of them need orders in the order they were placed?",
+    ],
+    "If stock must never oversell, does that change who hears first?",
+  ],
+  [
+    "clarify",
+    "What goes in the event?",
+    [
+      "The order's ID, the customer, the items and prices: enough that most teams needn't call back.",
+      "A version number, so the shape can change without breaking anyone.",
+      "Ask what each team needs, and what it mustn't see: does analytics need the customer's address?",
+    ],
+  ],
+  [
+    "clarify",
+    "How many orders at the busiest time?",
+    [
+      "300 a second at a normal peak, here.",
+      "Each team must keep up with that, or catch up after.",
+      "A flash sale or Black Friday can be several times more.",
+    ],
+  ],
+  [
+    "product",
+    "The confirmation email arrives a minute late. Does anyone mind?",
+    [
+      "Not much: the order page already says it's confirmed.",
+      "That's what lets email happen after the checkout answers.",
+      "A missing email gets support calls, so it must arrive eventually.",
+    ],
+  ],
+  [
+    "product",
+    "The last item sells twice before stock catches up. What then?",
+    [
+      "It can happen when stock is updated after the order, not during it.",
+      "Decide the policy: cancel and apologise, or restock and ship late.",
+      "For scarce items, reserve stock in the checkout itself and pay its latency.",
+    ],
+  ],
+  [
+    "decision",
+    "Why publish one event instead of calling each team?",
+    [
+      "The checkout answers without waiting for any of them.",
+      "Adding a fourth team doesn't change the checkout.",
+      "A team that's slow or down doesn't make the checkout slow or fail.",
+    ],
+    "How does the event go out if the app dies right after saving the order?",
+  ],
+  [
+    "decision",
+    "Why not one {queue} that all three read from?",
+    [
+      "A queue gives each message to one consumer: each team gets about a third of the orders.",
+      "That's competing consumers, for sharing one team's work, not for telling several teams.",
+      "A topic copies each message to every subscriber.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a {queue} for each team behind the topic?",
+    [
+      "Each team takes messages at its own pace, and they wait as long as you choose.",
+      "Without one, a failed push is retried on the provider's schedule: from a minute to a week, depending on the provider.",
+      "Each team also gets its own retries and dead-letter queue.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you make sure the event goes out once the order is saved?",
+    [
+      "Write the event to an outbox table in the same transaction as the order.",
+      "A relay publishes from the outbox and marks each one sent.",
+      "Saving the order and publishing separately can do one without the other.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Topic and queues, or an {event-stream}?",
+    [
+      "A stream keeps history: a new team can replay last month. Here it costs about $4,144 against $4,805.",
+      "A stream is read in order per partition, so one event a team can't process stalls its partition.",
+      "Queues handle each message on its own, with retries and dead letters built in.",
+    ],
+    "Which would you pick if the fourth team needs a year of history?",
+  ],
+  [
+    "tradeoff",
+    "Push straight to each team, or through a queue?",
+    [
+      "Push is simpler and here about $568 a month cheaper.",
+      "But each team must keep up as orders arrive, and a failed push waits only as long as the provider retries.",
+      "A queue lets a team deploy, crash or fall behind without losing anything.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How much should the event carry?",
+    [
+      "Everything a team needs: no calls back to the order service, which would couple them again.",
+      "Just the ID: small events, but every team calls back, and the order service carries their load.",
+      "Most designs send the facts of the order, and let teams call back for anything rare.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the checkout write to each team's queue itself?",
+    [
+      "It works, but the checkout must know every team, and change for each new one.",
+      "If it fails halfway, some teams hear about the order and some don't.",
+      "One publish to a topic avoids both.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you read new orders from the database's log instead?",
+    [
+      "Change data capture publishes every committed order, and can't miss one.",
+      "It needs no change to the app.",
+      "It exposes the table's shape to every team, so a column change can break them.",
+    ],
+  ],
+  [
+    "scale",
+    "Black Friday brings five times the orders. What happens?",
+    [
+      "The checkout scales as usual; the topic takes far more than 1,500 a second.",
+      "Each team's queue grows if its workers can't keep up, and drains after.",
+      "Teams scale their workers on queue age, each on their own.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten teams want order events. What changes?",
+    [
+      "Ten subscriptions, ten queues: nothing changes in the checkout.",
+      "The topic's fees grow with each delivery, so check them.",
+      "Agree on an owner for the event's shape, and publish its versions.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The email worker crashes after sending, before deleting the message. What then?",
+    [
+      "The message comes back, and without care the customer gets two emails.",
+      "Record which orders have been emailed, and skip ones already done.",
+      "That's at-least-once delivery: every consumer must cope with repeats.",
+    ],
+  ],
+  [
+    "resilience",
+    "The email provider slows to five seconds a call. Who notices?",
+    [
+      "Only the email workers: with timeouts and backoff, three of them run at about 85% and keep up.",
+      "Stock, analytics and the checkout carry on.",
+      "Alert on the email queue's age, so someone knows emails are late.",
+    ],
+  ],
+  [
+    "resilience",
+    "One order's event makes the stock worker fail every time. What happens?",
+    [
+      "After a few tries the queue moves it to a dead-letter queue, and the rest carry on.",
+      "Without one, it's retried forever and uses capacity meant for good orders.",
+      "Someone looks at the dead letter, fixes the bug, and replays it.",
+    ],
+  ],
+  [
+    "security",
+    "Who may subscribe to order events?",
+    [
+      "Only teams that need them: the events hold names, addresses and what people bought.",
+      "Grant each subscription separately, and review them.",
+      "Leave out what a team doesn't need, such as the address for analytics.",
+    ],
+  ],
+  [
+    "security",
+    "Someone could publish a fake order event. How do you stop it?",
+    [
+      "Only the order service may publish to the topic.",
+      "Teams that act on money, such as refunds, check the order in the order service.",
+      "Log who published each event.",
+    ],
+  ],
+  [
+    "observability",
+    "What would you watch?",
+    [
+      "Each queue's age and depth: which team is falling behind.",
+      "Dead letters per team, and pushes that failed.",
+      "Events published against orders saved: if they differ, the outbox is stuck.",
+    ],
+  ],
+])

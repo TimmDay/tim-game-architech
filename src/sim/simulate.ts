@@ -173,6 +173,19 @@ export function doesHeavyWorkInline(graph: Graph, c: PlacedComponent): boolean {
   })
 }
 
+/**
+ * Fed straight by a {pubsub} topic, which pushes rather than waiting to be
+ * asked. What this component can't take is held only by the provider's
+ * retries, for an hour to a week depending on the provider.
+ */
+export function pushedTo(graph: Graph, id: string): boolean {
+  return graph.edges.some(
+    (e) =>
+      e.to === id &&
+      graph.components.some((c) => c.id === e.from && c.kind === "pubsub"),
+  )
+}
+
 /** Components reached only through an async hand-off: off the critical path. */
 export function behindAsync(graph: Graph): Set<string> {
   const byId = new Map(graph.components.map((c) => [c.id, c]))

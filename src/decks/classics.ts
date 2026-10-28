@@ -2793,7 +2793,7 @@ export const CLICK_COUNTER = deck("click-counter", [
   ],
   [
     "decision",
-    "How do workers count clicks per ad per minute?",
+    "How does the {stream-processor} count clicks per ad per minute?",
     [
       "Each keeps running counts in memory for the current minute, for the ads it owns.",
       "When a minute closes, it writes one count per ad: here about 15 writes a second instead of 15,000.",
@@ -2806,14 +2806,14 @@ export const CLICK_COUNTER = deck("click-counter", [
     [
       "Written per click, the top ad's key gets 750 writes a second, and 1,500 in the ad break: over the 1,000 a key takes.",
       "Aggregated, it gets one write a minute.",
-      "Partition the stream by ad, so one worker owns each ad's count.",
+      "Partition the stream by ad, so one counting task owns each ad's count.",
     ],
   ],
   [
     "tradeoff",
     "Exactly once: how close can you get?",
     [
-      "The stream delivers at least once, so a worker can see a click twice after a restart.",
+      "The stream delivers at least once, so a counting task can see a click twice after a restart.",
       "Write each minute's count by key, so rewriting it is harmless, and give every click an ID.",
       "Commit the stream position together with the counts, so a restart resumes exactly where it stopped.",
     ],
@@ -2849,7 +2849,7 @@ export const CLICK_COUNTER = deck("click-counter", [
     "scale",
     "Clicks grow tenfold. What changes?",
     [
-      "More stream shards and workers: both scale out by partition.",
+      "More stream shards and processing units: both scale out by partition.",
       "The counts store barely notices: aggregation keeps its writes tiny.",
       "Raw storage grows fastest: compress it, and move old clicks to cheaper storage.",
     ],
@@ -2858,8 +2858,8 @@ export const CLICK_COUNTER = deck("click-counter", [
     "scale",
     "How do you find the top 100 ads this hour?",
     [
-      "Each worker keeps a top list for the ads it owns.",
-      "Merge those lists: since each ad belongs to one worker, the overall top 100 is somewhere in their lists.",
+      "Each counting task keeps a top list for the ads it owns.",
+      "Merge those lists: since each ad belongs to one task, the overall top 100 is somewhere in their lists.",
       "For approximate counts over a huge number of ads, a count-min sketch uses fixed memory.",
     ],
   ],
@@ -2883,10 +2883,10 @@ export const CLICK_COUNTER = deck("click-counter", [
   ],
   [
     "resilience",
-    "A counting worker crashes in the middle of a minute.",
+    "A counting task crashes in the middle of a minute.",
     [
-      "Its counts in memory are lost, but the stream still holds the clicks.",
-      "The replacement resumes from the last committed position and counts them again.",
+      "Its counts in memory are lost, but its last checkpoint saved them, with its position in the stream.",
+      "The replacement restores the checkpoint and counts again from that position.",
       "Nothing is billed twice, because counts are written by key, not added.",
     ],
   ],

@@ -80,6 +80,10 @@ const allRawText = (): string[] => {
   return out
 }
 
+/** Built once: it grades every level, which is too slow to repeat per provider. */
+let cached: string[] | undefined
+const rawText = () => (cached ??= allRawText())
+
 describe("service names", () => {
   it("names every component under every provider", () => {
     for (const k of KINDS)
@@ -99,9 +103,10 @@ describe("service names", () => {
     "never hardcodes a %s product name in game text",
     (p) => {
       const words = productWords(p)
-      for (const text of allRawText())
-        for (const w of words)
-          expect(text, `"${w}" in: ${text}`).not.toContain(w)
+      const hits = rawText().flatMap((text) =>
+        words.filter((w) => text.includes(w)).map((w) => `"${w}" in: ${text}`),
+      )
+      expect(hits).toEqual([])
     },
   )
 
@@ -117,8 +122,11 @@ describe("service names", () => {
   })
 
   it("leaves no unrendered tokens in any game text", () => {
-    for (const text of allRawText())
-      for (const { id } of PROVIDERS)
-        expect(plain(text, id)).not.toMatch(/\{[a-z-]+\}/)
+    const left = rawText().flatMap((text) =>
+      PROVIDERS.map(({ id }) => plain(text, id)).filter((t) =>
+        /\{[a-z-]+\}/.test(t),
+      ),
+    )
+    expect(left).toEqual([])
   })
 })

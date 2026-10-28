@@ -2608,6 +2608,7 @@ const CLASSICS: Level[] = [
       budgetUsd: 3_600,
       writesReach: ["vector-db"],
       readsReach: ["vector-db"],
+      jobsReach: ["third-party-api"],
       noBacklog: "peak",
       stakes: {
         signedIn: false,

@@ -18,7 +18,8 @@ const flagged = (g: Graph, l = load) =>
 describe("designs that couldn't run", () => {
   it("every reference and starter is one that could", () => {
     for (const l of LEVELS) {
-      expect(structureProblems(l.reference, l.load), l.id).toEqual([])
+      const peak = simulate(l.reference, l.load)
+      expect(structureProblems(l.reference, l.load, peak), l.id).toEqual([])
       if (l.starter)
         expect(structureProblems(l.starter, l.load), l.id).toEqual([])
     }
@@ -112,6 +113,26 @@ describe("designs that couldn't run", () => {
   })
 })
 
+describe("code that's asked for something", () => {
+  it("needs somewhere to read it from", () => {
+    const g = graph(
+      [
+        ["lb", "load-balancer", 1, 1],
+        ["app", "app-server", 2, 1, 2],
+        ["q", "queue", 3, 1],
+        ["w", "worker", 4, 1],
+        ["db", "sql-primary", 5, 1],
+      ],
+      [`${C}>lb`, "lb>app", "app>q", "q>w", "w>db"],
+    )
+    const peak = simulate(g, load)
+    expect(flagged(g)).toEqual([])
+    expect(structureProblems(g, load, peak).map((p) => p.componentId)).toEqual([
+      "app",
+    ])
+  })
+})
+
 describe("a request tier behind a queue", () => {
   it("does the level's jobs at its cores' pace, not an API call's", () => {
     const g = graph(
@@ -134,6 +155,17 @@ describe("a request tier behind a queue", () => {
 })
 
 describe("the service a level depends on", () => {
+  it("ask the docs: every article must be embedded by the model", () => {
+    const l = levelById("ask-the-docs")
+    if (!l) throw new Error("missing level")
+    const g: Graph = {
+      components: l.reference.components.filter((c) => c.id !== "model"),
+      edges: l.reference.edges.filter((e) => e.to !== "model"),
+    }
+    const r = grade(g, l.load, l.targets, l.chaos.faults)
+    expect(r.checks.find((c) => c.id === "jobs")?.pass).toBe(false)
+  })
+
   it("shoebox of receipts: every photo must reach the OCR", () => {
     const l = levelById("shoebox-receipts")
     if (!l) throw new Error("missing level")

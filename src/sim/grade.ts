@@ -239,7 +239,7 @@ export function grade(
     },
     {
       id: "structure",
-      pass: structureProblems(graph, load).length === 0,
+      pass: structureProblems(graph, load, peak).length === 0,
       star: 1,
     },
     {

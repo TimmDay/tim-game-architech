@@ -172,7 +172,7 @@ export function findings(
     ]
   }
 
-  for (const p of structureProblems(graph, load))
+  for (const p of structureProblems(graph, load, peak))
     out.push({ severity: "error", ...p })
 
   const asyncSet = behindAsync(graph, load)

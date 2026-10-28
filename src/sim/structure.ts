@@ -1,10 +1,12 @@
 import type { ConceptId } from "~/levels/concepts"
 import { CATALOGUE } from "./catalogue"
+import { carries } from "./simulate"
 import type {
   ComponentKind,
   Graph,
   LoadProfile,
   PlacedComponent,
+  SimResult,
 } from "./types"
 import { CLIENT_ID } from "./types"
 
@@ -26,6 +28,8 @@ const BALANCERS = new Set<ComponentKind>([
   "queue",
   "event-stream",
 ])
+/** Where requests run code: they need somewhere to read from. */
+const REQUEST_TIERS = new Set<ComponentKind>(["app-server", "serverless"])
 /** Run your code: what has to stand between users and a store. */
 const CODE = new Set<ComponentKind>([
   "app-server",
@@ -50,6 +54,8 @@ const name = (c: PlacedComponent) => `{${c.kind}}`
 export function structureProblems(
   graph: Graph,
   load: LoadProfile,
+  /** The peak run, when there is one: rule 4 needs to know who gets reads. */
+  peak?: SimResult,
 ): StructureProblem[] {
   const byId = new Map(graph.components.map((c) => [c.id, c]))
   const out: StructureProblem[] = []
@@ -131,6 +137,24 @@ export function structureProblems(
       })
     }
   }
+  // 4. Code that's asked for something must have somewhere to read it from.
+  if (peak)
+    for (const c of graph.components) {
+      if (!REQUEST_TIERS.has(c.kind)) continue
+      if ((peak.perComponent[c.id]?.readRps ?? 0) <= 0) continue
+      const reads = graph.edges.some((e) => {
+        if (e.from !== c.id || !byId.has(e.to)) return false
+        const what = carries(graph, e)
+        return what === "all" || what === "reads"
+      })
+      if (!reads)
+        out.push({
+          componentId: c.id,
+          concept: "cache-aside",
+          text: `${name(c)} is asked for ${Math.round(peak.perComponent[c.id]?.readRps ?? 0).toLocaleString("en-US")} reads a second but has nowhere to read them from. Connect it to the store or {cache} that holds the answers.`,
+        })
+    }
+
   // Duplicates from a component reached several ways say the same thing once.
   return out.filter((p, i) => out.findIndex((q) => q.text === p.text) === i)
 }

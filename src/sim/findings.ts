@@ -17,6 +17,7 @@ import {
   failureDomains,
   GLOBAL_KINDS,
   partitionKeyOf,
+  pushedTo,
   regionsOf,
   shardsOf,
 } from "./simulate"
@@ -148,7 +149,14 @@ export function findings(
       const onWrites =
         spec.capacity.writeRps > 0 &&
         m.writeRps / spec.capacity.writeRps >= m.readRps / spec.capacity.readRps
-      if (m.behindAsync) {
+      if (pushedTo(graph, c.id)) {
+        out.push({
+          severity: "error",
+          componentId: c.id,
+          concept: "queue-per-subscriber",
+          text: `{pubsub} pushes ${rps(m.droppedRps)} more than ${name(c)} can take. Only the provider's retries hold the rest, for an hour to a week depending on the provider, and then they're dropped. A {queue} in between holds them as long as you choose.`,
+        })
+      } else if (m.behindAsync) {
         out.push({
           severity: "error",
           componentId: c.id,

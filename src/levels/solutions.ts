@@ -18,6 +18,39 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "order-placed": {
+    overview:
+      "The checkout saves the order and publishes one order-placed event to a {pubsub}, then answers the shopper. The topic copies the event to each team: a {queue} for the email service, a {queue} for the stock service, and a delivery straight into the {data-warehouse}. Each team works at its own pace, retries on its own and deploys on its own. A slow email provider is the email team's problem alone.",
+    walkthrough: [
+      "Browsing: {load-balancer} → {app-server} → {cache} → {sql-primary}. Product pages and prices are mostly cached.",
+      "Checkout: the app writes the order to the {sql-primary}, publishes 'order placed' with the order's ID and contents, and answers the shopper. An outbox table, written in the same transaction, makes sure the event goes out even if the app dies in between.",
+      "The topic delivers a copy to each subscription. The email {worker} takes from its {queue}, calls the email provider ({third-party-api}) and deletes the message. The stock {worker} does the same, updating counts in the stock service's {nosql} store.",
+      "Analytics needs no worker: the topic delivers straight into the {data-warehouse}'s loader, which takes far more than 300 a second.",
+      "Next quarter's fourth team subscribes a queue of its own. The checkout doesn't change.",
+    ],
+    numbers: [
+      "3,000 requests a second: 2,700 browsing and 300 orders. The {cache} answers about 1,800 browsing reads a second, so the {sql-primary} gets about 900 reads and the 300 orders.",
+      "Six {app-server} instances run at 50%, with p99 about 219ms.",
+      "Sending an email or updating stock is a quarter of a second, mostly waiting, so each {worker} keeps about 100 in flight: 400 a second. Two stock workers run at 38%, in two zones.",
+      "The email provider's quota is 400 calls a second, in four blocks: 75%.",
+      "When the provider slows by five seconds, each email call is cut off at half a second and retried with backoff, so it holds its slot three times as long. Three email workers run at about 85% and keep up; two would fall behind. Without timeouts each call holds its slot for five seconds, and the queue grows by about 250 a second. Stock, analytics and the checkout don't notice either way.",
+      "One shared {queue} instead of the topic gives each message to one consumer: each team gets about a third of the orders.",
+      "Sending the email inside the checkout puts the provider on every order: p99 reaches about 2.6s, and in the slowdown 12% of requests fail.",
+      "Cost: about $49 for the {load-balancer} + 6 × $70 + 2 × $150 + 2 × $400 + $118 for the topic + 2 × $284 for the queues + 5 × $120 + $950 for the {nosql} store + $1,000 for the {data-warehouse} = $4,805 of $5,200.",
+    ],
+    tradeoffs: [
+      "Every team gets every order at least once, not exactly once: the email worker records which orders it has emailed, so a redelivered message doesn't send twice.",
+      "The order and its stock count are briefly out of step. Overselling the last item is possible, so the stock service flags it, and someone apologises or restocks.",
+      "The two queues cost about $568 a month in per-message fees: the price of each team holding its own messages, for days if need be.",
+      "Events become a contract between teams: changing their shape needs care, such as adding fields and never removing them.",
+    ],
+    alternatives: [
+      "The topic pushing straight to each team's {worker} costs about $4,237 and passes here. But a failed push is only retried on the provider's schedule: a minute by default, an hour at most, for one major provider's web endpoints; a day for another; a week for a third. With a queue the wait is yours to choose, and each team gets its own dead-letter queue.",
+      "An {event-stream} that each team reads at its own pace costs about $4,144 and passes too. It keeps history, so the fourth team can replay last month. But a team reads each partition in order: one event it can't process stalls that partition until you build a way to set it aside.",
+      "The checkout writing to each team's {queue} itself doesn't pass here. Analytics needs a third queue and loader of its own, which takes it to about $5,210, just over budget; writing to the {data-warehouse} directly puts it on the checkout's path, and p99 reaches about 80s. It also couples the checkout to every team: a fourth means changing the checkout, and a failure halfway through leaves some teams told and others not.",
+      "Change data capture, reading new orders from the {sql-primary}'s log, publishes events without the app's help, and can't miss one. It ties the teams to the table's shape.",
+    ],
+  },
   "token-check": {
     overview:
       "The {auth-service} signs people in, and nothing else. Users sign in with it directly and get a signed access token, valid for an hour. Every {app-server} checks that token's signature itself, with the provider's public key, so ordinary requests never call the provider. It sees 200 calls a second instead of 6,000, and a slow evening there only slows sign-ins.",

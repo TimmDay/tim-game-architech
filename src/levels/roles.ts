@@ -321,7 +321,7 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
   pubsub: ({ up, down }) => ({
     role: `Takes each message from ${list(up) || "its publishers"} and pushes a copy to every subscriber: ${list(down) || "none yet"}. They don't know about each other, so adding one changes nothing for the rest.`,
     tradeoffs: [
-      "No replay: a subscriber that's down misses messages unless a {queue} holds them for it.",
+      "No replay: a push that keeps failing is retried for a while, then dropped, unless a {queue} holds it for the subscriber.",
       "Delivery is at least once, so subscribers must cope with duplicates.",
     ],
   }),

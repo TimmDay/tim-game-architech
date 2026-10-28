@@ -70,6 +70,7 @@ export type ConceptId =
   | "simplest-design"
   | "stateless-tokens"
   | "vector-search"
+  | "queue-per-subscriber"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
   "simplest-design": {
@@ -113,6 +114,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "An embedding model turns text into a list of numbers, a vector, so that passages with similar meaning get vectors close together. A {vector-db} indexes them and finds the nearest ones to a question's vector, approximately, in tens of milliseconds. Embedding is a model call, so new content is embedded in the background, and the question itself is embedded when it's asked. Keyword search still wins for exact terms: error codes, product names, part numbers.",
     interview:
       "Say how content gets in (split into passages, embedded by a {worker}, written with its source ID), how a question is answered (embed, find the nearest passages, filter by product or permissions), and what happens when you change the model: everything is embedded again.",
+  },
+  "queue-per-subscriber": {
+    title: "A queue per subscriber",
+    body: "A {pubsub} pushes each message to every subscriber as it's published. A subscriber that can't take it (busy, deploying, down) fails the delivery, and the provider retries on its own schedule: a minute by default and an hour at most for one major provider's web endpoints, a day for another, a week for a third. After that the message is dropped, or dead-lettered if you set that up. Subscribing a {queue} for each consumer makes the wait yours to choose: each one can fall behind and catch up, scale and fail on its own, with its own dead-letter queue. Publishing is still one call.",
+    interview:
+      "Name the three: a {queue} shares work between copies of one consumer, a {pubsub} copies each message to every subscriber, and an {event-stream} keeps a log each reader can replay. Then say the usual fan-out: one topic, a queue per subscriber.",
   },
   "rate-limiting": {
     title: "Rate limiting",
@@ -534,7 +541,7 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
   },
   pubsub: {
     title: "{pubsub}",
-    body: "Publish once and every subscriber gets a copy, pushed to it. Unlike an {event-stream} there's usually no replay: a subscriber that's down misses the message unless it has a {queue} of its own.",
+    body: "Publish once and every subscriber gets a copy, pushed to it. Unlike an {event-stream}, there's usually no replay: a push that keeps failing is retried for a while (an hour to a week, by provider) and then dropped, unless the subscriber has a {queue} of its own.",
     interview:
       "Fan-out on write: one event, many independent reactions (email, search, analytics) that don't know about each other.",
   },

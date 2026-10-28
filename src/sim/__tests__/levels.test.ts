@@ -949,6 +949,33 @@ describe("the production incidents' traps", () => {
   })
 })
 
+describe("click counter's priced alternatives", () => {
+  it("per-minute counts in SQL pass at the quoted costs", () => {
+    const l = LEVELS.find((x) => x.id === "click-counter")
+    if (!l) throw new Error("missing click-counter")
+    const text = SOLUTIONS["click-counter"]?.alternatives.join(" ") ?? ""
+    for (const instances of [1, 2]) {
+      const g: Graph = {
+        ...l.reference,
+        components: l.reference.components.map((c) =>
+          c.id === "counts" ? { ...c, kind: "sql-primary", instances } : c,
+        ),
+      }
+      const stakes = l.targets.stakes
+      const r = grade(
+        stakes ? withPractices(g, stakes) : g,
+        l.load,
+        l.targets,
+        l.chaos.faults,
+      )
+      expect(r.stars).toBe(3)
+      expect(text).toContain(
+        `$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`,
+      )
+    }
+  })
+})
+
 describe("step counter's traps", () => {
   const l = LEVELS.find((x) => x.id === "step-counter")
   if (!l) throw new Error("missing step-counter")
@@ -990,32 +1017,5 @@ describe("step counter's traps", () => {
 
   it("five NoSQL blocks handle a normal day, but not the January spike", () => {
     expect(failed(swap({ instances: 5 }))).toEqual(["chaos"])
-  })
-})
-
-describe("click counter's priced alternatives", () => {
-  it("per-minute counts in SQL pass at the quoted costs", () => {
-    const l = LEVELS.find((x) => x.id === "click-counter")
-    if (!l) throw new Error("missing click-counter")
-    const text = SOLUTIONS["click-counter"]?.alternatives.join(" ") ?? ""
-    for (const instances of [1, 2]) {
-      const g: Graph = {
-        ...l.reference,
-        components: l.reference.components.map((c) =>
-          c.id === "counts" ? { ...c, kind: "sql-primary", instances } : c,
-        ),
-      }
-      const stakes = l.targets.stakes
-      const r = grade(
-        stakes ? withPractices(g, stakes) : g,
-        l.load,
-        l.targets,
-        l.chaos.faults,
-      )
-      expect(r.stars).toBe(3)
-      expect(text).toContain(
-        `$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`,
-      )
-    }
   })
 })

@@ -134,6 +134,14 @@ export function TargetList({
         <span>each one once</span>
       </span>,
     ])
+  if (targets.jobsReach?.length)
+    rows.push([
+      "Every slow job reaches",
+      <Rich
+        text={targets.jobsReach.map((k) => `{${k}}`).join(" or ")}
+        provider={provider}
+      />,
+    ])
   if (targets.keepApart) rows.push(["Each shard holds", targets.keepApart.what])
   if (targets.noBacklog)
     rows.push([

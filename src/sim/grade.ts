@@ -1,5 +1,6 @@
 import { expectedPractices, missingPractices, type Stakes } from "./practices"
 import { AGGREGATORS, partitionKeyOf, shardsOf, simulate } from "./simulate"
+import { structureProblems } from "./structure"
 import type {
   ComponentKind,
   Fault,
@@ -32,6 +33,11 @@ export type Targets = {
    * need the {vector-db}, not a {cache} with nothing behind it.
    */
   readsReach?: ComponentKind[]
+  /**
+   * The level's slow jobs (its heavy share of writes) must reach one of
+   * these: every receipt photo goes through the OCR.
+   */
+  jobsReach?: ComponentKind[]
   /**
    * Groups whose records must never share a shard (each country's patients,
    * say). Every store taking writes must be split by one of `keys`, into at
@@ -122,11 +128,13 @@ export const MAJORITY_SERVES = 0.5
 export type Check = {
   id:
     | "traffic"
+    | "structure"
     | "latency"
     | "budget"
     | "writes"
     | "reads"
     | "once"
+    | "jobs"
     | "apart"
     | "backlog"
     | "availability"
@@ -230,6 +238,11 @@ export function grade(
       star: 1,
     },
     {
+      id: "structure",
+      pass: structureProblems(graph, load).length === 0,
+      star: 1,
+    },
+    {
       id: "latency",
       pass: peak.connected && peak.p99Ms <= targets.p99Ms,
       star: 1,
@@ -265,6 +278,16 @@ export function grade(
       pass:
         readsAt(graph, peak, targets.readsReach) >=
         unansweredReads(load, peak) * 0.99,
+      star: 1,
+    })
+  }
+  if (targets.jobsReach?.length) {
+    const jobs = expectedWrites * load.heavyWriteFraction
+    checks.push({
+      id: "jobs",
+      pass: targets.jobsReach.some(
+        (k) => writesAt(graph, peak, k) >= jobs * 0.99,
+      ),
       star: 1,
     })
   }

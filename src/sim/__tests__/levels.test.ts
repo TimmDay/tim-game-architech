@@ -583,7 +583,7 @@ describe("the interview classics' traps", () => {
       ["orders", "q-stock"],
       ["app>q-email", "q-email>stock", "q-email>dw"],
     )
-    expect(failed(l, g)).toEqual(["writes"])
+    expect(failed(l, g)).toContain("writes")
   })
 
   it("order placed: sending the email inside the checkout puts the provider on every order", () => {

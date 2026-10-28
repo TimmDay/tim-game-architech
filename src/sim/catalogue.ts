@@ -448,12 +448,32 @@ export const DEFAULT_JOB: NonNullable<LoadProfile["job"]> = {
 }
 
 /** How many jobs a second one {worker} gets through for this level's job. */
-export function workerJobsPerSecond(load: Pick<LoadProfile, "job">): number {
+export function workerJobsPerSecond(
+  load: Pick<LoadProfile, "job">,
+  cores = WORKER_CORES,
+): number {
   const job = load.job ?? DEFAULT_JOB
-  const slots = job.cpuBound
-    ? WORKER_CORES
-    : WORKER_CORES * WAITING_JOBS_PER_CORE
+  const slots = job.cpuBound ? cores : cores * WAITING_JOBS_PER_CORE
   return slots / job.seconds
+}
+
+/** Cores on one {app-server}, for when it takes jobs from a queue. */
+export const APP_CORES = 2
+/** Executions one block of {serverless} concurrency runs at once. */
+export const SERVERLESS_CONCURRENCY = 1_000
+
+/**
+ * A request tier taking the level's jobs from a queue does the job, not an
+ * API call: an {app-server} gets through as many as its cores allow, and a
+ * block of {serverless} as many as its concurrency does.
+ */
+export function consumerJobsPerSecond(
+  kind: ComponentKind,
+  load: Pick<LoadProfile, "job">,
+): number {
+  const job = load.job ?? DEFAULT_JOB
+  if (kind === "serverless") return SERVERLESS_CONCURRENCY / job.seconds
+  return workerJobsPerSecond(load, APP_CORES)
 }
 
 /** A heavy job done inline costs this many ordinary requests of {app-server} capacity. */

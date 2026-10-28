@@ -101,6 +101,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "A {sql-primary} with writes queued behind a {queue} still takes them at 3,000 a second: the queue grows by 500 a second, forever.",
       "Sharding SQL by user works too. Split users across, say, two {sql-primary} shards by a hash of the user ID, and have the app (or a routing proxy) send each query to its user's shard. Each shard is a full database with its own standby and backups. Growing means moving users between shards; starting with many small logical shards, a few per database, lets you move whole ones instead of re-hashing everyone. It's a lot to run for data that never joins, which is what a {nosql} store does for you. Tenant Split, in CAP trade-offs, has you shard a {sql-primary} yourself: pick the shard count and key, and watch a bad key pile the writes onto one shard.",
+      "A {time-series-db}, since these are readings over time: here each user is a series of their own, so a million wristbands means a million series. Many time-series stores handle that kind of cardinality worst; they shine on a few thousand series with many points each, like servers' metrics. And every read is one user and one day, which is a key lookup. Use one for the app's own metrics, not for users' steps.",
       "Batching samples on the wristband (sync every ten minutes instead of five) halves the writes for free, if the product allows it.",
     ],
   },

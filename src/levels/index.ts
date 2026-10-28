@@ -1551,6 +1551,7 @@ const CLASSICS: Level[] = [
       "event-stream",
       "worker",
       "data-warehouse",
+      "realtime-gateway",
     ],
     reference: graph(
       [

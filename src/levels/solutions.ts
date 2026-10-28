@@ -590,6 +590,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     ],
     alternatives: [
       "A {search-index} with geo queries: rich queries, but it can't absorb thousands of updates a second.",
+      "Pushing the car's position to the waiting rider over an open connection, instead of the rider's app asking every few seconds: the car moves on the map the moment the driver pings, and the polling goes away. A managed {realtime-gateway} would be billed about $3,000 a month for the 3,750 rider updates a second; connection servers of your own, as in Group Chat, cost less at this volume.",
       "Sending pings less often saves load and battery, at the cost of the car on the rider's map jumping.",
       "Matching by queueing trip requests per area rather than querying on demand: fairer in a surge, more machinery.",
     ],

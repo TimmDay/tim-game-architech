@@ -652,15 +652,7 @@ describe("the interview classics' traps", () => {
 
   it("people you may know: working suggestions out on every home page swamps the graph", () => {
     const l = level("people-you-may-know")
-    const live: Graph = {
-      components: l.reference.components.filter((c) => c.id !== "lists"),
-      edges: [
-        ...l.reference.edges.filter(
-          (e) => e.from !== "lists" && e.to !== "lists" && e.id !== "app>graph",
-        ),
-        { id: "app>graph", from: "app", to: "graph" },
-      ],
-    }
+    const live = rewire(l.reference, ["lists"], ["app>graph"])
     expect(failed(l, live)).toContain("traffic")
     expect(failed(l, patch(live, "graph", { instances: 4 }))).toContain(
       "budget",
@@ -669,9 +661,9 @@ describe("the interview classics' traps", () => {
 
   it("people you may know: recomputing inside the request fails latency", () => {
     const l = level("people-you-may-know")
-    expect(failed(l, rewire(l.reference, ["jobs", "suggest"]))).toContain(
-      "latency",
-    )
+    expect(
+      failed(l, rewire(l.reference, ["jobs", "suggest"], ["app>graph"])),
+    ).toContain("latency")
   })
 
   it("people you may know: adjacency lists in SQL or NoSQL pass too", () => {

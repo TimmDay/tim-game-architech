@@ -1075,7 +1075,7 @@ export const QUIZZES: Record<string, Question[]> = {
         "The {queue} makes the results more accurate",
         "It's cheaper per recompute, because queued jobs are billed at a lower rate than requests",
       ],
-      "Inside the request, p99 reaches about 825ms. Behind a queue, it's invisible.",
+      "Without the queue, the app calls the {graph-db} on the request path, and p99 reaches about 1.9s. Behind a queue, it's invisible.",
       7,
     ],
     [
@@ -1135,13 +1135,13 @@ export const QUIZZES: Record<string, Question[]> = {
     ],
     [
       "A {cache} node is lost. What should you guard against?",
-      "A rush of live recomputes landing on the {graph-db}",
+      "A rush of rebuilds landing on the {graph-db} at once",
       [
         "Lost connections, since the cache held them",
         "Nothing: members just see no suggestions until tomorrow",
         "Duplicate suggestions, because the remaining nodes each hold a copy of the lost one's lists",
       ],
-      "Limit how many are worked out at once, and rebuild the node's lists in the background, active members first.",
+      "Queue the rebuilds, most active members first. Meanwhile those members see popular suggestions.",
       17,
     ],
     [

@@ -20,27 +20,27 @@ export type Solution = {
 export const SOLUTIONS: Record<string, Solution> = {
   "people-you-may-know": {
     overview:
-      "Each member's suggestions are worked out ahead of time and kept in a {cache}, so a home page reads one short list. The connections themselves live in a {graph-db}. When two people connect, the app records it and puts a job on a {queue}, and {worker} instances work out both members' suggestions again from their friends of friends. A nightly run refreshes everyone else's.",
+      "Each member's suggestions are worked out ahead of time and kept in a {cache}, so a home page reads one short list and touches nothing else. When two people connect, the app puts it on a {queue} and answers. {worker} instances record the connection in a {graph-db}, then work out both members' suggestions again from their friends of friends. A nightly run refreshes everyone else's. The graph store is on no request's path.",
     walkthrough: [
-      "Home page: {load-balancer} → {app-server} → {cache}, keyed by member: their ranked list of suggestions. 95% are there already.",
-      "A member with no list yet (new, or evicted) gets one worked out from the {graph-db} on the spot, and cached.",
-      "A new connection: the app writes it to the {graph-db}, then queues 'recompute' for both members.",
-      "A {worker} follows each member's connections, then theirs, counts how many each candidate shares, drops people they already know, and writes the top 50 to the {cache}.",
+      "Home page: {load-balancer} → {app-server} → {cache}, keyed by member: their ranked list of suggestions.",
+      "A new connection: the app puts it on the {queue} and shows it as pending. A {worker} records it in the {graph-db}.",
+      "The same worker follows each member's connections, then theirs, counts how many each candidate shares, drops people they already know, and writes the top 50 to the {cache}.",
+      "A member with no list yet (new, or lost with a cache node) sees popular suggestions until a worker has worked theirs out, seconds later.",
     ],
     numbers: [
       "10,500 requests a second: 10,000 home pages and 500 new connections.",
-      "The {cache} answers 9,500 home pages a second; the other 500 are worked out live.",
+      "Every home page is one {cache} read, at 5% of two nodes.",
       "Working out suggestions on every home page sends all 10,000 to the {graph-db}: one instance runs at 200% and half the requests fail. Four are needed, at $5,121 in all. And that counts a two-hop traversal as one query, which flatters it.",
       "Eighteen {app-server} instances run at 58%, with p99 about 192ms, and 88% in January. Fourteen would reach 113% in January, and 11% of requests fail.",
-      "The {graph-db} takes 500 connections a second at 50% of its writes, and 500 live lists at 10% of its reads.",
+      "The {graph-db} takes 500 connections a second from the workers, at 50% of its writes.",
       "Working out suggestions is about half a second of waiting on the graph, so each {worker} keeps about 100 in flight: 200 a second. Four run at 63%, 94% in January. Two fall behind by 100 a second.",
-      "Doing it inside the request that made the connection adds half a second: p99 reaches about 825ms.",
+      "Without the queue, the app calls the {graph-db} itself: every home page reaches it as well, at 200%, and each connection waits half a second for its recompute. p99 reaches about 1.9s.",
       "Cost: about $108 for the {load-balancer} + 18 × $70 + 2 × $150 + $700 for the {graph-db} + $473 for the {queue} + 4 × $120 = $3,321 of $3,600.",
     ],
     tradeoffs: [
       "Suggestions can be a day old for members who haven't connected with anyone lately. Nobody minds.",
       "Precomputing for every member costs work for the many who never look. Some networks only precompute for members active this month.",
-      "The {graph-db} is in series on the miss and write paths: its availability is most of the design's 99.87%.",
+      "A connection is recorded a moment after it's made, once a worker takes it from the queue. Off the request path, the design's availability is 99.97%.",
       "Ranking by shared connections alone favours people with huge networks. Real systems mix in workplace, school and what members ignore.",
     ],
     alternatives: [

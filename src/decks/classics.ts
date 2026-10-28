@@ -4338,7 +4338,7 @@ export const PEOPLE_YOU_MAY_KNOW = deck("people-you-may-know", [
     [
       "When a member connects with someone: both members' lists change.",
       "Every night for everyone, to pick up their friends' new connections.",
-      "On a cache miss, worked out live once and kept.",
+      "For a new member, as soon as they join.",
     ],
   ],
   [
@@ -4346,7 +4346,7 @@ export const PEOPLE_YOU_MAY_KNOW = deck("people-you-may-know", [
     "Why recompute behind a {queue}?",
     [
       "It's about half a second of waiting on the graph.",
-      "Inside the request, the new connection's p99 reaches about 825ms.",
+      "Inside the request, each connection waits for it, and the {graph-db} is on the request path.",
       "Behind a queue, {worker} instances do it in the background, and catch up after a busy hour.",
     ],
   ],
@@ -4435,9 +4435,9 @@ export const PEOPLE_YOU_MAY_KNOW = deck("people-you-may-know", [
     "resilience",
     "A {cache} node is lost. What do members see?",
     [
-      "Lists on that node are gone, so those members' home pages work theirs out live.",
-      "A rush of misses lands on the {graph-db}: limit how many are worked out at once.",
-      "Rebuild the node's lists in the background, most active members first.",
+      "Lists on that node are gone: those members see popular suggestions for a while.",
+      "Rebuilding them all at once is a rush of work for the {graph-db}: queue it, most active members first.",
+      "If rebuilding takes too long, keep a copy of the lists in a durable store too.",
     ],
   ],
   [

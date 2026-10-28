@@ -708,6 +708,118 @@ export const QUIZZES: Record<string, Question[]> = {
       20,
     ],
   ]),
+  "ask-the-docs": q([
+    [
+      "Why a {vector-db} rather than keyword search?",
+      "People ask in their own words, and vectors match meaning, not wording",
+      [
+        "Keyword search can't handle more than a few thousand articles",
+        "A {vector-db} is cheaper per query than any keyword index",
+        "Vectors find exact error codes and product names more reliably than keywords",
+      ],
+      "'My invoice is wrong' should find 'Correcting a billing statement'. Keyword search still wins on exact terms.",
+      5,
+    ],
+    [
+      "Why embed articles behind a {queue}?",
+      "Embedding takes about two seconds of model calls",
+      [
+        "The {vector-db} only accepts writes from a {worker}, never from an {app-server}",
+        "Queued articles are embedded more accurately because the model has more time",
+        "It lets the help centre skip embedding the articles nobody reads",
+      ],
+      "Done while the author waits, every save takes two seconds longer and p99 reaches about 5.1s.",
+      6,
+    ],
+    [
+      "What does the {cache} in front of the {vector-db} save here?",
+      "About $1,470 a month in query fees, for $300 of {cache}",
+      [
+        "Nothing: the {vector-db} is already as fast as a {cache}",
+        "Storage: the {vector-db} no longer needs to keep every passage",
+        "The embedding model's calls for new articles, which it batches up overnight",
+      ],
+      "It answers 745 questions a second. Query fees drop from about $3,876 to $2,408 a month, and p99 from about 574ms to 397ms.",
+      7,
+    ],
+    [
+      "Why split articles into passages of a few paragraphs?",
+      "One vector for a whole article blurs several topics into one",
+      [
+        "Embedding models refuse anything longer than a sentence or two",
+        "Shorter passages are always better, so single sentences would be best",
+        "It's only done to save storage in the {vector-db}",
+      ],
+      "Too long blurs topics; too short loses context. Keep the title and article ID with each passage.",
+      8,
+    ],
+    [
+      "What does approximate nearest-neighbour search trade away?",
+      "A little recall, for answers in milliseconds",
+      [
+        "Accuracy of the stored vectors, which are rounded to whole numbers to save memory",
+        "Freshness: an approximate index can't take new passages until it's rebuilt",
+        "Nothing: it returns the same results as comparing every passage",
+      ],
+      "Comparing a question with every passage is exact and far too slow for millions. Measure recall on a test set.",
+      9,
+    ],
+    [
+      "You switch to a better embedding model. What has to happen?",
+      "Every passage is embedded again into a new index, then you switch over",
+      [
+        "Nothing: new articles use the new model and old ones keep their vectors",
+        "Only the questions need the new model; the stored passages stay as they are",
+        "The {vector-db} converts old vectors to the new model automatically",
+      ],
+      "Vectors from two models can't be compared. Build the new index alongside, then switch.",
+      11,
+    ],
+    [
+      "When is a vector extension in an existing {sql-primary} the better choice?",
+      "For thousands of articles and modest traffic",
+      [
+        "Never: vectors can't be stored in a relational database at all",
+        "Only when there are millions of passages and thousands of questions a second",
+        "Whenever the help centre also needs keyword search, since SQL does both well",
+      ],
+      "Starting in the database you have is a fine first version. A dedicated store pays off at scale.",
+      12,
+    ],
+    [
+      "Someone searches for the error code 'E4012'. What's the risk?",
+      "Vector search returns passages about similar-looking codes",
+      [
+        "The {cache} refuses to store questions that contain numbers",
+        "The embedding model rejects the question because it has no words in it",
+        "Nothing: exact codes are what vector search handles best",
+      ],
+      "Codes look alike to the model. Send them to keyword search, or merge both lists.",
+      16,
+    ],
+    [
+      "The {vector-db} loses its index. What do you rebuild it from?",
+      "The articles, which are the source of truth",
+      [
+        "The {cache}, which holds a copy of every passage that's ever been asked about",
+        "Nothing: the index is the only copy of the help centre's content",
+        "The {queue}, which keeps every message it has ever delivered",
+      ],
+      "Vectors are an index. Keep each passage's vector with its article, so rebuilding needn't call the model again.",
+      18,
+    ],
+    [
+      "Some articles are for one plan only. Where does that filter go?",
+      "Inside the search, on an audience stored with each passage",
+      [
+        "After the search, by removing private results from the top ten",
+        "In the browser, by hiding results the customer's plan doesn't include",
+        "Nowhere: articles that are private shouldn't be embedded",
+      ],
+      "Filtering afterwards can leave nothing, or leak titles. Cache answers per audience, or not at all.",
+      19,
+    ],
+  ]),
   "login-flood": q([
     [
       "Where should the rate limit go?",

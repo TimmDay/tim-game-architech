@@ -113,6 +113,14 @@ export function TargetList({
           ))}
         </span>,
       ])
+  if (targets.readsReach?.length)
+    rows.push([
+      "Reads no cache answers reach",
+      <Rich
+        text={targets.readsReach.map((k) => `{${k}}`).join(" or ")}
+        provider={provider}
+      />,
+    ])
   if (targets.keepApart) rows.push(["Each shard holds", targets.keepApart.what])
   if (targets.noBacklog)
     rows.push([

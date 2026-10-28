@@ -6,6 +6,8 @@ import {
   mixedStores,
   overkillUsed,
   type Targets,
+  readsAt,
+  unansweredReads,
   writesAt,
 } from "./grade"
 import {
@@ -307,6 +309,17 @@ export function findings(
         text: `Only ${rps(got)} of ${rps(want)} ${t.label.toLowerCase()} reach ${t.to.map((k) => `{${k}}`).join(" or ")}. Connect Users to it, and set that connection to carry them.`,
       })
     }
+  }
+
+  if (targets?.readsReach?.length) {
+    const want = unansweredReads(load, peak)
+    const got = readsAt(graph, peak, targets.readsReach)
+    if (got < want * 0.99)
+      out.push({
+        severity: "error",
+        concept: "cache-aside",
+        text: `Only ${rps(got)} of the ${rps(want)} reads no cache answers reach ${targets.readsReach.map((k) => `{${k}}`).join(" or ")}. A {cache} only knows what it was given: put the store behind it.`,
+      })
   }
 
   if (targets?.keepApart) {

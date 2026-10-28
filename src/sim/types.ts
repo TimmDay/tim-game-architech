@@ -335,6 +335,8 @@ export type SimResult = {
   monthlyCostUsd: number
   /** Messages per second arriving faster than consumers can take them. */
   backlogGrowthRps: number
+  /** Reads that caches answered themselves. */
+  cacheHitRps: number
   /**
    * Writes accepted on the minority side of a network split, which the other
    * side doesn't see until it heals: conflicts to reconcile later.

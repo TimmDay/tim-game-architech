@@ -48,6 +48,14 @@ describe.each(LEVELS)("$id", (level) => {
     ).toBe(true)
   })
 
+  it("only marks what a line carries where the level offers that choice", () => {
+    // The picker appears only in levels with traffic types: a reference that
+    // needs a marked line elsewhere is one no player can draw.
+    if (!level.load.traffic?.length)
+      for (const e of level.reference.edges)
+        expect(e.carries, e.id).toBeUndefined()
+  })
+
   it("only uses palette components in its reference", () => {
     for (const c of level.reference.components)
       expect(level.palette).toContain(c.kind)
@@ -539,6 +547,33 @@ describe("the interview classics' traps", () => {
       zones: 1,
     })
     expect(failed(l, g)).toEqual([])
+  })
+
+  it("ask the docs: without the cache, every question is billed and p99 misses", () => {
+    const l = level("ask-the-docs")
+    const g = rewire(l.reference, ["answers"], ["app>vectors"])
+    expect(failed(l, g)).toEqual(
+      expect.arrayContaining(["latency", "budget", "chaos"]),
+    )
+  })
+
+  it("ask the docs: embedding while the author waits fails latency", () => {
+    const l = level("ask-the-docs")
+    const g = rewire(
+      l.reference,
+      ["jobs", "embed"],
+      ["app>model", "app>vectors"],
+    )
+    expect(failed(l, g)).toContain("latency")
+  })
+
+  it("ask the docs: a cache with nothing behind it can't answer new questions", () => {
+    const l = level("ask-the-docs")
+    const g = {
+      ...l.reference,
+      edges: l.reference.edges.filter((e) => e.id !== "answers>vectors"),
+    }
+    expect(failed(l, g)).toEqual(["reads"])
   })
 
   it("overkill works, but costs the third star", () => {

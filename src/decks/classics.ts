@@ -3663,3 +3663,206 @@ export const TOP_PLAYERS = deck("top-players", [
     ],
   ],
 ])
+
+export const ASK_THE_DOCS = deck("ask-the-docs", [
+  [
+    "clarify",
+    "What would you ask about the content?",
+    [
+      "How many articles, how long, and how often do they change? That sizes the embedding work.",
+      "Is everything public, or do some articles belong to one customer's plan or account?",
+      "Which languages? A model trained on several can match a question in one language to an article in another.",
+    ],
+    "If some articles are private to one customer, where does that filter go?",
+  ],
+  [
+    "clarify",
+    "What does a good answer look like?",
+    [
+      "A ranked list of passages with links, or a written answer built from them?",
+      "How fast must it appear? A list in half a second; a written answer can stream.",
+      "How will you measure 'good'? A test set of real questions with the articles that answer them.",
+    ],
+  ],
+  [
+    "clarify",
+    "How much do people repeat themselves?",
+    [
+      "In help centres a few questions dominate: password resets, invoices, cancelling.",
+      "Here about 40% are word-for-word repeats of a popular question, which a {cache} can answer.",
+      "Ask for the search logs: they also show the questions no article answers.",
+    ],
+  ],
+  [
+    "product",
+    "What happens when nothing is close enough?",
+    [
+      "Say so, rather than showing the least bad match as if it answered the question.",
+      "Offer to contact support, with the question already filled in.",
+      "Log it: unanswered questions are the writers' to-do list.",
+    ],
+  ],
+  [
+    "product",
+    "Should the help centre write an answer, or link to articles?",
+    [
+      "Links are fast, cheap and easy to trust: the customer reads the source.",
+      "A written answer from the top passages reads better, but costs seconds and a model call each.",
+      "Either way, show which articles it came from.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a {vector-db} rather than keyword search?",
+    [
+      "People ask in their own words: 'my invoice is wrong' should find 'Correcting a billing statement'.",
+      "Vectors put passages with similar meaning close together, whatever the words.",
+      "Keyword search still wins on exact terms, which is why many systems run both.",
+    ],
+    "Which questions would vector search get wrong?",
+  ],
+  [
+    "decision",
+    "Why embed articles behind a {queue}?",
+    [
+      "Embedding an article's passages takes about two seconds of model calls.",
+      "Done while the author waits, every save takes two seconds longer and p99 reaches about 5.1s.",
+      "Behind a {queue}, {worker} instances do it in the background and retry if the model fails.",
+    ],
+  ],
+  [
+    "decision",
+    "Why cache answers in front of the {vector-db}?",
+    [
+      "It's billed per query: without the {cache}, query fees alone are about $3,876 a month.",
+      "40% of questions repeat a popular one, so the {cache} takes 745 a second off it.",
+      "It's faster too: a cached answer comes back in milliseconds.",
+    ],
+  ],
+  [
+    "decision",
+    "How do you split an article into passages?",
+    [
+      "A few paragraphs each, at headings where possible, so each passage is about one thing.",
+      "Too long and one vector blurs several topics; too short and it loses its context.",
+      "Keep the article's title with each passage, and its ID, so results link back.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Exact search or approximate?",
+    [
+      "Exact compares the question with every passage: right every time, and too slow for millions.",
+      "Approximate indexes find nearly all the closest matches in milliseconds.",
+      "Measure recall on your test set, and tune the index until it's good enough.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How fresh must search be after an edit?",
+    [
+      "Here, a few seconds behind is fine: the {queue} and {worker} catch up.",
+      "Cached answers may still link to the old wording for up to an hour unless the edit clears them.",
+      "A product recall notice might need to be searchable at once: give it a fast lane.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "A bigger embedding model, or a smaller one?",
+    [
+      "Bigger models usually match meaning better, and cost more per call and per stored vector.",
+      "Their vectors are longer, so the index needs more memory.",
+      "Test on your own questions: the gain is often smaller than the benchmarks suggest.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you store the vectors in a database you already run?",
+    [
+      "Yes: a vector extension in a {sql-primary} is simpler for thousands of articles.",
+      "At millions of passages and thousands of questions a second, a dedicated {vector-db} pays off.",
+      "Starting in the database you have is a fine first version.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you cache by meaning instead of exact wording?",
+    [
+      "A question very close to a cached one gets its answer: 'forgot my password' and 'reset password'.",
+      "It catches more repeats, and sometimes answers a slightly different question.",
+      "Set the closeness threshold high, and check what it merges.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times as many articles. What changes?",
+    [
+      "The one-off cost of embedding them, and the memory the index needs.",
+      "Query speed barely changes: approximate search grows slowly with size.",
+      "Re-embedding everything for a new model now takes days of model calls: plan for it.",
+    ],
+  ],
+  [
+    "scale",
+    "An outage sends twice as many people to the help centre. What holds?",
+    [
+      "Questions double. The {vector-db}'s three units go from 41% to 81%, and five {app-server} instances reach 80%.",
+      "Most people ask the same thing, so the {cache} takes an even bigger share in real life.",
+      "Pin a banner about the outage, so many don't need to search at all.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A question is an error code: 'E4012'. What happens?",
+    [
+      "Vector search may return passages about other errors, because the codes look alike to the model.",
+      "Keyword search finds the exact code at once.",
+      "Spot codes and product names, and send them to keyword search, or merge both.",
+    ],
+  ],
+  [
+    "resilience",
+    "The embedding model's API is down for an hour. What breaks?",
+    [
+      "New and edited articles wait in the {queue}; existing ones are still searchable.",
+      "Embedding questions fails too, so fall back to keyword search or cached answers.",
+      "Workers retry with backoff, and an alert fires if the queue keeps growing.",
+    ],
+  ],
+  [
+    "resilience",
+    "The {vector-db} loses its index. How do you recover?",
+    [
+      "Rebuild it from the articles, which are the source of truth: the vectors are an index.",
+      "Store each passage's vector with the article too, so rebuilding needn't call the model again.",
+      "Until then, serve cached answers and keyword search.",
+    ],
+  ],
+  [
+    "security",
+    "Some articles are for one customer's plan only. How do you keep them private?",
+    [
+      "Store the audience with each passage, and filter on it inside the search, not afterwards.",
+      "Filtering after the top ten can leave nothing, or leak titles in the count.",
+      "Cache answers per audience, or not at all for private ones.",
+    ],
+  ],
+  [
+    "security",
+    "Someone types a customer's email address into the search box. Then what?",
+    [
+      "Questions are personal data once they hold names or emails: log them with care.",
+      "Strip obvious personal details before logging or caching.",
+      "If you send questions to an outside model, check what its provider keeps.",
+    ],
+  ],
+  [
+    "observability",
+    "What would you watch?",
+    [
+      "The share of questions with no close match, and clicks on results: is search helping?",
+      "The {cache}'s hit rate, and query spend against budget.",
+      "The {queue}'s age: how long an edit waits to become searchable.",
+    ],
+  ],
+])

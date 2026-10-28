@@ -12,6 +12,7 @@ import {
   Lightbulb,
   Lock,
   ClipboardCheck,
+  Eraser,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
@@ -130,6 +131,9 @@ export function Play({
     banner,
     startConnect,
     receive,
+    placeNote,
+    editingNote,
+    setEditingNote,
   } = useBoardEditor({
     initial,
     provider,
@@ -142,6 +146,7 @@ export function Play({
     },
     onToast: setToast,
     onDiagnose: handleDiagnose,
+    notes: wide,
   })
 
   useEffect(() => saveBuild(level.id, graph), [graph, level.id])
@@ -337,6 +342,20 @@ export function Play({
     setLive(false)
   }
 
+  // Clearing notes can't be undone either: the same second tap.
+  const [confirmClear, setConfirmClear] = useState(false)
+  useEffect(() => {
+    if (!confirmClear) return
+    const t = setTimeout(() => setConfirmClear(false), 3000)
+    return () => clearTimeout(t)
+  }, [confirmClear])
+  const clearNotes = () => {
+    if (!confirmClear) return setConfirmClear(true)
+    setConfirmClear(false)
+    setEditingNote(null)
+    dispatch({ type: "clear-notes" })
+  }
+
   // --- panels --------------------------------------------------------------
   const study = (
     <StudyCards
@@ -390,6 +409,15 @@ export function Play({
       palette={level.palette}
       provider={provider}
       placing={tool.t === "place" ? tool.kind : undefined}
+      note={
+        wide
+          ? {
+              active: tool.t === "note",
+              onToggle: () =>
+                setTool(tool.t === "note" ? { t: "select" } : { t: "note" }),
+            }
+          : undefined
+      }
       onPick={(k) => {
         setTool(k ? { t: "place", kind: k } : { t: "select" })
         if (k && !wide) setSheetOpen(false)
@@ -507,6 +535,18 @@ export function Play({
         onTapTile={onTapTile}
         onMove={onMove}
         traffic={level.load.traffic}
+        notes={
+          running
+            ? undefined
+            : {
+                placing: tool.t === "note",
+                readOnly: !wide,
+                editing: editingNote,
+                onPlace: placeNote,
+                onEdit: setEditingNote,
+                dispatch,
+              }
+        }
         handles={
           !wide && tab === "build" && !running
             ? {
@@ -596,6 +636,21 @@ export function Play({
       </span>
       <div className="flex-1" />
       {toggle}
+      {wide && !running && (graph.notes?.length ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={clearNotes}
+          className={clsx(
+            "flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] whitespace-nowrap",
+            confirmClear
+              ? "bg-rose-400/15 text-rose-200"
+              : "text-slate-400 hover:bg-white/5 hover:text-white",
+          )}
+          title="Remove every note on this board"
+        >
+          <Eraser size={13} /> {confirmClear ? "Tap again" : "Clear notes"}
+        </button>
+      )}
       <button
         type="button"
         onClick={reset}

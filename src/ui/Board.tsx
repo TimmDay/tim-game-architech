@@ -9,9 +9,11 @@ import {
 import { COLS, ROWS, clientTile, inBounds, occupied } from "~/game/edit"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
 import { carries } from "~/sim/simulate"
+import type { Action } from "~/game/edit"
 import type { Graph, SimResult } from "~/sim/types"
 import { CLIENT_ID, type TrafficType } from "~/sim/types"
 import { Block, ClientBlock } from "./Block"
+import { NoteCard } from "./NoteCard"
 import { edgeLabel, nodeLabel } from "./boardLabels"
 import { TH, TW, diamond, iso, tileAt } from "./iso"
 import { useParticles } from "./particles"
@@ -45,6 +47,17 @@ export type BoardProps = {
     onStart: (id: string) => void
     onReceive: (id: string) => void
   }
+  /** The player's notes. Unset hides them (while a test runs). */
+  notes?: {
+    /** A click, or Enter for the top left, puts a note down. */
+    placing: boolean
+    /** Phones: shown, but not editable. */
+    readOnly: boolean
+    editing: string | null
+    onPlace: (x: number, y: number) => void
+    onEdit: (id: string | null) => void
+    dispatch: (a: Action) => void
+  }
 }
 
 const ALL_COLOR = "#38bdf8"
@@ -56,6 +69,10 @@ type View = { x: number; y: number; k: number }
 type Pt = { x: number; y: number }
 
 const TAP_SLOP = 8
+
+/** Where T then Enter puts a note: in from the view's top left, cascading. */
+const NOTE_INSET = 16
+const NOTE_CASCADE = 24
 
 /**
  * Arrow keys step along the grid. Each axis runs diagonally on screen, so
@@ -84,7 +101,14 @@ function nodePos(graph: Graph, id: string) {
 export function Board(p: BoardProps) {
   const wrap = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
-  const [view, setView] = useState<View>({ x: 0, y: 0, k: 1 })
+  const [view, setRawView] = useState<View>({ x: 0, y: 0, k: 1 })
+  const sizeRef = useRef(size)
+  /** Every pan and zoom goes through here, so the grid is never lost. */
+  const setView = useCallback(
+    (v: View, w = sizeRef.current.w, h = sizeRef.current.h) =>
+      setRawView(clampView(v, w, h)),
+    [],
+  )
   const [hover, setHover] = useState<Pt | null>(null)
   /** The keyboard's tile while placing, and whether to draw it. */
   const [cursor, setCursor] = useState<Pt | null>(null)
@@ -99,28 +123,40 @@ export function Board(p: BoardProps) {
   useEffect(() => {
     graphRef.current = p.graph
   }, [p.graph])
-  const fit = useCallback((w: number, h: number) => {
-    const g = graphRef.current
-    // An empty board still frames a few tiles' room to build in.
-    const pts = [
-      iso(clientTile(g).x, clientTile(g).y),
-      iso(6, 2),
-      iso(6, 6),
-      ...g.components.map((c) => iso(c.x, c.y)),
-    ]
-    const left = Math.min(...pts.map((c) => c.sx)) - TW
-    const right = Math.max(...pts.map((c) => c.sx)) + TW
-    const top = Math.min(...pts.map((c) => c.sy)) - 70
-    const bottom = Math.max(...pts.map((c) => c.sy)) + 50
-    const k = clampK(
-      Math.min(1.5, (w - 24) / (right - left), (h - 24) / (bottom - top)),
-    )
-    setView({
-      k,
-      x: w / 2 - ((left + right) / 2) * k,
-      y: h / 2 - ((top + bottom) / 2) * k,
-    })
-  }, [])
+  const fit = useCallback(
+    (w: number, h: number) => {
+      const g = graphRef.current
+      // An empty board still frames a few tiles' room to build in.
+      const pts = [
+        iso(clientTile(g).x, clientTile(g).y),
+        iso(6, 2),
+        iso(6, 6),
+        ...g.components.map((c) => iso(c.x, c.y)),
+        // A note's corner, and roughly where its card ends.
+        ...(g.notes ?? []).flatMap((n) => [
+          { sx: n.x, sy: n.y + 70 },
+          { sx: n.x + 160, sy: n.y + 110 },
+        ]),
+      ]
+      const left = Math.min(...pts.map((c) => c.sx)) - TW
+      const right = Math.max(...pts.map((c) => c.sx)) + TW
+      const top = Math.min(...pts.map((c) => c.sy)) - 70
+      const bottom = Math.max(...pts.map((c) => c.sy)) + 50
+      const k = clampK(
+        Math.min(1.5, (w - 24) / (right - left), (h - 24) / (bottom - top)),
+      )
+      setView(
+        {
+          k,
+          x: w / 2 - ((left + right) / 2) * k,
+          y: h / 2 - ((top + bottom) / 2) * k,
+        },
+        w,
+        h,
+      )
+    },
+    [setView],
+  )
 
   useLayoutEffect(() => {
     const el = wrap.current
@@ -129,6 +165,7 @@ export function Board(p: BoardProps) {
       if (!entry) return
       const { width, height } = entry.contentRect
       setSize({ w: width, h: height })
+      sizeRef.current = { w: width, h: height }
       if (!fitted.current && width > 0) {
         fitted.current = true
         fit(width, height)
@@ -147,12 +184,35 @@ export function Board(p: BoardProps) {
     setCursor(null)
     setCursorShown(false)
   }
+  const notePlacing = p.notes?.placing ?? false
   useEffect(() => {
-    if (p.placing) wrap.current?.focus({ preventScroll: true })
-  }, [p.placing])
+    if (p.placing || notePlacing) wrap.current?.focus({ preventScroll: true })
+  }, [p.placing, notePlacing])
   const tile = p.placing ? (cursor ?? nearestFree(p.graph)) : null
 
+  /** In from the view's top left, stepping past any note already there. */
+  const topLeftNote = () => {
+    const at = { x: NOTE_INSET, y: NOTE_INSET }
+    const taken = (pt: Pt) =>
+      (p.graph.notes ?? []).some(
+        (n) =>
+          Math.abs(view.x + n.x * view.k - pt.x) < NOTE_CASCADE / 2 &&
+          Math.abs(view.y + n.y * view.k - pt.y) < NOTE_CASCADE / 2,
+      )
+    while (taken(at) && at.y < size.h / 2) {
+      at.x += NOTE_CASCADE
+      at.y += NOTE_CASCADE
+    }
+    return toWorld(at)
+  }
+
   const onBoardKey = (e: React.KeyboardEvent) => {
+    if (notePlacing && e.target === e.currentTarget && e.key === "Enter") {
+      e.preventDefault()
+      const w = topLeftNote()
+      p.notes?.onPlace(w.x, w.y)
+      return
+    }
     if (!tile) return
     const step = STEPS[e.key]
     if (step) {
@@ -307,6 +367,11 @@ export function Board(p: BoardProps) {
     }
     gesture.current = null
     if (!g || g.moved) return
+    if (p.notes?.placing) {
+      // A note can go anywhere, over a component included.
+      const w = toWorld(local(e))
+      return p.notes.onPlace(w.x, w.y)
+    }
     if (g.target?.handle) {
       const [kind, id = ""] = g.target.handle.split(":")
       return kind === "start"
@@ -413,7 +478,8 @@ export function Board(p: BoardProps) {
       className="relative h-full w-full touch-none overflow-hidden outline-none select-none"
       role="group"
       aria-label="Board"
-      tabIndex={p.placing ? 0 : -1}
+      tabIndex={p.placing || notePlacing ? 0 : -1}
+      style={notePlacing ? { cursor: "crosshair" } : undefined}
       onKeyDown={onBoardKey}
       onFocus={(e) => {
         if (e.target === e.currentTarget)
@@ -715,6 +781,36 @@ export function Board(p: BoardProps) {
             })}
         </g>
       </svg>
+      {p.notes &&
+        (p.graph.notes ?? []).map((n) => {
+          const notes = p.notes
+          if (!notes) return null
+          return (
+            <NoteCard
+              key={n.id}
+              note={n}
+              left={view.x + n.x * view.k}
+              top={view.y + n.y * view.k}
+              k={view.k}
+              readOnly={notes.readOnly}
+              editing={notes.editing === n.id}
+              onEdit={() => notes.onEdit(n.id)}
+              onSave={(text) => {
+                notes.dispatch({ type: "set-note", id: n.id, text })
+                notes.onEdit(null)
+              }}
+              onCancel={() => {
+                // Esc on a note just put down takes it away again.
+                if (!n.text) notes.dispatch({ type: "remove-note", id: n.id })
+                notes.onEdit(null)
+              }}
+              onMove={(x, y) =>
+                notes.dispatch({ type: "move-note", id: n.id, x, y })
+              }
+              onRemove={() => notes.dispatch({ type: "remove-note", id: n.id })}
+            />
+          )
+        })}
       {p.graph.edges.some((e) => e.carries?.length) && (
         <Legend
           rows={[
@@ -789,6 +885,22 @@ function FocusRing() {
       pointerEvents="none"
     />
   )
+}
+
+/**
+ * Keep the middle of the screen over the grid: some of the board is always
+ * in view, and a note can sit up to half a screen beyond its edge.
+ */
+function clampView(v: View, w: number, h: number): View {
+  if (!w || !h) return v
+  const a = (w / 2 - v.x) / v.k / (TW / 2)
+  const b = (h / 2 - v.y) / v.k / (TH / 2)
+  const clamp = (n: number, max: number) =>
+    Math.min(max - 0.5, Math.max(-0.5, n))
+  const tx = clamp((a + b) / 2, COLS)
+  const ty = clamp((b - a) / 2, ROWS)
+  const { sx, sy } = iso(tx, ty)
+  return { k: v.k, x: w / 2 - sx * v.k, y: h / 2 - sy * v.k }
 }
 
 const clampK = (k: number) => Math.min(2.6, Math.max(0.35, k))

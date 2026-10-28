@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { LEVELS, levelById } from "~/levels"
+import { LEVELS, graph, levelById } from "~/levels"
 import { findings } from "../findings"
 import { grade } from "../grade"
+import { KINDS } from "../catalogue"
 import {
   expectedPractices,
   missingPractices,
+  OFFERS,
   type PracticeId,
 } from "../practices"
 import type { Fault, Graph, Practices } from "../types"
+import { CLIENT_ID } from "../types"
 
 const level = (id: string) => {
   const l = levelById(id)
@@ -143,5 +146,42 @@ describe("what each level expects", () => {
       .filter((x) => x.practice === "auth")
       .map((x) => x.componentId)
     expect(auth).toEqual(["app"])
+  })
+})
+
+describe("the sidebar offers every setting the grade asks for", () => {
+  /** The setting that satisfies each expectation. */
+  const KEY: Record<PracticeId, keyof Practices> = {
+    backups: "backups",
+    "point-in-time": "backups",
+    encryption: "encrypted",
+    auth: "auth",
+    "rate-limit": "rateLimit",
+    timeouts: "timeouts",
+    backoff: "retries",
+    dlq: "dlq",
+    idempotency: "idempotency",
+    alerts: "alerts",
+  }
+  const all = { signedIn: true, personalData: true, money: true, abuse: true }
+
+  it.each(KINDS)("%s", (kind) => {
+    // First in line, behind a request tier, and calling something itself.
+    const designs: Graph[] = [
+      graph([["x", kind, 1, 1]], [`${CLIENT_ID}>x`]),
+      graph(
+        [
+          ["app", "app-server", 1, 1],
+          ["x", kind, 2, 1],
+          ["db", "sql-primary", 3, 1],
+        ],
+        [`${CLIENT_ID}>app`, "app>x", "x>db"],
+      ),
+    ]
+    for (const g of designs)
+      for (const x of expectedPractices(g, all).filter(
+        (e) => e.componentId === "x",
+      ))
+        expect(OFFERS[kind] ?? [], x.practice).toContain(KEY[x.practice])
   })
 })

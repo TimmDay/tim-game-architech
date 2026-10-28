@@ -451,7 +451,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     overview:
       "A write-heavy system: half of all requests are messages. A single {sql-primary} can't take 5,000 writes a second, so messages go to a partitioned {nosql} store, keyed by conversation. Each message also goes onto an {event-stream}, and push senders notify recipients who are offline.",
     walkthrough: [
-      "Phones keep a connection open to an {app-server}, through the {load-balancer}.",
+      "Phones keep a WebSocket connection open to an {app-server}, through the {load-balancer}. Running these connection servers yourself is what keeps the cost down at this volume.",
       "Sending a message: the app writes it to the {nosql} store, partitioned by conversation ID and sorted by time, then acknowledges to the sender (one tick).",
       "It publishes a message-sent event to the {event-stream}. Recipients connected to an app server get it over their open connection (two ticks).",
       "{serverless} push senders consume the same stream and send a push notification to anyone offline.",
@@ -473,6 +473,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "A second region: overkill here, where the chaos round is a zone and the users aren't spread across continents. It would double the cost of every store. It earns its place once users are worldwide, so a message doesn't cross an ocean on its way to someone in the same city.",
       "Sharding the relational database by conversation works, but you'd be building a partitioned store by hand.",
+      "A managed {realtime-gateway} holding the connections instead of your own servers: less to run, but it's billed per message, about $7,900 a month at 10,000 a second. That takes the design to $17,547 against $10,500, and its extra hop pushes p99 to 322ms. Below a few hundred messages a second, the managed one is the easier choice.",
       "Polling for new messages instead of open connections: simpler, but slower to deliver and far more requests.",
       "Delivering through a {queue}: each message would go to one consumer only, so either the connection servers or the push senders would miss it.",
     ],

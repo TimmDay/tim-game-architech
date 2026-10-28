@@ -596,6 +596,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "token-check": q([
+    [
+      "Why can't every request ask the {auth-service} who's calling?",
+      "6,000 calls a second is twelve times its quota, and it would put the provider on every request",
+      [
+        "The {auth-service} can't answer questions about tokens",
+        "It would be slower, but 6,000 calls a second fits easily inside a quota of 500 calls a second per instance",
+        "Only teachers' requests need checking, since students can only read their own homework anyway",
+      ],
+      "Checked per request, 92% of requests fail at a normal peak, and all of them when the provider slows.",
+      5,
+    ],
+    [
+      "How does an {app-server} check a token without calling anyone?",
+      "It checks the signature with the provider's public key, and the expiry",
+      [
+        "It decrypts the token with a password every server shares",
+        "It looks the token up in the {sql-primary}",
+        "It trusts any token that's well formed and not yet expired, because only the provider can create one",
+      ],
+      "The public key is fetched once and kept in memory. A token anyone could forge would be worthless.",
+      6,
+    ],
+    [
+      "Why can't anything secret go in the access token?",
+      "It's signed, not encrypted: anyone holding it can read it",
+      [
+        "Tokens are limited to a few bytes, too small to hold anything but the user's ID and an expiry time",
+        "The provider deletes anything it doesn't recognise",
+        "Secrets would make the signature check slower",
+      ],
+      "The signature stops changes, not reading. Put in who, role, school and expiry.",
+      7,
+    ],
+    [
+      "Why do students sign in with the provider directly?",
+      "Passwords never reach your servers, and the provider handles resets and second factors",
+      [
+        "It's the only way to get a token: providers refuse to issue tokens to requests relayed by your own servers",
+        "The {load-balancer} can't carry passwords",
+        "It saves the provider's quota",
+      ],
+      "Your servers only ever see tokens. Relaying sign-ins through your own servers also works, with more to protect.",
+      8,
+    ],
+    [
+      "Why not make access tokens last five minutes?",
+      "Refreshes would rise to 1,200 a second, more than twice the quota",
+      [
+        "Tokens can't expire in less than an hour",
+        "Students would have to type their password again every five minutes, all evening, which no school would accept",
+        "Short tokens are easier to steal",
+      ],
+      "360,000 people signed in, refreshing every 300 seconds. Short tokens limit theft; they cost quota.",
+      9,
+    ],
+    [
+      "What does checking tokens in an {api-gateway} cost here?",
+      "About $6,073 a month, against a $1,800 budget",
+      [
+        "Nothing: gateways are free below 10,000 calls a second",
+        "About $180 a month",
+        "It can't check tokens at all",
+      ],
+      "It's billed per call: 6,000 a second adds up. It works, and would suit a bigger budget.",
+      11,
+    ],
+    [
+      "What does caching the {auth-service}'s answer for each token for a minute bring back?",
+      "Up to a minute's delay before a revoked token stops working",
+      [
+        "Nothing: it gives instant revocation and removes every call to the provider, including the ones for new tokens",
+        "A call to the provider on every request",
+        "Passwords stored in the {cache}",
+      ],
+      "It cuts the calls, but every new token still costs one, and revocation waits for the cache.",
+      12,
+    ],
+    [
+      "A teacher is made a student-only user mid-term. When does a token-checking app notice?",
+      "When their token expires, unless that action checks the role in the database",
+      [
+        "Immediately, because tokens update themselves",
+        "Never, until they sign out themselves, because a token can't be replaced while it's still valid",
+        "The next time any user signs in",
+      ],
+      "The old token says 'teacher' until it expires. Revoke the refresh token, or check sensitive actions in the database.",
+      16,
+    ],
+    [
+      "The {auth-service} is down for an hour. What still works?",
+      "Everyone already signed in, until their token expires",
+      [
+        "Nothing: every request needs it",
+        "Only teachers' accounts",
+        "Sign-ins, because each {app-server} keeps a copy of every password hash to fall back on",
+      ],
+      "New sign-ins and refreshes fail. Tokens checked locally keep everyone else going.",
+      17,
+    ],
+    [
+      "The token is valid. What must the app still check?",
+      "That this student may see this record: their homework, their class",
+      [
+        "Nothing else: a valid, unexpired token from the provider means every request it carries is allowed",
+        "That the request came through the {load-balancer}",
+        "That the student's password hasn't changed",
+      ],
+      "The token proves who is calling; the database decides what they may touch.",
+      20,
+    ],
+  ]),
   "login-flood": q([
     [
       "Where should the rate limit go?",

@@ -68,6 +68,7 @@ export type ConceptId =
   | "idempotency"
   | "alerting"
   | "simplest-design"
+  | "stateless-tokens"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
   "simplest-design": {
@@ -99,6 +100,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "Authentication proves who is calling; authorization decides what they may touch. Check both on the server for every request, at the first tier that runs your code or at an {api-gateway} in front of it. A check in the browser is a convenience, never a control.",
     interview:
       "Name where identity is checked (the gateway or the app), and say that each request is also checked against the specific record: 'is this ticket in this user's company?' That second check is where most real breaches happen.",
+  },
+  "stateless-tokens": {
+    title: "Signed tokens, checked locally",
+    body: "At sign-in, the {auth-service} gives the user a short-lived access token, signed with its private key, and a longer-lived refresh token. Each server checks the signature with the matching public key, which it fetches once and caches, so ordinary requests never call the {auth-service}. The price is revocation: a stolen access token works until it expires. So access tokens live minutes to an hour, and the refresh is where a signed-out or banned user is caught.",
+    interview:
+      "Say what the token holds (who, their roles, when it expires), who checks it (every service, on its own), and how long it lives. Then say how you'd cut someone off right now: short expiry, and a small deny list in a {cache} for emergencies.",
   },
   "rate-limiting": {
     title: "Rate limiting",

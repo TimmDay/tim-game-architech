@@ -3550,6 +3550,87 @@ const OPS: Level[] = [
     topics: ["topic-observability"],
     hint: "A hung worker looks healthy from outside. What would tell someone the invoices have stopped, and how many workers do you need while one is being replaced?",
   },
+  {
+    id: "token-check",
+    mode: "build",
+    track: "ops",
+    requires: ["login-flood", "sync-folder"],
+    title: "Every Request Checks",
+    tagline:
+      "The sign-in service takes 500 calls a second. Your API takes 6,000.",
+    scenario: {
+      product: "the homework app",
+      reads: "students and teachers opening assignments and grades",
+      writes: "homework being handed in, and sign-ins",
+      hot: "this week's assignments for each class",
+      records: "classes, assignments, submissions and grades",
+    },
+    brief:
+      "Students and teachers use a homework app: 6,000 requests a second on a school night, and every one must come from someone signed in. A managed {auth-service} signs people in and hands out tokens. Your account's quota there has been raised to 500 calls a second, and sign-ins and token refreshes use about 200 of them. In this level you can tap a connection and choose what it carries. The chaos round is the sign-in provider having a bad evening: every call to it takes three seconds longer, and someone probes the API without signing in.",
+    load: {
+      peakRps: 6_000,
+      readFraction: 0.85,
+      cacheableFraction: 0.3,
+      heavyWriteFraction: 0,
+      traffic: [
+        {
+          id: "sign-ins",
+          label: "Sign-ins and token refreshes",
+          of: "writes",
+          share: 2 / 9,
+          relayCost: 1,
+          to: ["auth-service"],
+        },
+      ],
+      quota: { "auth-service": 1 },
+    },
+    targets: {
+      p99Ms: 350,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 1_800,
+      writesReach: ["sql-primary"],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [
+        { kind: "slow-dependency", target: "auth-service", extraMs: 3_000 },
+        { kind: "unauthenticated-probe" },
+      ],
+      label: "Sign-in calls take 3 seconds longer, and an unsigned probe",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "api-gateway",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "auth-service",
+    ],
+    reference: mark(
+      graph(
+        [
+          ["lb", "load-balancer", 2, 4],
+          ["app", "app-server", 4, 4, 10, 2],
+          ["db", "sql-primary", 7, 4, 2, 2],
+          ["auth", "auth-service", 3, 7],
+        ],
+        [`${C}>lb`, "lb>app", "app>db", `${C}>auth`],
+      ),
+      `${C}>auth`,
+      ["sign-ins"],
+    ),
+    concepts: ["stateless-tokens", "provider-quotas", "authn-authz"],
+    topics: ["topic-apis"],
+    hint: "Asking the {auth-service} about every request needs twelve times its quota. Users can sign in with it directly, and a signed token can be checked without calling anyone.",
+  },
 ]
 
 /**

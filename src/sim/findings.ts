@@ -12,6 +12,7 @@ import {
 } from "./grade"
 import {
   behindAsync,
+  clockRoots,
   copies,
   doesHeavyWorkInline,
   failureDomains,
@@ -96,6 +97,55 @@ const PRACTICE_TEXT: Record<PracticeId, [ConceptId, string]> = {
   ],
 }
 
+/** Timed work that runs more than once, or not at all, and why. */
+function timedFindings(
+  graph: Graph,
+  load: LoadProfile,
+  r: SimResult,
+  prefix = "",
+): Finding[] {
+  const t = load.timed
+  if (!t || !r.timed) return []
+  const label = t.label.toLowerCase()
+  const to = t.to.map((k) => `{${k}}`).join(" or ")
+  const { runners } = r.timed
+  if (runners > 1)
+    return [
+      {
+        severity: "error",
+        concept: "leader-election",
+        text: `${prefix}${runners} timers run the ${label} at once, so each one reaches ${to} ${runners} times. Let one leader run it, elected through a {coordination} cluster, or start it from a {scheduler}.`,
+      },
+    ]
+  if (runners === 1) return []
+  const roots = clockRoots(graph, load)
+  const byId = new Map(graph.components.map((c) => [c.id, c]))
+  const cluster = roots
+    .flatMap((c) => graph.edges.filter((e) => e.from === c.id))
+    .map((e) => byId.get(e.to))
+    .find((c) => c?.kind === "coordination")
+  if (cluster) {
+    const up = r.perComponent[cluster.id]?.aliveInstances ?? 0
+    return [
+      {
+        severity: "error",
+        componentId: cluster.id,
+        concept: "quorum",
+        text: `${prefix}{coordination} has ${up} of ${cluster.instances} nodes up: no majority, so no leader can be elected and nothing runs the ${label}.`,
+      },
+    ]
+  }
+  return [
+    {
+      severity: "error",
+      concept: "leader-election",
+      text: roots.length
+        ? `${prefix}${prefix ? "every" : "Every"} timer that runs the ${label} is down, so none of it happens.`
+        : `${prefix}${prefix ? "nothing" : "Nothing"} runs the ${label}. A {worker} or {scheduler} with nothing wired into it runs a timer.`,
+    },
+  ]
+}
+
 /**
  * What a load test tells you, in words. Symptoms, not answers: they point at
  * the component that is struggling and the concept behind it, and leave the
@@ -121,7 +171,7 @@ export function findings(
     ]
   }
 
-  const asyncSet = behindAsync(graph)
+  const asyncSet = behindAsync(graph, load)
   const reachable = new Set<string>([...asyncSet])
   const walk = (id: string) => {
     for (const e of graph.edges)
@@ -404,7 +454,7 @@ export function findings(
       (c) =>
         !GLOBAL_KINDS.has(c.kind) &&
         regionsOf(c) < 2 &&
-        !behindAsync(graph).has(c.id) &&
+        !behindAsync(graph, load).has(c.id) &&
         graph.edges.some((e) => e.to === c.id),
     )
     for (const c of alone)
@@ -416,7 +466,11 @@ export function findings(
       })
   }
 
+  out.push(...timedFindings(graph, load, peak))
   if (chaos && chaosLabel) {
+    const seen = new Set(out.map((f) => f.text))
+    for (const f of timedFindings(graph, load, chaos, `${chaosLabel}: `))
+      if (!seen.has(f.text.slice(chaosLabel.length + 2))) out.push(f)
     if ((chaosFaults ?? []).some((f) => f.kind === "region-outage"))
       for (const c of graph.components)
         if (

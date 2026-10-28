@@ -121,7 +121,11 @@ const ENTRY_KINDS: ComponentKind[] = [
   "serverless",
 ]
 
-/** Components reachable from the users, through any hand-off. */
+/**
+ * Components reachable from the users, through any hand-off, or from a
+ * timer: a {worker} or {scheduler} with nothing wired into it, which only
+ * does anything in a level with timed work.
+ */
 function reachable(graph: Graph): Set<string> {
   const seen = new Set<string>()
   const walk = (id: string) => {
@@ -132,6 +136,15 @@ function reachable(graph: Graph): Set<string> {
       }
   }
   walk(CLIENT_ID)
+  for (const c of graph.components)
+    if (
+      (c.kind === "worker" || c.kind === "scheduler") &&
+      !graph.edges.some((e) => e.to === c.id) &&
+      graph.edges.some((e) => e.from === c.id)
+    ) {
+      seen.add(c.id)
+      walk(c.id)
+    }
   return seen
 }
 

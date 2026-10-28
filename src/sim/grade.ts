@@ -126,6 +126,7 @@ export type Check = {
     | "budget"
     | "writes"
     | "reads"
+    | "once"
     | "apart"
     | "backlog"
     | "availability"
@@ -172,6 +173,14 @@ export function writesAt(
     best = Math.max(best, fedByWorkers && emits > 0 ? w / emits : w)
   }
   return best
+}
+
+/** The level's timed work reached its destination once: not missed, not repeated. */
+export function onceEach(load: LoadProfile, result: SimResult): boolean {
+  const t = load.timed
+  if (!t) return true
+  const got = result.timed?.delivered ?? 0
+  return got >= t.rps * 0.99 && got <= t.rps * 1.01
 }
 
 /** Reads arriving at the best-fed component of these kinds. */
@@ -247,6 +256,9 @@ export function grade(
       star: 1,
     })
   }
+  if (load.timed) {
+    checks.push({ id: "once", pass: onceEach(load, peak), star: 1 })
+  }
   if (targets.readsReach?.length) {
     checks.push({
       id: "reads",
@@ -288,6 +300,7 @@ export function grade(
             Math.max(targets.maxErrorRate, CHAOS_ERROR_BUDGET)) &&
         (targets.noBacklog !== true || chaos.backlogGrowthRps <= 0.5) &&
         chaos.duplicateRps <= 0.5 &&
+        onceEach(load, chaos) &&
         chaos.exposed.length === 0 &&
         chaos.dataLossMinutes <= (targets.rpoMinutes ?? Infinity),
       star: 3,

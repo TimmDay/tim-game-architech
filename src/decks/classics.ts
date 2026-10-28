@@ -4477,3 +4477,206 @@ export const PEOPLE_YOU_MAY_KNOW = deck("people-you-may-know", [
     ],
   ],
 ])
+
+export const RUN_ONCE = deck("run-once", [
+  [
+    "clarify",
+    "What would you ask about the reminders?",
+    [
+      "How many fall due at the busiest time? 300 a second at the morning peak.",
+      "How late may one be? A minute is fine; an hour isn't.",
+      "What does a duplicate cost: an annoyed patient, or a second text message fee?",
+    ],
+    "Which is worse here: a reminder sent twice, or not at all?",
+  ],
+  [
+    "clarify",
+    "Where does the list of due reminders live?",
+    [
+      "In the appointments database: each appointment has a reminder time and a status.",
+      "That decides whether a database lock could do the job instead of a cluster.",
+      "Ask whether anything else changes appointments, such as a clinic's own system.",
+    ],
+  ],
+  [
+    "clarify",
+    "What happens when an appointment moves after its reminder is queued?",
+    [
+      "The sender should check the appointment is still on before texting.",
+      "Or the move cancels the queued reminder and schedules a new one.",
+      "Ask how often it happens: clinics reschedule a lot.",
+    ],
+  ],
+  [
+    "product",
+    "A patient gets the same reminder three times. What's the damage?",
+    [
+      "Confusion and complaints, and three times the text message fees.",
+      "Patients start ignoring reminders, which defeats the point.",
+      "Some will think their appointment was booked three times.",
+    ],
+  ],
+  [
+    "product",
+    "Reminders stop for a morning. Who notices, and when?",
+    [
+      "Patients who miss appointments, and clinics with empty slots, hours later.",
+      "That's why the system must notice first: alert when reminders sent drops below reminders due.",
+      "Missed reminders should still go out when it recovers, if there's time.",
+    ],
+  ],
+  [
+    "decision",
+    "Why not run the dispatcher on every server?",
+    [
+      "Each one finds the same due reminders and queues them: two servers, two texts each.",
+      "Here that's 600 a second against a provider quota of 400.",
+      "Work that must happen once needs exactly one runner.",
+    ],
+    "What if each server only took a share of the reminders?",
+  ],
+  [
+    "decision",
+    "Why not run just one dispatcher?",
+    [
+      "It sends each reminder once, until it or its zone goes down.",
+      "Then nothing is sent until someone notices and starts another.",
+      "One runner is a single point of failure.",
+    ],
+  ],
+  [
+    "decision",
+    "How does leader election work here?",
+    [
+      "Each dispatcher asks the {coordination} cluster for a lease. One gets it and runs.",
+      "The leader renews the lease every few seconds. If it stops, the lease expires and another takes over.",
+      "The cluster grants it only with a majority of its nodes agreeing.",
+    ],
+  ],
+  [
+    "decision",
+    "Why three nodes in three zones?",
+    [
+      "A majority of three is two: losing one zone leaves two of three.",
+      "Two nodes, or three in two zones, lose their majority with a zone: then nobody can lead.",
+      "Five in three zones survives two failures, for $200 more.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How long should the lease last?",
+    [
+      "Short: a dead leader is replaced in seconds, but renewals are frequent.",
+      "Long: fewer renewals, but reminders wait longer after a failure.",
+      "Ten to thirty seconds is common for work like this.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "A {coordination} cluster or a database lock?",
+    [
+      "A row lock in the appointments database needs no extra system: dispatchers claim batches, skipping locked rows.",
+      "A cluster suits work that isn't in one database, or needs one leader for many things.",
+      "Here, either works. Pick the one your team already runs.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Leader election or a managed {scheduler}?",
+    [
+      "A managed scheduler is one timer you don't run: about $2,021 here, against $2,325.",
+      "It delivers at least once, so the senders still skip reminders already sent.",
+      "Leader election is for work that must stay on your own servers.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could each dispatcher take a share of the reminders instead?",
+    [
+      "Yes: split by clinic, so each dispatcher owns some clinics. More throughput, no single leader.",
+      "Someone still has to decide who owns which clinic, and reassign them when one dies.",
+      "That decision is itself a job for leader election, or the {coordination} cluster.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you schedule each reminder on its own?",
+    [
+      "Some managed schedulers take millions of one-off schedules: one per appointment.",
+      "Moving an appointment means updating its schedule too.",
+      "There's no dispatcher at all, but the scheduler's delivery rate becomes the limit.",
+    ],
+  ],
+  [
+    "scale",
+    "Reminders grow to 3,000 a second. What changes?",
+    [
+      "One leader queueing 3,000 a second may be the bottleneck: split by clinic across several.",
+      "The senders scale out as they do now.",
+      "The provider's quota needs raising, weeks ahead.",
+    ],
+  ],
+  [
+    "scale",
+    "Every clinic's reminders fall due at 9am exactly. What then?",
+    [
+      "A spike: 300 a second becomes thousands for a minute.",
+      "The {queue} absorbs it, and senders work through it within the provider's quota.",
+      "Spread send times across the hour where clinics allow it.",
+    ],
+  ],
+  [
+    "edge-case",
+    "The leader freezes for 30 seconds, then wakes up. What could go wrong?",
+    [
+      "Its lease expired and someone else is leading, but it may still think it leads.",
+      "Both queue the same reminders: duplicates.",
+      "A fencing token, checked when it writes, makes the stale leader's writes fail.",
+    ],
+  ],
+  [
+    "resilience",
+    "The leader's zone goes down. What happens, step by step?",
+    [
+      "Its lease stops being renewed and expires after a few seconds.",
+      "The dispatcher in the other zone gets the lease and starts.",
+      "Two of three cluster nodes are still up, so the majority can grant it.",
+    ],
+  ],
+  [
+    "resilience",
+    "The leader crashes after queueing reminders, before marking them. Then what?",
+    [
+      "The new leader finds them still due and queues them again.",
+      "Marking and queueing in one transaction (an outbox) narrows it.",
+      "Senders that skip reminders already sent make it harmless.",
+    ],
+  ],
+  [
+    "security",
+    "Who may take the lease?",
+    [
+      "Only the dispatchers: anything that can grab it can stop reminders, or send them twice.",
+      "Give the cluster its own credentials, and keep it off the public network.",
+      "Log who held the lease and when.",
+    ],
+  ],
+  [
+    "security",
+    "What must a text message reminder not contain?",
+    [
+      "Medical details: a locked phone shows the start of every message.",
+      "Say the clinic and the time, not the reason for the visit.",
+      "Patients may share phones, so less is safer.",
+    ],
+  ],
+  [
+    "observability",
+    "What would you watch?",
+    [
+      "Reminders sent against reminders due, every minute: a gap means dispatch has stopped.",
+      "Who holds the lease, and how often it changes hands.",
+      "Duplicates the senders skipped: a rising count means something is queueing twice.",
+    ],
+  ],
+])

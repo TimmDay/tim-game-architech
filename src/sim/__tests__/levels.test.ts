@@ -680,6 +680,52 @@ describe("the interview classics' traps", () => {
     }
   })
 
+  it("run once: two dispatchers without a leader send every reminder twice", () => {
+    const l = level("run-once")
+    const g = rewire(l.reference, ["leases"])
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["once"]))
+    expect(simulate(g, l.load).timed?.delivered).toBe(600)
+  })
+
+  it("run once: one dispatcher stops with its zone", () => {
+    const l = level("run-once")
+    const g = patch(rewire(l.reference, ["leases"]), "dispatch", {
+      instances: 1,
+      zones: 1,
+    })
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+
+  it("run once: a cluster that can lose its majority with a zone elects nobody", () => {
+    const l = level("run-once")
+    for (const p of [
+      { instances: 2, zones: 2 },
+      { instances: 3, zones: 2 },
+    ])
+      expect(failed(l, patch(l.reference, "leases", p))).toEqual(["chaos"])
+  })
+
+  it("run once: a managed scheduler passes too", () => {
+    // Simpler and cheaper; the solution says so. Pinned so that stays true.
+    const l = level("run-once")
+    const g: Graph = {
+      components: [
+        ...l.reference.components.filter(
+          (c) => c.id !== "leases" && c.id !== "dispatch",
+        ),
+        { id: "sched", kind: "scheduler", x: 5, y: 6, instances: 1, zones: 1 },
+      ],
+      edges: [
+        ...l.reference.edges.filter(
+          (e) => !["leases", "dispatch"].includes(e.from),
+        ),
+        { id: "sched>texts", from: "sched", to: "texts" },
+      ],
+    }
+    const stakes = l.targets.stakes
+    expect(failed(l, stakes ? withPractices(g, stakes) : g)).toEqual([])
+  })
+
   it("overkill works, but costs the third star", () => {
     const first = level("first-customers")
     const cached: Graph = {

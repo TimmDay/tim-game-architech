@@ -42,6 +42,7 @@ import {
   ORDER_PLACED,
   SERVER_METRICS,
   PEOPLE_YOU_MAY_KNOW,
+  RUN_ONCE,
 } from "./classics"
 import {
   ANALYTICS_ATE_PROD,
@@ -108,6 +109,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "bad-migration": BAD_MIGRATION,
   "nobody-noticed": NOBODY_NOTICED,
   "token-check": TOKEN_CHECK,
+  "run-once": RUN_ONCE,
   "lost-writes": LOST_WRITES,
   "black-friday": BLACK_FRIDAY,
   "slow-checkout": SLOW_CHECKOUT,

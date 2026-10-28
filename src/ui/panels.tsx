@@ -17,6 +17,7 @@ import {
   Play,
   Plus,
   Stethoscope,
+  NotebookPen,
   Trash2,
   TriangleAlert,
   X,
@@ -360,12 +361,15 @@ export function PalettePanel({
   palette,
   provider,
   placing,
+  note,
   onPick,
   onInfo,
 }: {
   palette: ComponentKind[]
   provider: Provider
   placing?: ComponentKind
+  /** Desktop Play: the Note tile, first, since it isn't a component. */
+  note?: { active: boolean; onToggle: () => void }
   onPick: (k: ComponentKind | undefined) => void
   onInfo: (k: ComponentKind) => void
 }) {
@@ -373,6 +377,25 @@ export function PalettePanel({
     <div>
       <H>{placing ? "Tap an empty tile to place it" : "Components"}</H>
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-2">
+        {note && (
+          <button
+            type="button"
+            onClick={note.onToggle}
+            aria-pressed={note.active}
+            title="Write a note on the board (T)"
+            className={clsx(
+              "flex w-full flex-col items-center justify-center rounded-xl border px-1 pt-1 pb-2 text-center transition",
+              note.active
+                ? "border-amber-200 bg-amber-200/10 shadow-[0_0_20px_-4px] shadow-amber-300/50"
+                : "border-dashed border-white/15 bg-white/[0.02] hover:border-white/30 hover:bg-white/[0.06]",
+            )}
+          >
+            <NotebookPen size={30} className="my-2 text-amber-100" />
+            <span className="mt-0.5 text-[12px] leading-tight font-semibold text-slate-100">
+              Note · T
+            </span>
+          </button>
+        )}
         {palette.map((k) => {
           const spec = CATALOGUE[k]
           const n = serviceName(k, provider)
@@ -946,7 +969,9 @@ export function InspectPanel({
           <b className="text-slate-200">Shift</b> and the arrows to move it,{" "}
           <b className="text-slate-200">D</b> to remove it. After picking one to
           add, the arrows and <b className="text-slate-200">Enter</b> choose its
-          tile.
+          tile. <b className="text-slate-200">T</b> writes a note: click where
+          it goes, or press <b className="text-slate-200">Enter</b> for the top
+          left.
         </p>
       </div>
     )

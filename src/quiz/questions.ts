@@ -3068,10 +3068,10 @@ export const QUIZZES: Record<string, Question[]> = {
       6,
     ],
     [
-      "A worker restarts and sees some clicks twice. What keeps the counts right?",
+      "A counting task restarts and sees some clicks twice. What keeps the counts right?",
       "Committing its position and its counts together",
       [
-        "Never restarting a worker mid-minute",
+        "Never restarting a counting task mid-minute",
         "Deleting the stream after every minute",
         "Doubling how long the stream keeps events",
       ],
@@ -3095,7 +3095,7 @@ export const QUIZZES: Record<string, Question[]> = {
       [
         "Because the stream deletes clicks after a minute",
         "To make the dashboards load faster",
-        "Because workers can't count reliably at all",
+        "Because stream jobs can't count reliably at all",
       ],
       "Fresh numbers come from the stream, billing-grade numbers from the batch path.",
       8,
@@ -3112,14 +3112,14 @@ export const QUIZZES: Record<string, Question[]> = {
       9,
     ],
     [
-      "How do you find the top 100 ads across many workers?",
-      "Merge each worker's own top 100",
+      "How do you find the top 100 ads across many counting tasks?",
+      "Merge each task's own top 100",
       [
-        "Ask every worker for every count",
+        "Ask every task for every count",
         "Sort all the raw clicks each time",
         "Keep a single global counter per ad",
       ],
-      "With each ad owned by one worker, the overall top 100 is inside the union of their lists.",
+      "With each ad owned by one task, the overall top 100 is inside the union of their lists.",
       12,
     ],
     [

@@ -235,6 +235,8 @@ export const NOT_ACRONYMS = new Set([
   "WhatsApp",
   "YouTube",
   "GitHub",
+  // A protocol's name, not an abbreviation.
+  "WebSocket",
   // HTTP methods, written as they appear in an API.
   "GET",
   "POST",

@@ -731,11 +731,18 @@ describe("the interview classics' traps", () => {
   it("push alerts: too little quota or too few workers fall behind at a normal peak", () => {
     const l = level("push-alerts")
     expect(
-      failed(l, patch(l.reference, "provider", { instances: 10 })),
+      failed(l, patch(l.reference, "provider", { instances: 1 })),
     ).toContain("backlog")
     expect(failed(l, patch(l.reference, "push", { instances: 1 }))).toContain(
       "backlog",
     )
+  })
+
+  it("push alerts: quota past the account's limit counts for nothing", () => {
+    const l = level("push-alerts")
+    expect(
+      failed(l, patch(l.reference, "provider", { instances: 10 })),
+    ).toEqual(failed(l, l.reference))
   })
 })
 
@@ -1130,6 +1137,33 @@ describe("the production incidents' traps", () => {
   })
 })
 
+describe("click counter's priced alternatives", () => {
+  it("per-minute counts in SQL pass at the quoted costs", () => {
+    const l = LEVELS.find((x) => x.id === "click-counter")
+    if (!l) throw new Error("missing click-counter")
+    const text = SOLUTIONS["click-counter"]?.alternatives.join(" ") ?? ""
+    for (const instances of [1, 2]) {
+      const g: Graph = {
+        ...l.reference,
+        components: l.reference.components.map((c) =>
+          c.id === "counts" ? { ...c, kind: "sql-primary", instances } : c,
+        ),
+      }
+      const stakes = l.targets.stakes
+      const r = grade(
+        stakes ? withPractices(g, stakes) : g,
+        l.load,
+        l.targets,
+        l.chaos.faults,
+      )
+      expect(r.stars).toBe(3)
+      expect(text).toContain(
+        `$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`,
+      )
+    }
+  })
+})
+
 describe("step counter's traps", () => {
   const l = LEVELS.find((x) => x.id === "step-counter")
   if (!l) throw new Error("missing step-counter")
@@ -1171,5 +1205,48 @@ describe("step counter's traps", () => {
 
   it("five NoSQL blocks handle a normal day, but not the January spike", () => {
     expect(failed(swap({ instances: 5 }))).toEqual(["chaos"])
+  })
+})
+
+describe("push alerts' priced alternatives", () => {
+  const l = LEVELS.find((x) => x.id === "push-alerts")
+  if (!l) throw new Error("missing push-alerts")
+  const run = (g: Graph) =>
+    grade(
+      l.targets.stakes ? withPractices(g, l.targets.stakes) : g,
+      l.load,
+      l.targets,
+      l.chaos.faults,
+    )
+  const text = SOLUTIONS["push-alerts"]?.alternatives.join(" ") ?? ""
+
+  it("a stream of three shards passes at the quoted cost", () => {
+    const g: Graph = {
+      ...l.reference,
+      components: l.reference.components.map((c) =>
+        c.id === "sends" ? { ...c, kind: "event-stream", instances: 3 } : c,
+      ),
+    }
+    const r = run(g)
+    expect(r.stars).toBe(3)
+    expect(text).toContain(`$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`)
+  })
+
+  it("a cache before the database passes at the quoted cost", () => {
+    const g: Graph = {
+      components: [
+        ...l.reference.components,
+        { id: "xc", kind: "cache", x: 0, y: 0, instances: 2, zones: 2 },
+      ],
+      edges: [
+        ...l.reference.edges.map((e) =>
+          e.to === "db" ? { ...e, id: `${e.from}>xc`, to: "xc" } : e,
+        ),
+        { id: "xc>db", from: "xc", to: "db" },
+      ],
+    }
+    const r = run(g)
+    expect(r.stars).toBe(3)
+    expect(text).toContain(`$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`)
   })
 })

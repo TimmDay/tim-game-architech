@@ -708,28 +708,29 @@ export const SOLUTIONS: Record<string, Solution> = {
   },
   "click-counter": {
     overview:
-      "Record fast, count later, keep everything. The {app-server} publishes each click to an {event-stream} and redirects at once. {worker} instances count clicks per ad per minute and write one total a minute to the {nosql} store; the {data-warehouse} keeps every raw click, so finance can recount and settle disputes.",
+      "Record fast, count later, keep everything. The {app-server} publishes each click to an {event-stream} and redirects at once. A {stream-processor} counts clicks per ad per minute and writes one total a minute to the {nosql} store; the {data-warehouse} keeps every raw click, so finance can recount and settle disputes.",
     walkthrough: [
       "{dns} → {load-balancer} → {app-server}. The click link carries a signed ID; the app checks it, publishes a click event, and redirects.",
-      "The {event-stream} is partitioned by ad, so each ad's clicks go to one {worker}.",
-      "Workers keep this minute's counts in memory. When the minute closes, each writes one count per ad to the {nosql} store, keyed by ad and minute, and commits its position in the stream.",
+      "The {event-stream} is partitioned by ad, so each ad's clicks go to one of the {stream-processor}'s counting tasks.",
+      "Each task keeps this minute's counts in memory and checkpoints them with its position in the stream. When the minute closes, it writes one count per ad to the {nosql} store, keyed by ad and minute.",
       "A second consumer loads every raw click into the {data-warehouse}, where billing is recounted nightly.",
     ],
     numbers: [
       "15,000 clicks a second at peak, and 30,000 in the half-time ad break.",
       "Forty {app-server} instances run at 38%, and 75% in the ad break.",
       "Forty {event-stream} shards of about 1,000 events a second each run at 38%, and 75% in the ad break.",
-      "Twenty workers count at 38% (75% in the ad break) and write about 15 counts a second: a thousand times fewer writes than clicks.",
+      "Eight {stream-processor} units of about 5,000 events a second count at 38% (75% in the ad break) and write about 15 counts a second: a thousand times fewer writes than clicks.",
       "Writing each click to the {nosql} store instead gives the top ad's key 750 writes a second, and 1,500 in the ad break, over the 1,000 a key takes. It also needs twenty blocks: about $22,000 a month.",
       "Counting in a {sql-primary} means 15,000 writes a second, five times what it takes. Writing to the {data-warehouse} inside the request puts its seconds of latency on every redirect.",
-      "Cost: $1 + about $143 for the {load-balancer} + 40 × $70 + 40 × $25 + 20 × $120 + $950 + $1,000 = $8,294 of $9,000.",
+      "Cost: $1 + about $143 for the {load-balancer} + 40 × $70 + 40 × $25 + 8 × $80 + $950 + $1,000 = $6,534 of $9,000.",
     ],
     tradeoffs: [
-      "Dashboards are a minute behind, because a count is written when its minute closes. For billing, a minute is fine; for a live view, workers can also publish partial counts.",
+      "Dashboards are a minute behind, because a count is written when its minute closes. For billing, a minute is fine; for a live view, the job can also publish partial counts.",
       "Two paths, the fast stream counts and the nightly recount, are more to run. They're worth it where the numbers are money: the slow path catches what the fast one gets wrong.",
       "Late clicks need a rule: keep each minute open a little longer, and send anything later still to the nightly correction.",
     ],
     alternatives: [
+      "{worker} instances doing the counting: twenty of them cost $2,400 a month against $640, and the windows, checkpoints and late clicks become your own code to write and test.",
       "A single path: count only in the stream, and replay raw events to fix mistakes. Simpler, if you trust the counting code with the bill.",
       "Counting only in the warehouse, in batches every few minutes: cheapest, but dashboards trail by the batch interval.",
       "A count-min sketch for approximate per-ad counts over millions of ads: fixed memory, small error, fine for dashboards, not for bills.",

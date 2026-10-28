@@ -673,6 +673,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Polling a time-indexed table is simple and durable. It's less precise than an in-memory timer wheel, which is faster but has to be rebuilt from the table after a restart.",
     ],
     alternatives: [
+      "A managed {scheduler} instead of your own table of due jobs: it holds the timers and fires each job at a target, with nothing to poll. Check its limits against the brief first. One major provider delivers 1,000 jobs a second by default, exactly this peak with no room for retries, and delays the rest; another caps a region at 5,000 jobs, far short of a million customers' schedules.",
       "A timer wheel in memory: jobs sorted into buckets by second, very cheap to fire, but every scheduler restart reloads the next stretch of jobs from the database.",
       "The queue's own delayed delivery: enqueue each job with a delay. Simple for one-off jobs, but long delays and recurring schedules still need the table.",
       "One cron process on one machine: fine for a handful of jobs, and a single point of failure for a service.",

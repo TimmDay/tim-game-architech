@@ -408,8 +408,12 @@ export function Survival({
           }}
         />
       )}
-      {editor.banner && (
-        <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
+      {/* Always mounted, so screen readers announce each prompt. */}
+      <div
+        role="status"
+        className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3"
+      >
+        {editor.banner && (
           <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-cyan-300/40 bg-slate-950/85 py-1.5 pr-1.5 pl-4 text-[13px] text-cyan-100 backdrop-blur">
             {editor.banner}
             <button
@@ -421,8 +425,8 @@ export function Survival({
               <X size={14} />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       {running && (
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
           <div

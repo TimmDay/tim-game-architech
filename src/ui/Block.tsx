@@ -396,12 +396,41 @@ export function Block({
       />
       {body}
       {!dead && <FlatIcon Icon={Icon} cy={topY} color={iconColor} />}
+      {overloaded && <Warning y={topY - 6} />}
       {dead && (
         <g stroke="hsl(352 90% 62%)" strokeWidth={3} strokeLinecap="round">
           <line x1={-8} y1={topY - 5} x2={8} y2={topY + 5} />
           <line x1={8} y1={topY - 5} x2={-8} y2={topY + 5} />
         </g>
       )}
+    </g>
+  )
+}
+
+/**
+ * Overloaded, said with a shape as well as red: the health colours all look
+ * alike to some colour-blind players, and the throb is off for reduced motion.
+ */
+function Warning({ y }: { y: number }) {
+  return (
+    <g transform={`translate(${-HW - 2} ${y})`} pointerEvents="none">
+      <path
+        d="M 0 -11 L 10 7 L -10 7 Z"
+        fill="hsl(352 100% 70%)"
+        stroke="hsl(222 60% 6%)"
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <line
+        x1={0}
+        y1={-5}
+        x2={0}
+        y2={1}
+        stroke="hsl(222 60% 6%)"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+      />
+      <circle cx={0} cy={4.2} r={1.2} fill="hsl(222 60% 6%)" />
     </g>
   )
 }

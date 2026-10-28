@@ -4045,8 +4045,8 @@ const hardened = (l: Level): Level => {
   if (!stakes) return l
   return {
     ...l,
-    reference: withPractices(l.reference, stakes),
-    starter: l.starter && withPractices(l.starter, stakes),
+    reference: withPractices(l.reference, stakes, l.load),
+    starter: l.starter && withPractices(l.starter, stakes, l.load),
   }
 }
 

@@ -73,11 +73,14 @@ export function TargetList({
   targets,
   provider,
   traffic,
+  timed,
 }: {
   targets: Targets
   provider: Provider
   /** The level's traffic types: writes among them have their own stores. */
   traffic?: TrafficType[]
+  /** Work a clock starts, which must arrive exactly once. */
+  timed?: LoadProfile["timed"]
 }) {
   const rows: [string, React.ReactNode][] = [
     ["p99 latency", `≤ ${ms(targets.p99Ms)}`],
@@ -119,6 +122,17 @@ export function TargetList({
         text={targets.readsReach.map((k) => `{${k}}`).join(" or ")}
         provider={provider}
       />,
+    ])
+  if (timed)
+    rows.push([
+      `${timed.label} reach`,
+      <span className="flex flex-col items-end">
+        <Rich
+          text={timed.to.map((k) => `{${k}}`).join(" or ")}
+          provider={provider}
+        />
+        <span>each one once</span>
+      </span>,
     ])
   if (targets.keepApart) rows.push(["Each shard holds", targets.keepApart.what])
   if (targets.noBacklog)
@@ -196,6 +210,7 @@ export function BriefPanel({
           targets={level.targets}
           provider={provider}
           traffic={level.load.traffic}
+          timed={level.load.timed}
         />
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-amber-300/90">
           <TriangleAlert size={13} /> Chaos round: {level.chaos.label}

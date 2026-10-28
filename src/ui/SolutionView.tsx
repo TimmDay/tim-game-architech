@@ -31,7 +31,7 @@ export function SolutionView({
     const stakes = level.targets.stakes
     if (!stakes) return []
     const by = new Map<string, string[]>()
-    for (const x of expectedPractices(level.reference, stakes))
+    for (const x of expectedPractices(level.reference, stakes, level.load))
       by.set(x.componentId, [
         ...(by.get(x.componentId) ?? []),
         PRACTICE_LABEL[x.practice],

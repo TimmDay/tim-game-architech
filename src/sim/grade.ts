@@ -308,8 +308,8 @@ export function grade(
   )
   const practices = targets.stakes
     ? {
-        expected: expectedPractices(graph, targets.stakes).length,
-        missing: missingPractices(graph, targets.stakes).length,
+        expected: expectedPractices(graph, targets.stakes, load).length,
+        missing: missingPractices(graph, targets.stakes, load).length,
       }
     : { expected: 0, missing: 0 }
   if (targets.stakes)

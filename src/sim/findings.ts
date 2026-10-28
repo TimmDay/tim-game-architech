@@ -420,7 +420,7 @@ export function findings(
   }
 
   if (targets?.stakes)
-    for (const x of missingPractices(graph, targets.stakes)) {
+    for (const x of missingPractices(graph, targets.stakes, load)) {
       const c = graph.components.find((c) => c.id === x.componentId)
       if (!c) continue
       const [concept, why] = PRACTICE_TEXT[x.practice]

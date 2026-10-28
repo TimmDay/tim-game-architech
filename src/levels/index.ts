@@ -1217,7 +1217,7 @@ const CLASSICS: Level[] = [
       job: "pushing each message to recipients who are offline",
     },
     brief:
-      "A messaging app. WhatsApp has said it delivers around 100 billion messages a day. Here, peak is 10,000 requests a second and half of them are messages being sent: 5,000 writes a second, every one of which must be stored and then delivered. Recipients who aren't online get a push notification. A {sql-primary} takes about 3,000 writes a second, and adding instances doesn't add write capacity.",
+      "A messaging app. WhatsApp has said it delivers around 100 billion messages a day. Here, peak is 10,000 requests a second and half of them are messages being sent: 5,000 writes a second, every one of which must be stored and then delivered. Phones that are online hold a connection open for new messages, either to your own servers or to a {realtime-gateway} billed per message. Recipients who aren't online get a push notification. A {sql-primary} takes about 3,000 writes a second, and adding instances doesn't add write capacity.",
     load: {
       peakRps: 10_000,
       readFraction: 0.5,
@@ -1256,6 +1256,7 @@ const CLASSICS: Level[] = [
       "event-stream",
       "worker",
       "serverless",
+      "realtime-gateway",
     ],
     reference: graph(
       [

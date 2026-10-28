@@ -3383,6 +3383,7 @@ const OPS: Level[] = [
       "dns",
       "load-balancer",
       "api-gateway",
+      "rate-limiter",
       "app-server",
       "cache",
       "sql-primary",

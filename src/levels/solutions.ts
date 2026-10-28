@@ -183,7 +183,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Checking sessions on every request costs a little CPU, which a cache of valid sessions mostly removes.",
     ],
     alternatives: [
-      "A managed edge with attack protection, a {cdn} or a web firewall in front of the {load-balancer}: it absorbs floods before they reach you, and recognises attacks it has seen on other sites. It costs per request, and you still need per-account limits behind it, because a slow attack spread over many addresses can look like normal traffic.",
+      "A managed edge with attack protection in front of the {load-balancer}, a {cdn} or a web firewall (the {rate-limiter} here): it absorbs floods before they reach you, and recognises attacks it has seen on other sites. It's billed per request, about $4,700 a month at this traffic, which takes the design to $7,059 against $2,500; the load balancer's own limit does the job here for almost nothing. You still need per-account limits behind it, because a slow attack spread over many addresses can look like normal traffic.",
       "A CAPTCHA after a few failed sign-ins stops automated guessing without blocking people outright.",
       "Checking new passwords against lists of leaked ones, and offering passkeys, makes stolen passwords far less useful.",
       "An {api-gateway} can do both the limit and the sign-in check in one place, in front of every service.",

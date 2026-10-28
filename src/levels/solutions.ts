@@ -908,9 +908,10 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Delivery is at-least-once, so a retry can send a push twice. A notification ID the worker checks before sending keeps duplicates rare, and a collapse key lets the phone show only one.",
     ],
     alternatives: [
-      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
+      "An {event-stream} instead of the queue: replayable, and analytics or email digests could read the same events. With three shards it passes at $2,388, about $1,060 less, because the queue charges per message at 1,200 a second. But each consumer tracks its own position, and a queue's per-message retries and dead-letter handling suit sending better.",
       "Raising the quota instead of queueing: providers grant increases on usage you've already shown, one of them a quarter more at a time, so it can't be bought the week before the final. A goal would still overshoot the raised quota for a minute, and queueing costs nothing extra.",
       "{serverless} senders: they scale per message with nothing to run, but every one still counts against the same quota, so you still need the queue to pace them.",
+      "A {cache} in front of the {sql-primary} passes too, at $3,748, and buys nothing: each user reads their own inbox, so few reads repeat, and p99 goes from about 183ms to 186ms.",
     ],
   },
   typeahead: {

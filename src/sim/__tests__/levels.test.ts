@@ -3,6 +3,7 @@ import { LEVELS } from "~/levels"
 import { grade } from "../grade"
 import { findings, symptomsOnly } from "../findings"
 import { simulate } from "../simulate"
+import { withPractices } from "../practices"
 import { SOLUTIONS } from "~/levels/solutions"
 import type { Graph, PlacedComponent, Practices } from "../types"
 import { CLIENT_ID as C } from "../types"
@@ -996,5 +997,48 @@ describe("step counter's traps", () => {
 
   it("five NoSQL blocks handle a normal day, but not the January spike", () => {
     expect(failed(swap({ instances: 5 }))).toEqual(["chaos"])
+  })
+})
+
+describe("push alerts' priced alternatives", () => {
+  const l = LEVELS.find((x) => x.id === "push-alerts")
+  if (!l) throw new Error("missing push-alerts")
+  const run = (g: Graph) =>
+    grade(
+      l.targets.stakes ? withPractices(g, l.targets.stakes) : g,
+      l.load,
+      l.targets,
+      l.chaos.faults,
+    )
+  const text = SOLUTIONS["push-alerts"]?.alternatives.join(" ") ?? ""
+
+  it("a stream of three shards passes at the quoted cost", () => {
+    const g: Graph = {
+      ...l.reference,
+      components: l.reference.components.map((c) =>
+        c.id === "sends" ? { ...c, kind: "event-stream", instances: 3 } : c,
+      ),
+    }
+    const r = run(g)
+    expect(r.stars).toBe(3)
+    expect(text).toContain(`$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`)
+  })
+
+  it("a cache before the database passes at the quoted cost", () => {
+    const g: Graph = {
+      components: [
+        ...l.reference.components,
+        { id: "xc", kind: "cache", x: 0, y: 0, instances: 2, zones: 2 },
+      ],
+      edges: [
+        ...l.reference.edges.map((e) =>
+          e.to === "db" ? { ...e, id: `${e.from}>xc`, to: "xc" } : e,
+        ),
+        { id: "xc>db", from: "xc", to: "db" },
+      ],
+    }
+    const r = run(g)
+    expect(r.stars).toBe(3)
+    expect(text).toContain(`$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`)
   })
 })

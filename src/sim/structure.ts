@@ -31,6 +31,7 @@ const CODE = new Set<ComponentKind>([
   "app-server",
   "serverless",
   "worker",
+  "stream-processor",
   "api-gateway",
 ])
 /**

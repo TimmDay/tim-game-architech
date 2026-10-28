@@ -734,6 +734,7 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A single path: count only in the stream, and replay raw events to fix mistakes. Simpler, if you trust the counting code with the bill.",
       "Counting only in the warehouse, in batches every few minutes: cheapest, but dashboards trail by the batch interval.",
       "A count-min sketch for approximate per-ad counts over millions of ads: fixed memory, small error, fine for dashboards, not for bills.",
+      "Keeping the per-minute counts in a {sql-primary} instead of {nosql} passes at $5,984 on one primary, or $6,384 with a standby. Once counted, the writes are a trickle that SQL takes easily, and dashboards get queries and joins for free. {nosql} wins once reads per ad grow past what one primary serves.",
     ],
   },
   "sync-folder": {

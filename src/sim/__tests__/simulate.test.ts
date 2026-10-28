@@ -573,3 +573,17 @@ describe("regions", () => {
     expect(strong - eventual).toBeCloseTo(150)
   })
 })
+
+describe("a level's quota", () => {
+  const g = graph([["push", "push-service", 3, 3, 5]], [`${C}>push`])
+
+  it("counts no more instances than the quota allows", () => {
+    const capped = simulate(
+      g,
+      load({ peakRps: 3_000, readFraction: 0, quota: { "push-service": 2 } }),
+    )
+    const open = simulate(g, load({ peakRps: 3_000, readFraction: 0 }))
+    expect(capped.perComponent.push?.utilization).toBeCloseTo(1.5)
+    expect(open.perComponent.push?.utilization).toBeCloseTo(0.6)
+  })
+})

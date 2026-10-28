@@ -30,7 +30,7 @@ import { CONCEPTS, type ConceptId } from "~/levels/concepts"
 import type { Scenario } from "~/levels/roles"
 import type { Level } from "~/levels"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
-import { CATALOGUE, workerJobsPerSecond } from "~/sim/catalogue"
+import { CATALOGUE, maxInstancesOf, workerJobsPerSecond } from "~/sim/catalogue"
 import type { Finding } from "~/sim/findings"
 import type { Targets } from "~/sim/grade"
 import type { Settings } from "~/game/edit"
@@ -1029,12 +1029,12 @@ export function InspectPanel({
         </div>
       </div>
 
-      {spec.maxInstances > 1 && (
+      {maxInstancesOf(c.kind, load) > 1 && (
         <Stepper
           label="Instances"
           value={c.instances}
           min={1}
-          max={spec.maxInstances}
+          max={maxInstancesOf(c.kind, load)}
           onChange={(v) => onSet(c.id, { instances: v })}
           note={
             spec.scalesOut

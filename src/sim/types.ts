@@ -256,6 +256,11 @@ export type LoadProfile = {
    * second region only buys survival of a region outage.
    */
   regions?: { farShare: number; rttMs: number }
+  /**
+   * This account's quota on a service, in instances, where it's below the
+   * catalogue's maximum: a push quota the provider hasn't raised yet.
+   */
+  quota?: Partial<Record<ComponentKind, number>>
 }
 
 export type Fault =

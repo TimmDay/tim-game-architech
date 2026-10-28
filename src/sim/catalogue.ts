@@ -308,8 +308,10 @@ export const CATALOGUE: Record<ComponentKind, ComponentSpec> = {
     kind: "push-service",
     category: "compute",
     // Hands notifications to the phone platforms' push networks. Delivery
-    // takes as long as they take, and isn't guaranteed.
-    capacity: { readRps: 10_000, writeRps: 10_000 },
+    // takes as long as they take, and isn't guaranteed. One instance is 1,000
+    // sends a second of quota; ten is about one major service's default
+    // (600,000 a minute per project). Levels can set a lower quota.
+    capacity: { readRps: 1_000, writeRps: 1_000 },
     baseLatency: { p50Ms: 100, p99Ms: 800 },
     baselineAvailability: 0.999,
     managed: true,
@@ -426,6 +428,12 @@ export const CATALOGUE: Record<ComponentKind, ComponentSpec> = {
 }
 
 export const KINDS = Object.keys(CATALOGUE) as ComponentKind[]
+
+/** The most instances of a kind this level allows: its quota, if lower. */
+export const maxInstancesOf = (
+  kind: ComponentKind,
+  load?: Pick<LoadProfile, "quota">,
+) => Math.min(CATALOGUE[kind].maxInstances, load?.quota?.[kind] ?? Infinity)
 
 /** CPU time an ordinary API request takes on an {app-server}, in seconds. */
 export const APP_REQUEST_SECONDS = 0.002

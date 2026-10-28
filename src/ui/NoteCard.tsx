@@ -6,9 +6,9 @@ import type { Note } from "~/sim/types"
 const DRAG_SLOP = 4
 
 /**
- * One of the player's notes, drawn over the board in screen space so its
- * text stays readable at any zoom. Mouse only to move; Tab, Enter and D
- * reach it from the keyboard.
+ * One of the player's notes, laid over the board and scaled with it, so it
+ * stays over whatever it was written next to. Mouse only to move; Tab,
+ * Enter and D reach it from the keyboard.
  */
 export function NoteCard({
   note,
@@ -89,7 +89,9 @@ export function NoteCard({
   return (
     <div
       className="group absolute z-10"
-      style={{ left, top }}
+      // Drawn at the board's zoom, so a note stays put over what it's about.
+      // Its size is set for 100%: zoomed out, it shrinks with everything else.
+      style={{ left, top, transform: `scale(${k})`, transformOrigin: "0 0" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

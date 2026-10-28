@@ -3,7 +3,7 @@ import { ACRONYMS, NOT_ACRONYMS, findAcronyms } from "~/acronyms"
 import { DECKS } from "~/decks"
 import { LEVELS } from "~/levels"
 import { COMPONENT_CARDS, CONCEPTS } from "~/levels/concepts"
-import { SOLUTIONS } from "~/levels/solutions"
+import { SOLUTIONS, solutionText } from "~/levels/solutions"
 import { QUIZZES } from "~/quiz/questions"
 import { SCHEMA } from "~/quiz/schema"
 
@@ -22,14 +22,7 @@ const gameText = () => {
     ...Object.values(COMPONENT_CARDS),
   ])
     t.push(c.title, c.body, c.interview)
-  for (const s of Object.values(SOLUTIONS))
-    t.push(
-      s.overview,
-      ...s.walkthrough,
-      ...s.numbers,
-      ...s.tradeoffs,
-      ...s.alternatives,
-    )
+  for (const s of Object.values(SOLUTIONS)) t.push(...solutionText(s))
   for (const d of Object.values(DECKS))
     for (const c of d) t.push(c.prompt, ...c.points, c.followUp ?? "")
   for (const q of Object.values(QUIZZES))

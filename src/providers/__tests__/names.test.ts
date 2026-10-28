@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { COMPONENT_CARDS, CONCEPTS } from "~/levels/concepts"
 import { LEVELS } from "~/levels"
 import { discuss, liveFacts } from "~/levels/roles"
-import { SOLUTIONS } from "~/levels/solutions"
+import { SOLUTIONS, solutionText } from "~/levels/solutions"
 import { DECKS } from "~/decks"
 import { TOPICS } from "~/decks/topics"
 import { QUIZZES } from "~/quiz/questions"
@@ -41,14 +41,7 @@ const allRawText = (): string[] => {
       if (c.kind === "mc") out.push(c.prompt, c.correct, ...c.wrong, c.why)
       else out.push(c.prompt, ...c.points, c.followUp ?? "")
     const sol = SOLUTIONS[l.id]
-    if (sol)
-      out.push(
-        sol.overview,
-        ...sol.walkthrough,
-        ...sol.numbers,
-        ...sol.tradeoffs,
-        ...sol.alternatives,
-      )
+    if (sol) out.push(...solutionText(sol))
     for (const g of [l.reference, l.starter]) {
       if (!g) continue
       const r = grade(g, l.load, l.targets, l.chaos.faults)

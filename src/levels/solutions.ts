@@ -15,7 +15,32 @@ export type Solution = {
   tradeoffs: string[]
   /** Designs that look reasonable and why this one beats them here. */
   alternatives: string[]
+  /**
+   * Passing designs that differ from this one by a part the targets don't
+   * strictly need: leave it out and save, or keep it and get something for
+   * the money. Both pass; it's a choice, and the solution says what each costs.
+   */
+  tradeOffs?: TradeOff[]
 }
+
+export type TradeOff = {
+  /** "Leave out the {cache}". */
+  title: string
+  /** What the cheaper side saves, in money and things to run. */
+  save: string
+  /** What spending it buys, even where the targets don't ask for it. */
+  spend: string
+}
+
+/** Every sentence of a solution, for the tests that check game text. */
+export const solutionText = (s: Solution): string[] => [
+  s.overview,
+  ...s.walkthrough,
+  ...s.numbers,
+  ...s.tradeoffs,
+  ...s.alternatives,
+  ...(s.tradeOffs ?? []).flatMap((t) => [t.title, t.save, t.spend]),
+]
 
 export const SOLUTIONS: Record<string, Solution> = {
   "run-once": {
@@ -144,6 +169,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "An {event-stream} that each team reads at its own pace costs about $4,144 and passes too. It keeps history, so the fourth team can replay last month. But a team reads each partition in order: one event it can't process stalls that partition until you build a way to set it aside.",
       "The checkout writing to each team's {queue} itself doesn't pass here. Analytics needs a third queue and loader of its own, which takes it to about $5,210, just over budget; writing to the {data-warehouse} directly puts it on the checkout's path, and p99 reaches about 80s. It also couples the checkout to every team: a fourth means changing the checkout, and a failure halfway through leaves some teams told and others not.",
       "Change data capture, reading new orders from the {sql-primary}'s log, publishes events without the app's help, and can't miss one. It ties the teams to the table's shape.",
+    ],
+    tradeOffs: [
+      {
+        title: "Leave out the {cache}",
+        save: "About $4,435 a month instead of $4,805: five {app-server} instances, and the {sql-primary} answers product pages itself.",
+        spend:
+          "Keep it, and p99 is about 219ms instead of 259ms against a 300ms limit, and the database keeps room for the flash sales every shop has.",
+      },
     ],
   },
   "token-check": {
@@ -753,6 +786,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Streaming a single file at one quality: simpler, but it stalls on slow connections.",
       "A commercial video platform: it does all of this for a per-minute fee, which is often the right call below a certain scale.",
     ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {object-store}",
+        save: "Without it, at $21,674, the {cdn} already serves 95% of the video, and the bucket takes the misses at 35%.",
+        spend:
+          "About $15 a month more, $21,689: the {cache} takes the misses, p99 goes from about 291ms to 269ms, and from about 553ms to 410ms in the chaos round. Snappier starts for almost nothing, though no target needs them.",
+      },
+    ],
   },
   "ride-hailing": {
     overview:
@@ -894,6 +935,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Locking a paragraph while someone types in it: simple, and no merging, but people wait on each other, and a lost connection leaves a lock behind.",
       "Last writer wins on the whole document: easy, and it silently throws away everyone else's typing.",
       "A {sql-primary} for the edit log: fine for a small product, but 6,000 edits a second is twice what one takes.",
+    ],
+    tradeOffs: [
+      {
+        title: "Leave out the {cache}",
+        save: "About $8,015 a month instead of $9,405: 18 {app-server} instances and seven {nosql} blocks, with the edit log answering the reads the {cache} did.",
+        spend:
+          "Keep it, and p99 is about 237ms instead of 299ms against a 300ms limit. Without it the design passes with a millisecond to spare, so any growth breaks it: the $1,390 buys headroom, not a requirement.",
+      },
     ],
   },
   "click-counter": {
@@ -1130,7 +1179,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "A trie in each app server's memory: fastest of all, but each server needs a copy, and rebuilding it means a redeploy or a swap.",
       "Prefix queries on a {search-index}: flexible and always fresh, but too slow on every keystroke at this scale.",
       "Only suggesting after three characters cuts load a lot, at the cost of the first keystrokes.",
-      "No {cdn}: the app tier and browser caches answer every keystroke. Cheaper here, since each answer is a few hundred bytes from memory, but users far from your region wait a long round trip on every keystroke, and a news spike lands on your servers.",
+    ],
+    tradeOffs: [
+      {
+        title: "Leave out the {cdn}",
+        save: "About $2,995 a month in all, against $9,548: the {cdn}'s per-request fees are most of the bill. Twenty-two {app-server} instances answer every keystroke from memory instead of four.",
+        spend:
+          "Keep it, and the most common prefixes are answered at the edge: p99 about 187ms instead of 194ms against a 200ms limit, and the 2x news spike lands on the edge, not your servers, where p99 reaches about 947ms without it. Users far from your region would wait a round trip on every keystroke, which this level doesn't model.",
+      },
     ],
   },
   "shoebox-receipts": {
@@ -1189,6 +1245,14 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Querying the {nosql} store for 'near me' directly: workable with geohash keys, but range queries across cells get fiddly. A search index with geo support does it natively.",
       "Pushing live status to every open app over websockets: fresher, but millions of idle connections cost far more than a 30-second cache for a map that changes every few minutes.",
       "Polling charger operators' APIs: operators can push changes to apps instead (the OCPI protocol supports pushing updates), which is fresher and cheaper than polling.",
+    ],
+    tradeOffs: [
+      {
+        title: "Leave out the {cache}",
+        save: "About $11,526 a month instead of $11,966: nine {app-server} instances instead of eleven, and the stores answer every status read themselves.",
+        spend:
+          "Keep it, and p99 is about 287ms instead of 313ms against a 400ms limit, and in the road-trip chaos round about 858ms instead of 1,977ms. The targets don't ask for that, but a driver waiting on a map notices.",
+      },
     ],
   },
   "first-customers": {
@@ -1316,6 +1380,14 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "Twelve {app-server} instances across three zones survive the outage too (eight remain), and cost $280 less. The reference uses two zones to make the 'each zone carries everything' point.",
       "A {nosql} store is managed across zones for you, but you'd lose transactions and joins that a payments dashboard relies on.",
+    ],
+    tradeOffs: [
+      {
+        title: "Leave out the {cache}",
+        save: "About $2,074 a month instead of $2,154: one more {app-server} (17) carries the reads the {cache} answered, and there's one less thing to run and keep in step with the database.",
+        spend:
+          "Keep it, and p99 is about 203ms instead of 245ms against a 250ms limit, with the database doing much less: faster dashboards than the target asks for, and room before the next growth spurt.",
+      },
     ],
   },
   "feed-the-analysts": {

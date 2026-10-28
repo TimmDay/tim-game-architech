@@ -591,11 +591,18 @@ describe("the interview classics' traps", () => {
   it("push alerts: too little quota or too few workers fall behind at a normal peak", () => {
     const l = level("push-alerts")
     expect(
-      failed(l, patch(l.reference, "provider", { instances: 10 })),
+      failed(l, patch(l.reference, "provider", { instances: 1 })),
     ).toContain("backlog")
     expect(failed(l, patch(l.reference, "push", { instances: 1 }))).toContain(
       "backlog",
     )
+  })
+
+  it("push alerts: quota past the account's limit counts for nothing", () => {
+    const l = level("push-alerts")
+    expect(
+      failed(l, patch(l.reference, "provider", { instances: 10 })),
+    ).toEqual(failed(l, l.reference))
   })
 })
 

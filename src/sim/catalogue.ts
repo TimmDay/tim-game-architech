@@ -337,6 +337,7 @@ export const CATALOGUE: Record<ComponentKind, ComponentSpec> = {
     kind: "scheduler",
     category: "compute",
     // Fires jobs on a timetable at whatever it's wired to. Billed per trigger.
+    // One major provider delivers 1,000 a second by default and delays the rest.
     capacity: { readRps: 1_000, writeRps: 1_000 },
     baseLatency: { p50Ms: 10, p99Ms: 60 },
     baselineAvailability: 0.9995,

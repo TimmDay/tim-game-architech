@@ -311,6 +311,83 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
       "Feed it asynchronously (events or change data capture). Its numbers are minutes behind, which is fine for analytics.",
     ],
   }),
+  "realtime-gateway": ({ s, down }) => ({
+    role: `Holds an open connection to every ${s.product} user who's online, so messages reach them the moment they happen. It passes what users send to ${list(down) || "the services behind it"}.`,
+    tradeoffs: [
+      "Connections are long-lived, so deploys and failovers drop thousands at once: clients must reconnect with backoff.",
+      "Sending to one user means finding the server that holds their connection.",
+    ],
+  }),
+  pubsub: ({ up, down }) => ({
+    role: `Takes each message from ${list(up) || "its publishers"} and pushes a copy to every subscriber: ${list(down) || "none yet"}. They don't know about each other, so adding one changes nothing for the rest.`,
+    tradeoffs: [
+      "No replay: a subscriber that's down misses messages unless a {queue} holds them for it.",
+      "Delivery is at least once, so subscribers must cope with duplicates.",
+    ],
+  }),
+  "push-service": ({ up }) => ({
+    role: `Delivers notifications to users' phones for ${list(up) || "whoever calls it"}, through the phone platforms' push networks.`,
+    tradeoffs: [
+      "Delivery is best effort: a phone that's off gets it later, or never.",
+      "Device tokens go stale, so failed sends must be cleaned up or the list rots.",
+    ],
+  }),
+  "stream-processor": ({ up, down }) => ({
+    role: `Runs a continuous job over events from ${list(up) || "a stream"}, keeping running counts and windows, and writes results to ${list(down) || "somewhere"}.`,
+    tradeoffs: [
+      "Exactly-once results need checkpoints and an output that can take a replayed write.",
+      "Late events need a rule: wait for them, or correct the result afterwards.",
+    ],
+  }),
+  scheduler: ({ down }) => ({
+    role: `Starts jobs on a timetable at ${list(down) || "whatever it's wired to"}. It decides when work runs, not how.`,
+    tradeoffs: [
+      "If a run is missed or runs twice, the job must be safe to repeat.",
+      "Many jobs due at the same moment become a spike: spread them out.",
+    ],
+  }),
+  "time-series-db": ({ up }) => ({
+    role: `Stores timestamped measurements from ${list(up) || "its writers"} and answers questions over time ranges.`,
+    tradeoffs: [
+      "Fast to append and to read a range; slow to update or query by anything but time and tags.",
+      "Too many distinct tag values (high cardinality) is what usually breaks it.",
+    ],
+  }),
+  coordination: ({ up }) => ({
+    role: `Holds the few facts ${list(up) || "the servers"} must agree on: the leader, the locks, the config.`,
+    tradeoffs: [
+      "A majority must answer every write, so it's small and slow to write by design.",
+      "Lose the majority and nobody can take a lock or elect a leader until it's back.",
+    ],
+  }),
+  "graph-db": ({ up }) => ({
+    role: `Stores ${list(up) ? `what ${list(up)} records` : "things"} and the links between them, and follows those links quickly.`,
+    tradeoffs: [
+      "Short traversals are fast; the whole graph rarely fits one machine, and splitting it cuts paths.",
+      "Fewer people know how to run one than a SQL or key-value store.",
+    ],
+  }),
+  "vector-db": ({ up }) => ({
+    role: `Finds stored items closest in meaning to a query from ${list(up) || "its callers"}, using embeddings from a model.`,
+    tradeoffs: [
+      "Approximate search: faster, but sometimes misses the true closest match.",
+      "A new embedding model means re-embedding everything.",
+    ],
+  }),
+  "rate-limiter": ({ down }) => ({
+    role: `Counts requests per caller and turns away the excess before it reaches ${list(down) || "anything behind it"}.`,
+    tradeoffs: [
+      "Limits too tight block real users; too loose and they protect nothing.",
+      "Counting across many servers needs a shared counter, which is one more thing on the path.",
+    ],
+  }),
+  "auth-service": ({ up }) => ({
+    role: `Signs users in for ${list(up) || "the app"} and issues tokens the other services can check on their own.`,
+    tradeoffs: [
+      "Checking tokens locally keeps it off the request path, but makes revoking one before it expires harder.",
+      "If it's down, nobody new can sign in, though people already signed in carry on.",
+    ],
+  }),
 }
 
 /** What this component is doing in this design, and what it costs you. */

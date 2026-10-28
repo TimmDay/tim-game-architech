@@ -512,4 +512,70 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
     body: "Columnar storage for analytics over huge datasets. Brilliant at big scans, slow for small lookups, and loaded in bulk or from a stream.",
     interview: "Keep it off the request path; feed it with events or CDC.",
   },
+  "realtime-gateway": {
+    title: "{realtime-gateway}",
+    body: "Keeps a connection open to every online user so the server can send to them without being asked: chat messages, live scores, a driver's position. The hard part isn't the messages, it's the millions of idle connections and knowing which server holds which user.",
+    interview:
+      "Say how a message finds the right connection: a lookup of user to gateway server, or a {pubsub} every gateway server listens to.",
+  },
+  pubsub: {
+    title: "{pubsub}",
+    body: "Publish once and every subscriber gets a copy, pushed to it. Unlike an {event-stream} there's usually no replay: a subscriber that's down misses the message unless it has a {queue} of its own.",
+    interview:
+      "Fan-out on write: one event, many independent reactions (email, search, analytics) that don't know about each other.",
+  },
+  "push-service": {
+    title: "{push-service}",
+    body: "Sends notifications to phones through the phone platforms' push networks. You hand it a message and a device token; delivery is best effort, can take seconds, and isn't guaranteed.",
+    interview:
+      "Put a {queue} in front of it, deduplicate, and respect quiet hours. Never promise a notification arrived.",
+  },
+  "stream-processor": {
+    title: "{stream-processor}",
+    body: "Runs a continuous job over an {event-stream}: counts per minute, top-k, joins between streams, fraud rules. It keeps state between events and checkpoints it, so a restart picks up where it left off.",
+    interview:
+      "Name the window (tumbling, sliding) and what happens to late events. That's where the design questions are.",
+  },
+  scheduler: {
+    title: "{scheduler}",
+    body: "Starts jobs on a timetable or at a given moment: nightly reports, reminders, retries later. It only says when; the work itself runs on {worker}s or {serverless} functions.",
+    interview:
+      "At scale, store due jobs in a database indexed by run time and have workers claim them, so a missed tick doesn't lose a job.",
+  },
+  "time-series-db": {
+    title: "{time-series-db}",
+    body: "Stores timestamped measurements: metrics, sensor readings, prices. Writes are appends, reads are ranges and rollups, and old data gets downsampled or dropped on a schedule.",
+    interview:
+      "Mention retention and downsampling: per-second data for a day, per-minute for a month, per-hour forever.",
+  },
+  coordination: {
+    title: "{coordination}",
+    body: "A small, strongly consistent store for the few facts every server must agree on: who the leader is, who holds a lock, the current config. Writes need a majority, so it runs on 3 or 5 nodes and stays small.",
+    interview:
+      "Use it for control, never for data. A lock needs a lease and a fencing token, or a paused process can still act after losing it.",
+  },
+  "graph-db": {
+    title: "{graph-db}",
+    body: "Stores things and the relationships between them, and follows those relationships fast: friends of friends, who bought what, shortest paths. A few hops are cheap; whole-graph analytics belong in a batch job.",
+    interview:
+      "Many social designs keep the graph as adjacency lists in a {nosql} store instead. Say why you'd pay for a graph database.",
+  },
+  "vector-db": {
+    title: "{vector-db}",
+    body: "Finds the stored items closest in meaning to a query, using embeddings from a model: similar products, related documents, the passages to give a language model. Search is approximate, trading a little recall for speed.",
+    interview:
+      "Keep the source of truth elsewhere and treat the vectors as an index you can rebuild when the embedding model changes.",
+  },
+  "rate-limiter": {
+    title: "{rate-limiter}",
+    body: "Counts requests per caller (key, user, address) and turns away the excess with a 429 before it reaches anything expensive. Often a feature of the {api-gateway} rather than a box of its own.",
+    interview:
+      "Token bucket or sliding window, counters in a shared {cache}, and what the client sees: a Retry-After header.",
+  },
+  "auth-service": {
+    title: "{auth-service}",
+    body: "Signs users in and issues tokens that every other service can check without calling it back. It's on the path for sign-in, not for every request, as long as tokens are verified locally.",
+    interview:
+      "Short-lived access tokens plus refresh tokens; say how you'd revoke one before it expires.",
+  },
 }

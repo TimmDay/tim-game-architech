@@ -268,6 +268,7 @@ export const GLOBAL_KINDS = new Set<ComponentKind>([
   "dns",
   "cdn",
   "third-party-api",
+  "push-service",
 ])
 /** Compute: its instances are shared out between regions, not copied. */
 export const SPLIT_ACROSS_REGIONS = new Set<ComponentKind>([
@@ -771,7 +772,14 @@ export function topologyAvailability(
   return a
 }
 
-const DURABLE = new Set<ComponentKind>(["sql-primary", "nosql", "object-store"])
+const DURABLE = new Set<ComponentKind>([
+  "sql-primary",
+  "nosql",
+  "object-store",
+  "time-series-db",
+  "graph-db",
+  "vector-db",
+])
 
 /**
  * A slow dependency, seen from both ends. The dependency's answers take

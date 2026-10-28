@@ -156,6 +156,87 @@ export const SERVICE_NAMES: Record<
     azure: { name: "Microsoft Fabric Data Warehouse", short: "Fabric DW" },
     gcp: { name: "BigQuery", short: "BigQuery" },
   },
+  // Checked October 2026. GCP has no managed WebSocket gateway: its docs
+  // point to WebSockets on Cloud Run.
+  "realtime-gateway": {
+    generic: { name: "WebSocket Gateway", short: "WebSockets" },
+    aws: { name: "Amazon API Gateway WebSocket APIs", short: "WebSocket API" },
+    azure: { name: "Azure Web PubSub", short: "Web PubSub" },
+    gcp: { name: "Cloud Run WebSockets", short: "Run WebSockets" },
+  },
+  pubsub: {
+    generic: { name: "Pub/Sub Topic", short: "Topic" },
+    aws: { name: "Amazon SNS", short: "SNS" },
+    azure: { name: "Azure Event Grid", short: "Event Grid" },
+    gcp: { name: "Pub/Sub topic", short: "Pub/Sub topic" },
+  },
+  "push-service": {
+    generic: { name: "Push Notification Service", short: "Push" },
+    aws: { name: "Amazon SNS Mobile Push", short: "SNS Push" },
+    azure: { name: "Azure Notification Hubs", short: "Notif. Hubs" },
+    gcp: { name: "Firebase Cloud Messaging", short: "FCM" },
+  },
+  "stream-processor": {
+    generic: { name: "Stream Processor", short: "Stream Proc." },
+    aws: {
+      name: "Amazon Managed Service for Apache Flink",
+      short: "Managed Flink",
+    },
+    azure: { name: "Azure Stream Analytics", short: "Stream Analytics" },
+    gcp: { name: "Dataflow", short: "Dataflow" },
+  },
+  // Azure has no standalone scheduler since Azure Scheduler retired: a Logic
+  // Apps recurrence trigger is the usual answer.
+  scheduler: {
+    generic: { name: "Job Scheduler", short: "Scheduler" },
+    aws: { name: "Amazon EventBridge Scheduler", short: "EB Scheduler" },
+    azure: { name: "Azure Logic Apps", short: "Logic Apps" },
+    gcp: { name: "Cloud Scheduler", short: "Cloud Scheduler" },
+  },
+  // Timestream for LiveAnalytics closed to new customers in June 2025; AWS
+  // points new ones to Timestream for InfluxDB.
+  "time-series-db": {
+    generic: { name: "Time-Series Database", short: "Time-Series DB" },
+    aws: { name: "Amazon Timestream for InfluxDB", short: "Timestream" },
+    azure: { name: "Azure Data Explorer", short: "Data Explorer" },
+    gcp: { name: "Bigtable", short: "Bigtable" },
+  },
+  // Not a managed product on any of the three: you run etcd or ZooKeeper.
+  coordination: {
+    generic: { name: "Coordination Service", short: "Coordinator" },
+    aws: { name: "Coordination Service", short: "Coordinator" },
+    azure: { name: "Coordination Service", short: "Coordinator" },
+    gcp: { name: "Coordination Service", short: "Coordinator" },
+  },
+  "graph-db": {
+    generic: { name: "Graph Database", short: "Graph DB" },
+    aws: { name: "Amazon Neptune", short: "Neptune" },
+    azure: {
+      name: "Azure Cosmos DB for Apache Gremlin",
+      short: "Cosmos Gremlin",
+    },
+    gcp: { name: "Spanner Graph", short: "Spanner Graph" },
+  },
+  "vector-db": {
+    generic: { name: "Vector Database", short: "Vector DB" },
+    aws: { name: "Amazon S3 Vectors", short: "S3 Vectors" },
+    azure: { name: "Azure Cosmos DB vector search", short: "Cosmos Vectors" },
+    gcp: { name: "Vertex AI Vector Search", short: "Vector Search" },
+  },
+  "rate-limiter": {
+    generic: { name: "Rate Limiter", short: "Rate Limiter" },
+    aws: { name: "AWS WAF", short: "WAF" },
+    azure: { name: "Azure Web Application Firewall", short: "Azure WAF" },
+    gcp: { name: "Google Cloud Armor", short: "Cloud Armor" },
+  },
+  // Azure AD B2C closed to new customers in May 2025; Entra External ID
+  // replaces it.
+  "auth-service": {
+    generic: { name: "Identity Provider", short: "Auth" },
+    aws: { name: "Amazon Cognito", short: "Cognito" },
+    azure: { name: "Microsoft Entra External ID", short: "Entra ID" },
+    gcp: { name: "Identity Platform", short: "Identity Platform" },
+  },
 }
 
 export const serviceName = (kind: ComponentKind, provider: Provider) =>

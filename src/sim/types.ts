@@ -22,6 +22,18 @@ export type ComponentKind =
   | "data-warehouse"
   | "doc-ai"
   | "third-party-api"
+  // Sandbox only, for diagramming: no level uses these yet.
+  | "realtime-gateway"
+  | "pubsub"
+  | "push-service"
+  | "stream-processor"
+  | "scheduler"
+  | "time-series-db"
+  | "coordination"
+  | "graph-db"
+  | "vector-db"
+  | "rate-limiter"
+  | "auth-service"
 
 export type Category = "edge" | "compute" | "data" | "messaging"
 

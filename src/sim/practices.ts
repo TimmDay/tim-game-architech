@@ -54,6 +54,7 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
   cdn: ["rateLimit", "alerts"],
   "load-balancer": ["rateLimit", "alerts"],
   "api-gateway": ["auth", "rateLimit", "alerts"],
+  "rate-limiter": ["rateLimit", "alerts"],
   "app-server": [
     "auth",
     "rateLimit",

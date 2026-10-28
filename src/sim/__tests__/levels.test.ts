@@ -650,6 +650,36 @@ describe("the interview classics' traps", () => {
     expect(failed(l, g)).toContain("writes")
   })
 
+  it("people you may know: working suggestions out on every home page swamps the graph", () => {
+    const l = level("people-you-may-know")
+    const live = rewire(l.reference, ["lists"], ["app>graph"])
+    expect(failed(l, live)).toContain("traffic")
+    expect(failed(l, patch(live, "graph", { instances: 4 }))).toContain(
+      "budget",
+    )
+  })
+
+  it("people you may know: recomputing inside the request fails latency", () => {
+    const l = level("people-you-may-know")
+    expect(
+      failed(l, rewire(l.reference, ["jobs", "suggest"], ["app>graph"])),
+    ).toContain("latency")
+  })
+
+  it("people you may know: adjacency lists in SQL or NoSQL pass too", () => {
+    // The engine can't see how much deeper traversals cost in each store,
+    // so the solution weighs them in words. Pinned so that stays true.
+    const l = level("people-you-may-know")
+    const stakes = l.targets.stakes
+    for (const store of [
+      { kind: "sql-primary" as const, instances: 2, zones: 2 },
+      { kind: "nosql" as const, instances: 1 },
+    ]) {
+      const g = patch(l.reference, "graph", store)
+      expect(failed(l, stakes ? withPractices(g, stakes) : g)).toEqual([])
+    }
+  })
+
   it("overkill works, but costs the third star", () => {
     const first = level("first-customers")
     const cached: Graph = {

@@ -18,6 +18,38 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "people-you-may-know": {
+    overview:
+      "Each member's suggestions are worked out ahead of time and kept in a {cache}, so a home page reads one short list and touches nothing else. When two people connect, the app puts it on a {queue} and answers. {worker} instances record the connection in a {graph-db}, then work out both members' suggestions again from their friends of friends. A nightly run refreshes everyone else's. The graph store is on no request's path.",
+    walkthrough: [
+      "Home page: {load-balancer} → {app-server} → {cache}, keyed by member: their ranked list of suggestions.",
+      "A new connection: the app puts it on the {queue} and shows it as pending. A {worker} records it in the {graph-db}.",
+      "The same worker follows each member's connections, then theirs, counts how many each candidate shares, drops people they already know, and writes the top 50 to the {cache}.",
+      "A member with no list yet (new, or lost with a cache node) sees popular suggestions until a worker has worked theirs out, seconds later.",
+    ],
+    numbers: [
+      "10,500 requests a second: 10,000 home pages and 500 new connections.",
+      "Every home page is one {cache} read, at 5% of two nodes.",
+      "Working out suggestions on every home page sends all 10,000 to the {graph-db}: one instance runs at 200% and half the requests fail. Four are needed, at $5,121 in all. And that counts a two-hop traversal as one query, which flatters it.",
+      "Eighteen {app-server} instances run at 58%, with p99 about 192ms, and 88% in January. Fourteen would reach 113% in January, and 11% of requests fail.",
+      "The {graph-db} takes 500 connections a second from the workers, at 50% of its writes.",
+      "Working out suggestions is about half a second of waiting on the graph, so each {worker} keeps about 100 in flight: 200 a second. Four run at 63%, 94% in January. Two fall behind by 100 a second.",
+      "Without the queue, the app calls the {graph-db} itself: every home page reaches it as well, at 200%, and each connection waits half a second for its recompute. p99 reaches about 1.9s.",
+      "Cost: about $108 for the {load-balancer} + 18 × $70 + 2 × $150 + $700 for the {graph-db} + $473 for the {queue} + 4 × $120 = $3,321 of $3,600.",
+    ],
+    tradeoffs: [
+      "Suggestions can be a day old for members who haven't connected with anyone lately. Nobody minds.",
+      "Precomputing for every member costs work for the many who never look. Some networks only precompute for members active this month.",
+      "A connection is recorded a moment after it's made, once a worker takes it from the queue. Off the request path, the design's availability is 99.97%.",
+      "Ranking by shared connections alone favours people with huge networks. Real systems mix in workplace, school and what members ignore.",
+    ],
+    alternatives: [
+      "Keeping connections as adjacency lists in a {sql-primary} or {nosql} store passes here too, at $3,421 and $3,571, and several of the largest social networks do it. Two hops is two rounds of lookups, done by the workers, not the home page.",
+      "A batch job over the whole graph every night (a big data job, not a database) works out everyone's suggestions at once, cheaply, but a new connection takes a day to show.",
+      "Questions asked live and open-ended, such as 'how am I connected to this person?' three hops out, are where a {graph-db} is hard to beat.",
+      "Splitting the graph across machines cuts some paths: partitioning by community keeps most friends together, and the rest are cross-machine hops.",
+    ],
+  },
   "server-metrics": {
     overview:
       "Agents send batches of points to a small tier of collectors, which check them and write them to a {time-series-db}. One instance appends 20,000 points a second at 40% and answers dashboards' time ranges at 50%. The series count is fixed by the fleet (5,000 servers × 40 metrics), which is exactly where a time-series store shines. The collectors run in two zones with room to lose one, because monitoring that dies with the outage is no use.",

@@ -8,13 +8,16 @@ import type {
   SimResult,
 } from "./types"
 
-/** "durable" means any store that keeps data: a SQL primary, NoSQL or objects. */
+/** "durable" means any store that keeps data: SQL, NoSQL, objects, or a specialist store. */
 export type WriteSink = ComponentKind | "durable"
 
 export const DURABLE_KINDS: ComponentKind[] = [
   "sql-primary",
   "nosql",
   "object-store",
+  "time-series-db",
+  "graph-db",
+  "vector-db",
 ]
 
 export type Targets = {

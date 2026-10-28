@@ -1044,6 +1044,118 @@ export const QUIZZES: Record<string, Question[]> = {
       21,
     ],
   ]),
+  "people-you-may-know": q([
+    [
+      "Why work suggestions out ahead of time?",
+      "Two hops from 300 connections is about 90,000 people to count, per page",
+      [
+        "Graph stores can only be read at night",
+        "Precomputed lists are more accurate than ones worked out live",
+        "Home pages can't call a database at all, so everything they show has to come from memory",
+      ],
+      "Done live, one {graph-db} runs at 200% and half the requests fail; four cost $5,121 against $3,600.",
+      5,
+    ],
+    [
+      "When are a member's suggestions worked out again?",
+      "When they connect with someone, and every night",
+      [
+        "Only when they open their home page",
+        "Every time anyone in the network makes a new connection, for every member at once",
+        "Never: they're worked out once, when the member joins",
+      ],
+      "A new connection changes both members' lists; the nightly run picks up their friends' changes.",
+      6,
+    ],
+    [
+      "Why recompute behind a {queue} rather than in the request?",
+      "It's half a second of waiting, which would land on the new connection",
+      [
+        "Workers can read the graph and app servers can't",
+        "The {queue} makes the results more accurate",
+        "It's cheaper per recompute, because queued jobs are billed at a lower rate than requests",
+      ],
+      "Without the queue, the app calls the {graph-db} on the request path, and p99 reaches about 1.9s. Behind a queue, it's invisible.",
+      7,
+    ],
+    [
+      "Do the connections have to live in a {graph-db}?",
+      "No: SQL or {nosql} adjacency lists pass too",
+      [
+        "Yes: no other store can follow a connection",
+        "Yes, because a {sql-primary} can't take 500 writes a second",
+        "No, but only because the {cache} holds a full copy of the graph",
+      ],
+      "At $3,421 and $3,571. At two hops, done by workers, any store works. Many large networks use adjacency lists.",
+      8,
+    ],
+    [
+      "What does precomputing only for active members save?",
+      "Work for the many who don't open the app",
+      [
+        "Nothing, since inactive members' lists are never read",
+        "Memory in the {graph-db}, which no longer has to store inactive members' connections",
+        "Accuracy",
+      ],
+      "A returning member's list is worked out on their first visit, which takes a moment.",
+      9,
+    ],
+    [
+      "Why not a nightly batch job for everything?",
+      "A new connection would take a day to change suggestions",
+      [
+        "Batch jobs can't read a graph",
+        "It costs far more than recomputing on every connection",
+        "Nightly results can't be stored in a {cache}, so every home page would have to ask the graph",
+      ],
+      "Many systems do both: nightly for everyone, on events for members who just connected.",
+      12,
+    ],
+    [
+      "When is asking the {graph-db} live the right call?",
+      "For questions you can't predict, like a path between two people",
+      [
+        "For every home page, since it's always up to date",
+        "Never: graph stores are for batch jobs only",
+        "Only for members with more than 10,000 connections, since their lists change the most often",
+      ],
+      "One hop or an unpredictable path, live. Ranked friends of friends for every page, ahead of time.",
+      13,
+    ],
+    [
+      "A member with 30,000 connections connects with someone. What's the risk?",
+      "Two hops from them is millions of people, so one recompute takes far longer",
+      [
+        "Their list overflows the {cache}",
+        "Nothing: every recompute takes the same half second",
+        "The {graph-db} refuses the new connection",
+      ],
+      "Sample their connections, or skip recomputing for huge accounts, who already know everyone.",
+      16,
+    ],
+    [
+      "A {cache} node is lost. What should you guard against?",
+      "A rush of rebuilds landing on the {graph-db} at once",
+      [
+        "Lost connections, since the cache held them",
+        "Nothing: members just see no suggestions until tomorrow",
+        "Duplicate suggestions, because the remaining nodes each hold a copy of the lost one's lists",
+      ],
+      "Queue the rebuilds, most active members first. Meanwhile those members see popular suggestions.",
+      17,
+    ],
+    [
+      "How can suggestions leak something private?",
+      "They can reveal who someone knows, such as a hidden connection",
+      [
+        "They can't: they only use public data",
+        "Only if the {cache} is unencrypted",
+        "Only when a member has fewer than ten connections, because then the source is obvious",
+      ],
+      "Respect hidden connections in suggestions too, and never suggest blocked members either way.",
+      19,
+    ],
+  ]),
   "login-flood": q([
     [
       "Where should the rate limit go?",

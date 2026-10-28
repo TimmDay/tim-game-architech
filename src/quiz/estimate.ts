@@ -126,6 +126,35 @@ export const ESTIMATES: Record<string, EstimateCard[]> = {
       "Which would you cut first if storage had to halve again?",
     ),
   ],
+  "people-you-may-know": [
+    mc(
+      "A member has 300 connections, and each of them has about 300. Roughly how many friends of friends are there to count?",
+      "About 90,000",
+      ["About 600", "About 27 million", "About 3,000"],
+      "300 × 300 is 90,000, before removing duplicates and people they already know. Adding instead of multiplying gives 600.",
+    ),
+    mc(
+      "100 million members each keep 50 suggested IDs of 8 bytes. How much memory?",
+      "About 40 GB",
+      ["About 4 GB", "About 400 GB", "About 40 MB"],
+      "50 × 8 is 400 bytes a member; × 100 million is 40 GB: a few {cache} nodes.",
+    ),
+    mc(
+      "A recompute takes half a second of waiting, and a {worker} keeps about 100 in flight. How many workers for 500 new connections a second?",
+      "3, so 4 for headroom",
+      ["1", "25", "250"],
+      "100 ÷ 0.5 is 200 a second per worker; 500 ÷ 200 is 2.5. One at a time, it would be 250.",
+    ),
+    talk(
+      "A member accepts ten invitations in a minute. How many recomputes do they need?",
+      [
+        "One job per connection recomputes them ten times, each result replacing the last.",
+        "Waiting a few seconds and merging jobs for the same member makes it one.",
+        "At 500 connections a second, merging can cut the work a lot when people connect in bursts.",
+      ],
+      "What does merging cost in freshness?",
+    ),
+  ],
   "clinic-records": [
     mc(
       "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",

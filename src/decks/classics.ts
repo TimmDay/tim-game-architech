@@ -3983,7 +3983,8 @@ export const ORDER_PLACED = deck("order-placed", [
     "alternative",
     "Could the checkout write to each team's queue itself?",
     [
-      "It works, but the checkout must know every team, and change for each new one.",
+      "Here it doesn't fit the budget: analytics needs a third queue and loader, about $5,210 against $5,200.",
+      "The checkout must also know every team, and change for each new one.",
       "If it fails halfway, some teams hear about the order and some don't.",
       "One publish to a topic avoids both.",
     ],

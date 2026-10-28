@@ -47,7 +47,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     alternatives: [
       "The topic pushing straight to each team's {worker} costs about $4,237 and passes here. But a failed push is only retried on the provider's schedule: a minute by default, an hour at most, for one major provider's web endpoints; a day for another; a week for a third. With a queue the wait is yours to choose, and each team gets its own dead-letter queue.",
       "An {event-stream} that each team reads at its own pace costs about $4,144 and passes too. It keeps history, so the fourth team can replay last month. But a team reads each partition in order: one event it can't process stalls that partition until you build a way to set it aside.",
-      "The checkout writing to each team's {queue} itself works, but couples it to every team: a fourth means changing the checkout, and a failure halfway through leaves some teams told and others not.",
+      "The checkout writing to each team's {queue} itself doesn't pass here. Analytics needs a third queue and loader of its own, which takes it to about $5,210, just over budget; writing to the {data-warehouse} directly puts it on the checkout's path, and p99 reaches about 80s. It also couples the checkout to every team: a fourth means changing the checkout, and a failure halfway through leaves some teams told and others not.",
       "Change data capture, reading new orders from the {sql-primary}'s log, publishes events without the app's help, and can't miss one. It ties the teams to the table's shape.",
     ],
   },

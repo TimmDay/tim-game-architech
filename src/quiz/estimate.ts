@@ -155,6 +155,43 @@ export const ESTIMATES: Record<string, EstimateCard[]> = {
       "What does merging cost in freshness?",
     ),
   ],
+  "run-once": [
+    mc(
+      "Clinics book 3.2 million appointments a day, and a third of the day's reminders fall due in the busiest hour. About how many a second then?",
+      "About 300 a second",
+      ["About 37 a second", "About 900 a second", "About 3,200 a second"],
+      "3.2 million ÷ 3 is about 1.07 million in one hour; ÷ 3,600 is about 300. Spread evenly over the day it would be 37.",
+    ),
+    mc(
+      "A cluster has five nodes. How many can fail before nobody can be elected?",
+      "2: the other three are still a majority",
+      [
+        "4: one node is enough to lead",
+        "0: every node must agree",
+        "3: two nodes are a majority of five",
+      ],
+      "A majority of five is three, so it survives two failures. Three nodes survive one; two nodes survive none.",
+    ),
+    mc(
+      "Leases last 15 seconds. The leader dies just after renewing. How long until reminders flow again?",
+      "Up to about 15 seconds",
+      [
+        "None: the standby is already running",
+        "About 1 second",
+        "Until someone restarts it",
+      ],
+      "The lease has to run out before anyone else may take it. Shorter leases mean a shorter gap, and more renewals.",
+    ),
+    talk(
+      "Three servers each run the reminder timer at 300 a second. What does that cost?",
+      [
+        "900 texts a second instead of 300: each patient gets three.",
+        "Three times the text message fees, and the provider's quota is used up three times as fast.",
+        "Here the quota is 400 a second, so even two runners overflow it.",
+      ],
+      "How would you spot it from the provider's bill alone?",
+    ),
+  ],
   "clinic-records": [
     mc(
       "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",

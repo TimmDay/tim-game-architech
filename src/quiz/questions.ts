@@ -1156,6 +1156,118 @@ export const QUIZZES: Record<string, Question[]> = {
       19,
     ],
   ]),
+  "run-once": q([
+    [
+      "Two dispatchers both run the reminder timer. What happens?",
+      "Every patient gets two messages",
+      [
+        "They share the reminders between them, half each",
+        "The second one notices the first and stops",
+        "The {queue} removes the duplicates before they're sent, since both copies carry the same reminder",
+      ],
+      "Each finds the same due reminders: 600 a second reach the provider, 150% of its quota.",
+      5,
+    ],
+    [
+      "Why not run exactly one dispatcher?",
+      "It stops when it or its zone goes down",
+      [
+        "One can't send 300 reminders a second",
+        "A {worker} can't run a timer on its own",
+        "It would send every reminder twice whenever it restarted, because a timer always fires once on startup",
+      ],
+      "One runner sends each once, and is a single point of failure.",
+      6,
+    ],
+    [
+      "How does a dispatcher become the leader?",
+      "It takes a lease from the {coordination} cluster and keeps renewing it",
+      [
+        "The first one to start is the leader forever",
+        "It's whichever has the most free capacity at the moment the reminders fall due",
+        "The {load-balancer} picks one",
+      ],
+      "If it stops renewing, the lease expires and another takes over. The cluster grants it only with a majority agreeing.",
+      7,
+    ],
+    [
+      "Why does a cluster of two nodes fail the zone outage?",
+      "One of two isn't a majority, so nobody can be elected",
+      [
+        "Two nodes can't run in two zones",
+        "The surviving node is overloaded",
+        "Two nodes always elect two leaders, one each, so reminders are sent twice even before the outage",
+      ],
+      "Three in three zones keep 2 of 3. Three in two zones put two in one zone: lose it and 1 of 3 is left.",
+      8,
+    ],
+    [
+      "What does a shorter lease buy?",
+      "A dead leader is replaced sooner",
+      [
+        "Fewer duplicates",
+        "Less work for the cluster",
+        "A higher limit on how many reminders the leader can queue each second, since it's renewed more often",
+      ],
+      "Shorter leases mean more renewals. Ten to thirty seconds is common.",
+      9,
+    ],
+    [
+      "When is a database row lock the simpler answer?",
+      "When the work lives in one database",
+      [
+        "Never: row locks can't be shared between servers",
+        "Only with a single dispatcher",
+        "When the dispatchers are in different regions, far from each other and from the database",
+      ],
+      "Each dispatcher claims a batch of due reminders, skipping rows another has locked. No cluster needed.",
+      10,
+    ],
+    [
+      "A managed {scheduler} passes for less. Why do the senders still check for repeats?",
+      "It delivers at least once, not exactly once",
+      [
+        "It runs on every server",
+        "It doesn't: a managed scheduler guarantees exactly once, so the senders' check is only there for leaders",
+        "The text provider requires it",
+      ],
+      "About $2,021 against $2,325, and simpler. A repeated trigger must not text a patient twice.",
+      11,
+    ],
+    [
+      "The leader freezes for 30 seconds, then wakes. What stops it doing harm?",
+      "A fencing token that rises with each lease, checked when it writes",
+      [
+        "Nothing: a frozen leader always stays leader",
+        "It checks the clock and stops if more than a minute has passed",
+        "The {queue} refuses messages from it",
+      ],
+      "Its lease expired and someone else leads. Without fencing, both queue the same reminders.",
+      16,
+    ],
+    [
+      "The leader's zone goes down. What happens?",
+      "Its lease expires, and the dispatcher in the other zone takes over",
+      [
+        "Reminders stop until someone restarts it",
+        "Both dispatchers lead until the zone is back",
+        "The cluster loses its majority, since one of its three nodes was in that zone along with the leader",
+      ],
+      "Two of three cluster nodes are still up, so the lease can be granted to the standby.",
+      17,
+    ],
+    [
+      "The leader crashes after queueing reminders, before marking them. What makes it harmless?",
+      "Senders that skip reminders already sent",
+      [
+        "A longer lease, so that a crash like this happens less often and the reminders are marked in time",
+        "Running a third dispatcher",
+        "Nothing can",
+      ],
+      "The new leader queues them again. An outbox narrows the gap; the senders' check closes it.",
+      18,
+    ],
+  ]),
   "login-flood": q([
     [
       "Where should the rate limit go?",

@@ -7,7 +7,12 @@ import {
   maxInstancesOf,
   workerJobsPerSecond,
 } from "./catalogue"
-import { behindAsync, doesHeavyWorkInline, failureDomains } from "./simulate"
+import {
+  behindAsync,
+  clockRoots,
+  doesHeavyWorkInline,
+  failureDomains,
+} from "./simulate"
 import type {
   ComponentKind,
   Graph,
@@ -76,7 +81,7 @@ export function report(
       notes: [],
     }
 
-  const asyncSet = behindAsync(graph)
+  const asyncSet = behindAsync(graph, load)
   const byId = new Map(graph.components.map((c) => [c.id, c]))
   const reachable = new Set<string>()
   const walk = (id: string) => {
@@ -87,6 +92,10 @@ export function report(
       }
   }
   walk(CLIENT_ID)
+  for (const c of clockRoots(graph, load)) {
+    reachable.add(c.id)
+    walk(c.id)
+  }
 
   const advice: Advice[] = []
   for (const c of graph.components) {

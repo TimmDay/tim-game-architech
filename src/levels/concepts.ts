@@ -73,6 +73,7 @@ export type ConceptId =
   | "queue-per-subscriber"
   | "time-series-data"
   | "graph-data"
+  | "leader-election"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
   "simplest-design": {
@@ -134,6 +135,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "Members and their connections are a graph. A {graph-db} stores each connection as a link it can follow directly, so 'friends of friends' or 'how are we connected?' takes milliseconds however big the graph. A relational or key-value store keeps the same links as rows or adjacency lists, and many large social networks do exactly that: one hop is a lookup, two is a join or a second round of lookups. Deep or open-ended traversals are where a graph store earns its place. Either way, what a home page shows is worked out ahead of time.",
     interview:
       "Say how many hops each feature needs. One or two, precomputed: any store works. Three or more, or paths between two people, asked live: a graph store. And say how the graph is split once it outgrows one machine, because every split cuts some paths.",
+  },
+  "leader-election": {
+    title: "Leader election",
+    body: "Some work must happen once: tonight's reminders, a billing run, assigning shards. Run it on every server and it happens once per server; run it on one and it stops when that one dies. Leader election gives you both: the servers ask a {coordination} cluster for a lease, one gets it and does the work, and if it stops renewing, another takes over. The cluster agrees by majority, so it needs three or five nodes across zones: with two, losing either leaves no majority, and nobody leads.",
+    interview:
+      "Say what happens to a leader that's paused, not dead: its lease runs out, someone else takes over, and then it wakes up. A fencing token (a number that rises with each new leader, checked by whatever it writes to) stops the old one doing harm. Then say what's simpler, if you can use it: a managed {scheduler}, or a database row lock.",
   },
   "rate-limiting": {
     title: "Rate limiting",

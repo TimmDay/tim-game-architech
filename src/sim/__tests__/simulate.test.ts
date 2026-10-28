@@ -611,3 +611,62 @@ describe("a stream processor", () => {
     expect(r.perComponent.kv?.writeRps).toBeCloseTo(10)
   })
 })
+
+describe("timed work", () => {
+  const timed = load({
+    job: { seconds: 0.2, cpuBound: false },
+    timed: {
+      label: "Reminders",
+      rps: 100,
+      by: ["worker", "scheduler"],
+      to: ["third-party-api"],
+    },
+  })
+  const design = (timers: number, nodes = 0, zones = 1) =>
+    graph(
+      [
+        ["app", "app-server", 1, 1],
+        ["t", "worker", 1, 3, timers, 2],
+        ["q", "queue", 3, 3],
+        ["send", "worker", 5, 3, 2, 2],
+        ["sms", "third-party-api", 7, 3, 4],
+        ...(nodes
+          ? [["lock", "coordination", 1, 5, nodes, zones] as const]
+          : []),
+      ] as Parameters<typeof graph>[0],
+      [`${C}>app`, "t>q", "q>send", "send>sms", ...(nodes ? ["t>lock"] : [])],
+    )
+
+  it("runs on every instance of a timer that isn't coordinated", () => {
+    expect(simulate(design(1), timed).timed).toEqual({
+      started: 100,
+      runners: 1,
+      delivered: 100,
+    })
+    expect(simulate(design(2), timed).timed?.delivered).toBe(200)
+  })
+
+  it("runs once under a leader, and not at all without a majority", () => {
+    expect(simulate(design(2, 3, 3), timed).timed?.delivered).toBe(100)
+    const outage: Fault[] = [{ kind: "zone-outage" }]
+    expect(simulate(design(2, 3, 3), timed, outage).timed?.delivered).toBe(100)
+    expect(simulate(design(2, 2, 2), timed, outage).timed?.delivered).toBe(0)
+    expect(simulate(design(2, 3, 2), timed, outage).timed?.delivered).toBe(0)
+  })
+
+  it("sends a lease renewal, not the work, to the cluster", () => {
+    expect(simulate(design(2, 3, 3), timed).perComponent.lock?.writeRps).toBe(0)
+  })
+
+  it("is off the critical path: nobody waits on a timer", () => {
+    const r = simulate(design(1), timed)
+    expect(r.perComponent.t?.behindAsync).toBe(true)
+    expect(r.perComponent.sms?.behindAsync).toBe(true)
+  })
+
+  it("does nothing in a level without timed work", () => {
+    const r = simulate(design(2), load())
+    expect(r.timed).toBeUndefined()
+    expect(r.perComponent.sms?.writeRps).toBe(0)
+  })
+})

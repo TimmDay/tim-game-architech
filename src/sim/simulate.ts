@@ -30,8 +30,9 @@ export const CACHE_HIT_EFFICIENCY = 0.95
 /** A path carrying less than this share of requests can't move the p99. */
 const P99_PATH_SHARE = 0.01
 
-type Flow = { reads: number; writes: number; cacheable: number }
-const ZERO: Flow = { reads: 0, writes: 0, cacheable: 0 }
+/** `timed`: the share of `writes` that is the level's timed work. */
+type Flow = { reads: number; writes: number; cacheable: number; timed: number }
+const ZERO: Flow = { reads: 0, writes: 0, cacheable: 0, timed: 0 }
 
 export type Carries = "all" | "reads" | "writes" | "none"
 
@@ -54,6 +55,15 @@ export function carries(graph: Graph, edge: Edge): Carries {
   }
   const from = graph.components.find((c) => c.id === edge.from)
   const to = graph.components.find((c) => c.id === edge.to)
+  // A timer asks the cluster for its lease now and then; the work itself
+  // goes elsewhere. Anything else wired to it is asking it on every request.
+  if (
+    to?.kind === "coordination" &&
+    from &&
+    (from.kind === "worker" || from.kind === "scheduler") &&
+    !graph.edges.some((e) => e.to === from.id)
+  )
+    return "none"
   if (from && CATALOGUE[from.kind].async) return "writes"
   if (to && CATALOGUE[to.kind].async) return "writes"
   if (to && CATALOGUE[to.kind].readOnly) return "reads"
@@ -186,8 +196,33 @@ export function pushedTo(graph: Graph, id: string): boolean {
   )
 }
 
-/** Components reached only through an async hand-off: off the critical path. */
-export function behindAsync(graph: Graph): Set<string> {
+/**
+ * Where the level's timed work starts: components of the kinds that run it
+ * with nothing wired into them. Each one runs the timer on its own.
+ */
+export function clockRoots(
+  graph: Graph,
+  load?: LoadProfile,
+): PlacedComponent[] {
+  const by = load?.timed?.by
+  if (!by) return []
+  return graph.components.filter(
+    (c) =>
+      by.includes(c.kind) &&
+      !graph.edges.some((e) => e.to === c.id) &&
+      graph.edges.some((e) => e.from === c.id),
+  )
+}
+
+/** A {coordination} cluster can elect a leader while most of its nodes are up. */
+export const hasQuorum = (c: PlacedComponent, alive: number) =>
+  alive > c.instances / 2
+
+/**
+ * Components reached only through an async hand-off: off the critical path.
+ * Timed work is off it from the start: nobody waits on a timer.
+ */
+export function behindAsync(graph: Graph, load?: LoadProfile): Set<string> {
   const byId = new Map(graph.components.map((c) => [c.id, c]))
   const sync = new Set<string>()
   const all = new Set<string>()
@@ -202,6 +237,7 @@ export function behindAsync(graph: Graph): Set<string> {
       if (e.from === id) walk(e.to, viaAsync || isAsync)
   }
   walk(CLIENT_ID, false)
+  for (const c of clockRoots(graph, load)) walk(c.id, true)
   const out = new Set<string>()
   for (const id of all) if (!sync.has(id) && id !== CLIENT_ID) out.add(id)
   return out
@@ -361,7 +397,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
   const alive = new Map(
     graph.components.map((c) => [c.id, aliveInstances(c, faults, watched(c))]),
   )
-  const asyncSet = behindAsync(graph)
+  const asyncSet = behindAsync(graph, load)
   const multiplier = faults.reduce(
     (m, f) => (f.kind === "traffic-spike" ? m * f.multiplier : m),
     1,
@@ -450,6 +486,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
         reads: flow.reads * readShare * retried,
         writes: flow.writes * writeShare * jobShare * retried,
         cacheable: flow.cacheable * readShare,
+        timed: flow.timed * writeShare * jobShare * retried,
       }
       if (f.reads + f.writes <= 0) continue
       edgeFlow.set(e.id, (edgeFlow.get(e.id) ?? 0) + f.reads + f.writes)
@@ -475,6 +512,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
           reads: t.type.of === "reads" ? f : 0,
           writes: t.type.of === "writes" ? f : 0,
           cacheable: t.type.of === "reads" && t.type.cacheable ? f : 0,
+          timed: 0,
         },
       })
     }
@@ -484,8 +522,52 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
       reads,
       writes,
       cacheable: reads * load.cacheableFraction,
+      timed: 0,
     }),
   )
+  // Timed work. Every instance of a timer runs it in full, unless the timers
+  // share a {coordination} cluster that has a majority up: then one leader
+  // runs it and the rest stand by. A managed {scheduler} is one timer.
+  const timed = load.timed
+  let started = 0
+  let runners = 0
+  if (timed) {
+    const coordinated = (c: PlacedComponent) =>
+      graph.edges.some(
+        (e) => e.from === c.id && byId.get(e.to)?.kind === "coordination",
+      )
+    const quorum = (c: PlacedComponent) =>
+      graph.edges.some((e) => {
+        if (e.from !== c.id) return false
+        const to = byId.get(e.to)
+        return (
+          to?.kind === "coordination" && hasQuorum(to, alive.get(to.id) ?? 0)
+        )
+      })
+    let leader = false
+    for (const c of clockRoots(graph, load)) {
+      const up = alive.get(c.id) ?? 0
+      if (up <= 0) continue
+      let n: number
+      if (coordinated(c)) {
+        // Without a majority nobody can be elected, so nobody runs it.
+        n = !leader && quorum(c) ? 1 : 0
+        if (n) leader = true
+      } else n = CATALOGUE[c.kind].managed ? 1 : up
+      if (n === 0) continue
+      runners += n
+      started += timed.rps * n
+      queue.push({
+        id: c.id,
+        flow: {
+          reads: 0,
+          writes: timed.rps * n,
+          cacheable: 0,
+          timed: timed.rps * n,
+        },
+      })
+    }
+  }
   const visits = new Map<string, number>()
   let cacheHits = 0
   // Workers pace what's behind them: anything beyond their throughput waits
@@ -505,6 +587,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
     acc.reads += next.flow.reads
     acc.writes += next.flow.writes
     acc.cacheable += next.flow.cacheable
+    acc.timed += next.flow.timed
     nodeFlow.set(c.id, acc)
 
     let out = next.flow
@@ -516,6 +599,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
         reads: next.flow.reads - hits,
         writes: next.flow.writes,
         cacheable: next.flow.cacheable - hits,
+        timed: next.flow.timed,
       }
     }
     if (AGGREGATORS.has(c.kind)) {
@@ -533,6 +617,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
           reads: out.reads * k,
           writes: out.writes * k,
           cacheable: out.cacheable * k,
+          timed: out.timed * k,
         }
       }
       workerPassed.set(c.id, passed + Math.min(total, room))
@@ -543,6 +628,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
           reads: out.reads * emits,
           writes: out.writes * emits,
           cacheable: out.cacheable * emits,
+          timed: out.timed * emits,
         }
     }
     queue.push(...distribute(c.id, out))
@@ -598,6 +684,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
           Math.max(0, flow.writes - writeCap),
       aliveInstances: up,
       behindAsync: isAsync,
+      ...(flow.timed > 0 && { timedRps: flow.timed }),
     }
     if (slow) slowDown(m, c, graph, slow, edgeFlow, flow, load)
     if (faults.some((f) => f.kind === "poison-message")) poisoned(m, c, graph)
@@ -716,6 +803,18 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
     ),
     backlogGrowthRps: backlog,
     cacheHitRps: cacheHits,
+    ...(timed && {
+      timed: {
+        started,
+        runners,
+        delivered: Math.max(
+          0,
+          ...graph.components
+            .filter((c) => timed.to.includes(c.kind))
+            .map((c) => nodeFlow.get(c.id)?.timed ?? 0),
+        ),
+      },
+    }),
     connected,
   }
 }

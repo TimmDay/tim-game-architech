@@ -66,6 +66,11 @@ function checkLabel(
           ))}
         </>
       )
+    case "once": {
+      const timed = level.load.timed
+      const got = g.peak.timed?.delivered ?? 0
+      return `${timed?.label ?? "Timed work"} reach ${rps(got)} (exactly ${rps(timed?.rps ?? 0)}: each one once)`
+    }
     case "reads":
       return (
         <>
@@ -99,6 +104,8 @@ function checkLabel(
           `backlog growth ${rps(g.chaos.backlogGrowthRps)}`,
         g.chaos.duplicateRps > 0.5 &&
           `${rps(g.chaos.duplicateRps)} applied twice`,
+        level.load.timed &&
+          `${level.load.timed.label.toLowerCase()} ${rps(g.chaos.timed?.delivered ?? 0)} (exactly ${rps(level.load.timed.rps)})`,
         g.chaos.exposed.length > 0 && "answered an unsigned caller",
         t.rpoMinutes !== undefined &&
           `restore loses ${Number.isFinite(g.chaos.dataLossMinutes) ? `${Math.round(g.chaos.dataLossMinutes)} min` : "everything"} (≤ ${t.rpoMinutes} min)`,

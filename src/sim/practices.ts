@@ -1,5 +1,11 @@
 import { CATALOGUE } from "./catalogue"
-import type { ComponentKind, Graph, PlacedComponent, Practices } from "./types"
+import type {
+  ComponentKind,
+  Graph,
+  LoadProfile,
+  PlacedComponent,
+  Practices,
+} from "./types"
 import { CLIENT_ID } from "./types"
 
 /**
@@ -121,8 +127,12 @@ const ENTRY_KINDS: ComponentKind[] = [
   "serverless",
 ]
 
-/** Components reachable from the users, through any hand-off. */
-function reachable(graph: Graph): Set<string> {
+/**
+ * Components reachable from the users, through any hand-off, or, in a level
+ * with timed work, from a timer: a component of a kind that runs it, with
+ * nothing wired into it.
+ */
+function reachable(graph: Graph, load?: LoadProfile): Set<string> {
   const seen = new Set<string>()
   const walk = (id: string) => {
     for (const e of graph.edges)
@@ -132,6 +142,16 @@ function reachable(graph: Graph): Set<string> {
       }
   }
   walk(CLIENT_ID)
+  const by = load?.timed?.by ?? []
+  for (const c of graph.components)
+    if (
+      by.includes(c.kind) &&
+      !graph.edges.some((e) => e.to === c.id) &&
+      graph.edges.some((e) => e.from === c.id)
+    ) {
+      seen.add(c.id)
+      walk(c.id)
+    }
   return seen
 }
 
@@ -140,9 +160,14 @@ function reachable(graph: Graph): Set<string> {
  * Derived from the wiring and the level's stakes, so a new component brings
  * its expectations with it and nobody has to list them by hand.
  */
-export function expectedPractices(graph: Graph, stakes: Stakes): Expectation[] {
+export function expectedPractices(
+  graph: Graph,
+  stakes: Stakes,
+  /** For timed work: timers are live too. */
+  load?: LoadProfile,
+): Expectation[] {
   const byId = new Map(graph.components.map((c) => [c.id, c]))
-  const live = reachable(graph)
+  const live = reachable(graph, load)
   const out: Expectation[] = []
   const want = (c: PlacedComponent, practice: PracticeId) =>
     out.push({ componentId: c.id, practice })
@@ -273,9 +298,13 @@ export function has(c: PlacedComponent, practice: PracticeId): boolean {
   }
 }
 
-export function missingPractices(graph: Graph, stakes: Stakes): Expectation[] {
+export function missingPractices(
+  graph: Graph,
+  stakes: Stakes,
+  load?: LoadProfile,
+): Expectation[] {
   const byId = new Map(graph.components.map((c) => [c.id, c]))
-  return expectedPractices(graph, stakes).filter((x) => {
+  return expectedPractices(graph, stakes, load).filter((x) => {
     const c = byId.get(x.componentId)
     return c !== undefined && !has(c, x.practice)
   })
@@ -300,10 +329,14 @@ const SATISFY: Record<PracticeId, Practices> = {
  * and repair starters are built through this, so a repair level's lesson stays
  * its root cause rather than a missing checkbox.
  */
-export function withPractices(graph: Graph, stakes: Stakes): Graph {
+export function withPractices(
+  graph: Graph,
+  stakes: Stakes,
+  load?: LoadProfile,
+): Graph {
   const byId = new Map(graph.components.map((c) => [c.id, c]))
   const add = new Map<string, Practices>()
-  for (const x of expectedPractices(graph, stakes)) {
+  for (const x of expectedPractices(graph, stakes, load)) {
     // Keep anything stronger the design already chose.
     const c = byId.get(x.componentId)
     if (c && has(c, x.practice)) continue

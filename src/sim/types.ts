@@ -266,6 +266,20 @@ export type LoadProfile = {
    * catalogue's maximum: a push quota the provider hasn't raised yet.
    */
   quota?: Partial<Record<ComponentKind, number>>
+  /**
+   * Work a clock starts, not a user: tomorrow's appointment reminders, sent
+   * when they fall due. A component of one of the `by` kinds with nothing
+   * wired into it runs the timer. Each running instance does the work in
+   * full, so it must reach `to` exactly once: elect one leader through a
+   * {coordination} cluster, or let a {scheduler} start it.
+   */
+  timed?: {
+    /** "Appointment reminders". */
+    label: string
+    rps: number
+    by: ComponentKind[]
+    to: ComponentKind[]
+  }
 }
 
 export type Fault =
@@ -323,6 +337,8 @@ export type ComponentMetrics = {
   refusedRps?: number
   /** Network split: writes accepted on the minority side. */
   divergentRps?: number
+  /** Of its writes, how many are the level's timed work. */
+  timedRps?: number
 }
 
 export type SimResult = {
@@ -337,6 +353,12 @@ export type SimResult = {
   backlogGrowthRps: number
   /** Reads that caches answered themselves. */
   cacheHitRps: number
+  /**
+   * The level's timed work: how much the timers started (the same item
+   * started by several of them counts each time), how much reached its
+   * destination, and how many timers ran it.
+   */
+  timed?: { started: number; delivered: number; runners: number }
   /**
    * Writes accepted on the minority side of a network split, which the other
    * side doesn't see until it heals: conflicts to reconcile later.

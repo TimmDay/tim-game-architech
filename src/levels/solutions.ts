@@ -18,6 +18,38 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "run-once": {
+    overview:
+      "Two dispatcher {worker} instances, in two zones, ask a {coordination} cluster for a lease. One gets it and becomes the leader: it finds the reminders that are due, marks them in the {sql-primary}, and puts them on a {queue} for the senders. The other waits. If the leader's zone goes down, its lease runs out and the other takes over. The cluster has three nodes in three zones, so losing any one zone leaves a majority to grant that lease.",
+    walkthrough: [
+      "Booking: {load-balancer} → {app-server} → {sql-primary}. Each appointment has a reminder time.",
+      "Each dispatcher asks the cluster for the 'reminders' lease every few seconds. The one holding it runs; the other keeps asking.",
+      "The leader reads the reminders that are due, marks each one queued in the same transaction, and puts them on the {queue}.",
+      "Sender {worker} instances take each reminder, send it through the text provider ({third-party-api}) and record it as sent. A reminder already sent is skipped, in case one comes round twice.",
+    ],
+    numbers: [
+      "2,000 requests a second: 1,600 reads and 400 bookings and changes. At the morning peak, 300 reminders fall due a second.",
+      "Two dispatchers without the cluster each send every reminder: 600 a second reach the provider, 150% of its quota, and every patient gets two messages.",
+      "One dispatcher sends each once, until its zone goes down: then none are sent.",
+      "A cluster of two nodes, or three in two zones, loses its majority with a zone (1 of 2, or 1 of 3 left): nobody can be elected, and nothing is sent. Three nodes in three zones keep 2 of 3. Five in three zones also works, for $200 more.",
+      "Sending a text is a fifth of a second of waiting, so each sender keeps about 100 in flight: 500 a second. Two run at 30%, and the one left after a zone at 60%.",
+      "The provider's quota is 400 texts a second, in four blocks: 75%.",
+      "Six {app-server} instances run at 33%, and 67% after a zone.",
+      "Cost: about $41 for the {load-balancer} + 6 × $70 + 2 × $400 + 2 × $120 for the dispatchers + 3 × $100 for the cluster + $284 for the {queue} + 2 × $120 for the senders = $2,325 of $2,400.",
+    ],
+    tradeoffs: [
+      "When the leader dies, nothing is dispatched until its lease runs out: a short lease (ten seconds, say) delays reminders less and renews more often.",
+      "A leader that's paused rather than dead can wake up still believing it leads. A fencing token, a number that rises with each new lease and is checked when it writes, stops it acting on old authority.",
+      "The standby dispatcher does nothing most of the time. That's the price of taking over in seconds.",
+      "Even with one leader, a crash between queueing and marking can send a reminder twice, which is why senders skip ones already sent.",
+    ],
+    alternatives: [
+      "A managed {scheduler} that starts the dispatch every few seconds passes for about $2,021. It's simpler, and for this job it's what most teams would pick. Managed schedulers deliver at least once, so the senders' 'already sent' check still matters.",
+      "A database row lock lets every dispatcher share the work with no cluster at all: each one claims a batch of due reminders, skipping rows another has locked. It works whenever the work lives in one database.",
+      "Taking a lock from the {coordination} cluster on every request is the classic misuse: every write needs a majority, so it's small and slow to write by design. Locks belong to rare events, like who leads.",
+      "Leader election earns its place for work that must run on your own servers, once: assigning shards, one writer for a sequence, the consumer of a feed that mustn't be read twice.",
+    ],
+  },
   "people-you-may-know": {
     overview:
       "Each member's suggestions are worked out ahead of time and kept in a {cache}, so a home page reads one short list and touches nothing else. When two people connect, the app puts it on a {queue} and answers. {worker} instances record the connection in a {graph-db}, then work out both members' suggestions again from their friends of friends. A nightly run refreshes everyone else's. The graph store is on no request's path.",

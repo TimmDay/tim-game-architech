@@ -2904,6 +2904,92 @@ const CLASSICS: Level[] = [
     topics: ["topic-storage"],
     hint: "Following two hops of connections for every home page is far too much work to do while someone waits. Work each member's list out ahead of time, keep it in memory, and redo it when they connect with someone.",
   },
+  {
+    id: "run-once",
+    mode: "build",
+    track: "classic",
+    requires: ["nobody-noticed", "on-schedule"],
+    title: "Run Once",
+    tagline: "Every reminder went out three times. Then none did.",
+    scenario: {
+      product: "the clinic booking app",
+      reads: "patients and staff viewing appointments",
+      writes: "appointments being booked and changed",
+      hot: "today's appointments at each clinic",
+      records: "clinics, patients and appointments",
+      job: "sending an appointment reminder by text message",
+    },
+    brief:
+      "Clinics book appointments in an app that takes 2,000 requests a second. The day before each appointment, the patient gets a text message: at the morning peak, 300 reminders fall due a second. A {worker} with nothing wired into it runs a timer: it finds the reminders that are due and passes them on. Run it on every instance and each patient gets a message from each one; run it on one and it stops when that one does. Sending a text through the provider takes about a fifth of a second, mostly waiting. The chaos round is a zone outage.",
+    load: {
+      peakRps: 2_000,
+      readFraction: 0.8,
+      cacheableFraction: 0.5,
+      heavyWriteFraction: 0,
+      // Handing one text message to the provider: mostly waiting.
+      job: { seconds: 0.2, cpuBound: false },
+      timed: {
+        label: "Appointment reminders",
+        rps: 300,
+        by: ["worker", "scheduler"],
+        to: ["third-party-api"],
+      },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 2_400,
+      writesReach: ["sql-primary"],
+      noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "zone-outage" }],
+      label: "A zone goes down",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "queue",
+      "worker",
+      "coordination",
+      "third-party-api",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 3],
+        ["app", "app-server", 4, 3, 6, 2],
+        ["db", "sql-primary", 7, 3, 2, 2],
+        ["dispatch", "worker", 5, 6, 2, 2],
+        ["leases", "coordination", 3, 8, 3, 3],
+        ["texts", "queue", 7, 6],
+        ["send", "worker", 9, 6, 2, 2],
+        ["sms", "third-party-api", 11, 6, 4],
+      ],
+      [
+        `${C}>lb`,
+        "lb>app",
+        "app>db",
+        "dispatch>leases",
+        "dispatch>db",
+        "dispatch>texts",
+        "texts>send",
+        "send>sms",
+      ],
+    ),
+    concepts: ["leader-election", "quorum", "single-point-of-failure"],
+    topics: ["topic-consensus"],
+    hint: "Two dispatchers send everything twice, and one goes down with its zone. Let the dispatchers elect a leader, and give the cluster that elects it a majority that survives a zone.",
+  },
 ]
 
 /**
@@ -3966,8 +4052,8 @@ const hardened = (l: Level): Level => {
   if (!stakes) return l
   return {
     ...l,
-    reference: withPractices(l.reference, stakes),
-    starter: l.starter && withPractices(l.starter, stakes),
+    reference: withPractices(l.reference, stakes, l.load),
+    starter: l.starter && withPractices(l.starter, stakes, l.load),
   }
 }
 

@@ -3,7 +3,14 @@ import type { Provider } from "~/providers/names"
 import type { ComponentKind, Graph } from "~/sim/types"
 import { CLIENT_ID } from "~/sim/types"
 import { plain } from "~/text"
-import { canConnect, edit, inBounds, occupied, type Action } from "./edit"
+import {
+  canConnect,
+  edit,
+  inBounds,
+  nextNoteId,
+  occupied,
+  type Action,
+} from "./edit"
 import { sfx } from "./sound"
 
 export type Tool =
@@ -12,6 +19,8 @@ export type Tool =
   /** `building`: started from a + handle, so finishing it doesn't open the inspector. */
   | { t: "connect"; from: string; building?: boolean }
   | { t: "diagnose" }
+  /** Click (or Enter for the top left) to put a note there. */
+  | { t: "note" }
 
 export type Selection = { node?: string; edge?: string }
 
@@ -34,6 +43,7 @@ export function useBoardEditor({
   onPlaced,
   onToast,
   onDiagnose,
+  notes = false,
 }: {
   initial: Graph
   provider: Provider
@@ -46,10 +56,14 @@ export function useBoardEditor({
   onToast?: (msg: string) => void
   /** Repair mode: a tap while diagnosing. */
   onDiagnose?: (id: string) => void
+  /** Notes can be written here (desktop Play, not Survival). */
+  notes?: boolean
 }) {
   const [graph, rawDispatch] = useReducer(edit, initial)
   const [tool, setTool] = useState<Tool>({ t: "select" })
   const [sel, setSel] = useState<Selection>({})
+  /** The note open for typing, if any. */
+  const [editingNote, setEditingNote] = useState<string | null>(null)
 
   /** Edit the graph, with the sound for what happened. */
   const dispatch = (a: Action) => {
@@ -65,12 +79,12 @@ export function useBoardEditor({
   })
 
   // Keyboard, desktop: C connects from the selected block, D (or Delete)
-  // removes the selected block or connection, Esc cancels. Subscribed once,
-  // reading current state through a ref.
-  const keyState = useRef({ sel, running })
+  // removes the selected block or connection, T starts a note, Esc cancels.
+  // Subscribed once, reading current state through a ref.
+  const keyState = useRef({ sel, running, notes })
   useEffect(() => {
-    keyState.current = { sel, running }
-  }, [sel, running])
+    keyState.current = { sel, running, notes }
+  }, [sel, running, notes])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
@@ -78,14 +92,17 @@ export function useBoardEditor({
       if (t?.closest("input, textarea, select, [contenteditable]")) return
       // A popup owns the keyboard: D must never delete something behind it.
       if (document.querySelector('[role="dialog"]')) return
-      const { sel, running } = keyState.current
+      const { sel, running, notes } = keyState.current
       if (e.key === "Escape") {
         setTool((cur) => (cur.t === "select" ? cur : { t: "select" }))
         return
       }
       if (running) return
       const key = e.key.toLowerCase()
-      if (key === "c" && sel.node) {
+      if (key === "t" && notes) {
+        e.preventDefault()
+        setTool((cur) => (cur.t === "note" ? { t: "select" } : { t: "note" }))
+      } else if (key === "c" && sel.node) {
         e.preventDefault()
         const from = sel.node
         setTool((cur) =>
@@ -153,6 +170,17 @@ export function useBoardEditor({
     onInspect?.()
   }
 
+  /** Put a new note at this board point and open it for typing. */
+  const placeNote = (x: number, y: number) => {
+    if (running) return
+    const id = nextNoteId(graph)
+    rawDispatch({ type: "add-note", id, x, y })
+    sfx.place()
+    setEditingNote(id)
+    setSel({})
+    setTool({ t: "select" })
+  }
+
   const onTapTile = (x: number, y: number) => {
     if (running) return
     if (tool.t === "place") {
@@ -187,7 +215,9 @@ export function useBoardEditor({
         ? `Tap where requests from ${nameOf(graph, tool.from, provider)} should go`
         : tool.t === "diagnose"
           ? "Tap the component that is the root cause"
-          : null
+          : tool.t === "note"
+            ? "Click where the note goes, or press Enter for the top left"
+            : null
 
   return {
     startConnect,
@@ -203,5 +233,8 @@ export function useBoardEditor({
     onTapEdge,
     onMove,
     banner,
+    placeNote,
+    editingNote,
+    setEditingNote,
   }
 }

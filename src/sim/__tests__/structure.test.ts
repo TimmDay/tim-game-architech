@@ -133,6 +133,33 @@ describe("code that's asked for something", () => {
   })
 })
 
+describe("stores and caches", () => {
+  it("a store doesn't pass requests on, though it may publish changes", () => {
+    const g = graph(
+      [
+        ["app", "app-server", 1, 1],
+        ["db", "sql-primary", 2, 1],
+        ["kv", "nosql", 3, 1],
+        ["s", "event-stream", 3, 2],
+      ],
+      [`${C}>app`, "app>db", "db>kv", "db>s"],
+    )
+    expect(flagged(g)).toEqual(["db"])
+  })
+
+  it("a cache with nothing behind it needs everything put there ahead of time", () => {
+    const g = graph(
+      [
+        ["app", "app-server", 1, 1],
+        ["c", "cache", 2, 1],
+      ],
+      [`${C}>app`, "app>c"],
+    )
+    expect(flagged(g)).toEqual(["c"])
+    expect(flagged(g, { ...load, cacheableFraction: 1 })).toEqual([])
+  })
+})
+
 describe("a request tier behind a queue", () => {
   it("does the level's jobs at its cores' pace, not an API call's", () => {
     const g = graph(

@@ -137,6 +137,35 @@ export function structureProblems(
       })
     }
   }
+  // 5. A store answers; it doesn't pass requests on. A {cache} in front of
+  // its store does, and a store may publish its changes to a stream.
+  for (const c of graph.components) {
+    const spec = CATALOGUE[c.kind]
+    if (spec.category !== "data" || spec.caches) continue
+    for (const e of graph.edges) {
+      const to = e.from === c.id ? byId.get(e.to) : undefined
+      if (!to || CATALOGUE[to.kind].async) continue
+      out.push({
+        componentId: c.id,
+        concept: "cache-aside",
+        text: `${name(c)} is wired on to ${name(to)}, but a store answers requests; it doesn't pass them on. Have the code that calls it call ${name(to)} too.`,
+      })
+    }
+  }
+  // 6. A {cache} with nothing behind it only works when everything it's asked
+  // was put there ahead of time.
+  if (load.cacheableFraction < 1)
+    for (const c of graph.components) {
+      if (c.kind !== "cache") continue
+      if (!graph.edges.some((e) => e.to === c.id)) continue
+      if (graph.edges.some((e) => e.from === c.id)) continue
+      out.push({
+        componentId: c.id,
+        concept: "cache-aside",
+        text: `${name(c)} has nothing behind it, so a request it hasn't seen has no answer. Put the store it caches behind it.`,
+      })
+    }
+
   // 4. Code that's asked for something must have somewhere to read it from.
   if (peak)
     for (const c of graph.components) {

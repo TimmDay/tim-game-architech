@@ -573,7 +573,7 @@ describe("the interview classics' traps", () => {
       ...l.reference,
       edges: l.reference.edges.filter((e) => e.id !== "answers>vectors"),
     }
-    expect(failed(l, g)).toEqual(["reads"])
+    expect(failed(l, g)).toContain("reads")
   })
 
   it("order placed: one shared queue gives each team a third of the orders", () => {

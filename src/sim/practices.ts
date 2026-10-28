@@ -81,14 +81,25 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
   "object-store": ["backups", "encrypted", "alerts"],
   "search-index": ["encrypted", "alerts"],
   "data-warehouse": ["encrypted", "alerts"],
+  "time-series-db": ["backups", "encrypted", "alerts"],
+  "graph-db": ["backups", "encrypted", "alerts"],
   queue: ["dlq", "alerts"],
   "event-stream": ["alerts"],
   pubsub: ["alerts"],
 }
 
 const REQUEST_TIERS: ComponentKind[] = ["app-server", "serverless"]
-/** Stores that keep the system of record. Same list as grade's durable sink. */
-const DURABLE_KINDS: ComponentKind[] = ["sql-primary", "nosql", "object-store"]
+/**
+ * Stores that keep the system of record. Grade's durable sinks, less the
+ * {vector-db}: an index you rebuild from the source, not a record to restore.
+ */
+const DURABLE_KINDS: ComponentKind[] = [
+  "sql-primary",
+  "nosql",
+  "object-store",
+  "time-series-db",
+  "graph-db",
+]
 const ENCRYPTED_KINDS: ComponentKind[] = [
   "sql-primary",
   "sql-replica",
@@ -96,6 +107,8 @@ const ENCRYPTED_KINDS: ComponentKind[] = [
   "object-store",
   "search-index",
   "data-warehouse",
+  "time-series-db",
+  "graph-db",
 ]
 /** Where traffic first lands, and so where a rate limit belongs. */
 const ENTRY_KINDS: ComponentKind[] = [

@@ -2819,6 +2819,95 @@ const CLASSICS: Level[] = [
     topics: ["topic-storage"],
     hint: "20,000 small writes a second is more than one {sql-primary} takes, and a lot of {nosql} capacity to pay for. A store built for appending timestamped points takes it on one instance.",
   },
+  {
+    id: "people-you-may-know",
+    mode: "build",
+    track: "classic",
+    requires: ["typeahead", "home-timeline"],
+    title: "People You May Know",
+    tagline: "Friends of friends, ranked, on every home page.",
+    scenario: {
+      product: "the professional network",
+      reads: "members opening their home page, with its suggestions",
+      writes: "new connections",
+      hot: "each member's list of suggested people",
+      records: "members and the connections between them",
+      job: "working out a member's suggestions from their friends of friends",
+      memoryOnly:
+        "each member's suggestions are worked out again from the graph whenever they connect with someone, and every night, so a lost list is simply rebuilt.",
+    },
+    brief:
+      "A professional network shows each member people they may know: friends of friends, ranked by how many connections they share. 10,000 home pages a second ask for suggestions, and members make 500 new connections a second. A new connection means working out both members' suggestions again, following about 300 connections each, then theirs: about half a second, mostly waiting on the graph store. The chaos round is January, when everyone's job hunting: one and a half times the traffic.",
+    load: {
+      peakRps: 10_500,
+      readFraction: 10 / 10.5,
+      cacheableFraction: 1,
+      heavyWriteFraction: 1,
+      // Two hops out from a member, then ranking: mostly waiting on the graph.
+      job: { seconds: 0.5, cpuBound: false },
+    },
+    targets: {
+      p99Ms: 350,
+      maxErrorRate: 0.001,
+      availability: 0.998,
+      budgetUsd: 3_600,
+      writesReach: ["durable"],
+      noBacklog: "peak",
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "traffic-spike", multiplier: 1.5 }],
+      label: "January (1.5x traffic)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+      "graph-db",
+      "queue",
+      "worker",
+    ],
+    reference: [
+      ["app>lists", ["reads"]],
+      ["lists>graph", ["reads"]],
+      ["app>graph", ["writes"]],
+      ["suggest>graph", ["reads"]],
+    ].reduce(
+      (g, [id, what]) => mark(g, id as string, what as string[]),
+      graph(
+        [
+          ["lb", "load-balancer", 2, 4],
+          ["app", "app-server", 4, 4, 18, 2],
+          ["lists", "cache", 6, 3, 2, 2],
+          ["graph", "graph-db", 9, 4],
+          ["jobs", "queue", 5, 7],
+          ["suggest", "worker", 7, 7, 4, 2],
+        ],
+        [
+          `${C}>lb`,
+          "lb>app",
+          "app>lists",
+          "lists>graph",
+          "app>graph",
+          "app>jobs",
+          "jobs>suggest",
+          "suggest>lists",
+          "suggest>graph",
+        ],
+      ),
+    ),
+    concepts: ["precomputation", "graph-data", "async-processing"],
+    topics: ["topic-storage"],
+    hint: "Following two hops of connections for every home page is far too much work to do while someone waits. Work each member's list out ahead of time, keep it in memory, and redo it when they connect with someone.",
+  },
 ]
 
 /**

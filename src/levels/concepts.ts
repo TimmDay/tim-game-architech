@@ -72,6 +72,7 @@ export type ConceptId =
   | "vector-search"
   | "queue-per-subscriber"
   | "time-series-data"
+  | "graph-data"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
   "simplest-design": {
@@ -127,6 +128,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "Measurements over time: a series is one metric on one server, with a new point every few seconds. A {time-series-db} appends points cheaply, compresses them (a point can shrink to a couple of bytes, because neighbours are alike), and answers 'this series over this hour' fast. It thins old data into rollups (one point a minute, then an hour) and deletes what's past its retention. Its weak spot is the number of series: a tag with unbounded values, such as a user ID, turns 200,000 series into millions.",
     interview:
       "Say the series count (servers × metrics), the point rate, the retention and the rollups. Then say what you'd refuse as a tag: anything with unbounded values.",
+  },
+  "graph-data": {
+    title: "Storing a graph",
+    body: "Members and their connections are a graph. A {graph-db} stores each connection as a link it can follow directly, so 'friends of friends' or 'how are we connected?' takes milliseconds however big the graph. A relational or key-value store keeps the same links as rows or adjacency lists, and many large social networks do exactly that: one hop is a lookup, two is a join or a second round of lookups. Deep or open-ended traversals are where a graph store earns its place. Either way, what a home page shows is worked out ahead of time.",
+    interview:
+      "Say how many hops each feature needs. One or two, precomputed: any store works. Three or more, or paths between two people, asked live: a graph store. And say how the graph is split once it outgrows one machine, because every split cuts some paths.",
   },
   "rate-limiting": {
     title: "Rate limiting",

@@ -4274,3 +4274,206 @@ export const SERVER_METRICS = deck("server-metrics", [
     ],
   ],
 ])
+
+export const PEOPLE_YOU_MAY_KNOW = deck("people-you-may-know", [
+  [
+    "clarify",
+    "What would you ask about the graph?",
+    [
+      "How many members, and how many connections does a typical one have? 300 here.",
+      "Are connections two-way (both accept) or one-way (follow)?",
+      "How skewed is it? A few members have tens of thousands of connections.",
+    ],
+    "What does a member with 30,000 connections do to a friends-of-friends query?",
+  ],
+  [
+    "clarify",
+    "How fresh must suggestions be?",
+    [
+      "After a new connection, members expect new suggestions soon: minutes, not days.",
+      "For everyone else, a day old is fine.",
+      "That split decides what's recomputed on events and what's left to a nightly run.",
+    ],
+  ],
+  [
+    "clarify",
+    "What else goes into the ranking?",
+    [
+      "Shared connections, plus workplace, school, location and people a member has already dismissed.",
+      "Anything they've blocked or hidden must never come back.",
+      "More signals mean more work per member, which pushes it further from the request.",
+    ],
+  ],
+  [
+    "product",
+    "A member dismisses a suggestion. What should happen?",
+    [
+      "It disappears at once, and never comes back.",
+      "Store the dismissal, and filter on it when lists are worked out and when they're shown.",
+      "Many dismissals of one kind are a signal for the ranking.",
+    ],
+  ],
+  [
+    "product",
+    "A new member has no connections. What do they see?",
+    [
+      "Nothing from friends of friends: there's nothing to follow yet.",
+      "Use what they told you: workplace, school, contacts they chose to upload.",
+      "Or popular members in their field, until they've made a few connections.",
+    ],
+  ],
+  [
+    "decision",
+    "Why work suggestions out ahead of time?",
+    [
+      "Two hops from 300 connections is about 90,000 people to count, too much work for every home page.",
+      "Done live, one {graph-db} runs at 200%, and four cost $5,121 against a $3,600 budget.",
+      "A precomputed list in a {cache} is one read.",
+    ],
+    "When is a precomputed list the wrong answer?",
+  ],
+  [
+    "decision",
+    "When are suggestions worked out again?",
+    [
+      "When a member connects with someone: both members' lists change.",
+      "Every night for everyone, to pick up their friends' new connections.",
+      "On a cache miss, worked out live once and kept.",
+    ],
+  ],
+  [
+    "decision",
+    "Why recompute behind a {queue}?",
+    [
+      "It's about half a second of waiting on the graph.",
+      "Inside the request, the new connection's p99 reaches about 825ms.",
+      "Behind a queue, {worker} instances do it in the background, and catch up after a busy hour.",
+    ],
+  ],
+  [
+    "decision",
+    "Why a {graph-db} for the connections?",
+    [
+      "It follows connections directly, so friends of friends is fast for the workers.",
+      "It's the cheapest here, at $700 against $800 for a SQL pair or $950 for {nosql}.",
+      "Both of those pass too: at two hops, any store works.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Precompute for every member, or only active ones?",
+    [
+      "Everyone: every home page is a cache hit.",
+      "Active only: far less work, and the rare returning member waits a moment for theirs.",
+      "Most members don't open the app on a given day.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "How many suggestions to keep per member?",
+    [
+      "Enough for several visits as they dismiss or connect: 50, say.",
+      "More costs memory: 50 IDs for 100 million members is about 40 GB.",
+      "Fewer means the list runs out before the next refresh.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "A graph store, or adjacency lists in SQL or {nosql}?",
+    [
+      "Adjacency lists: a store your team already runs, and two hops is two rounds of lookups.",
+      "A graph store: faster deep traversals, and a query language for paths.",
+      "Pick by how many hops your features need, and how often they're asked live.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a nightly batch job do all of it?",
+    [
+      "Yes: a big data job over the whole graph works out everyone's lists cheaply.",
+      "A new connection then takes a day to change suggestions.",
+      "Many systems do both: nightly for everyone, on events for the members who just connected.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could the home page ask the {graph-db} live?",
+    [
+      "For one hop, such as 'mutual connections with this person', yes.",
+      "For ranked friends of friends on every home page, it's far more work than the page is worth.",
+      "Live queries suit questions you can't predict, such as a path between two people.",
+    ],
+  ],
+  [
+    "scale",
+    "The network grows tenfold. What breaks first?",
+    [
+      "The graph outgrows one machine, and splitting it cuts paths between members.",
+      "The nightly run takes longer than a night.",
+      "The cache grows with members, which is easy: add nodes.",
+    ],
+  ],
+  [
+    "scale",
+    "January brings one and a half times the traffic. What holds?",
+    [
+      "{app-server} instances go from 58% to 88%: tight, but fine.",
+      "Workers reach 94%, so recomputes slow a little but keep up.",
+      "Home pages are cache hits, so the graph barely notices.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A member has 30,000 connections. What happens when they connect with someone?",
+    [
+      "Two hops from them is millions of people: one recompute takes far longer than half a second.",
+      "Cap the hop: sample their connections, or skip recomputing for huge accounts.",
+      "Their suggestions matter less: they already know everyone.",
+    ],
+  ],
+  [
+    "resilience",
+    "A {cache} node is lost. What do members see?",
+    [
+      "Lists on that node are gone, so those members' home pages work theirs out live.",
+      "A rush of misses lands on the {graph-db}: limit how many are worked out at once.",
+      "Rebuild the node's lists in the background, most active members first.",
+    ],
+  ],
+  [
+    "resilience",
+    "The workers fall behind. What breaks?",
+    [
+      "Nothing visible: suggestions are a little staler for a while.",
+      "The queue grows and drains when they catch up.",
+      "Alert on the queue's age, in case it never does.",
+    ],
+  ],
+  [
+    "security",
+    "Can suggestions leak something private?",
+    [
+      "Yes: suggesting someone's therapist, or a hidden connection, reveals who they know.",
+      "Respect members' choice to hide their connections, in suggestions as well as on profiles.",
+      "Never suggest blocked members, in either direction.",
+    ],
+  ],
+  [
+    "security",
+    "Someone scrapes suggestions to map the network. How do you limit it?",
+    [
+      "Rate-limit per member, and show only a few suggestions at a time.",
+      "Watch for accounts that view far more profiles than any person would.",
+      "Don't put connection counts or IDs in places a script can collect at scale.",
+    ],
+  ],
+  [
+    "observability",
+    "How do you know the suggestions are any good?",
+    [
+      "Track how often a suggestion leads to a connection request, and to an accepted one.",
+      "Watch dismissals: a rising rate means the ranking is off.",
+      "Keep the queue's age and the cache's hit rate on a dashboard too.",
+    ],
+  ],
+])

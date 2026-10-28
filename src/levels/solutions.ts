@@ -357,7 +357,7 @@ export const SOLUTIONS: Record<string, Solution> = {
     ],
     alternatives: [
       "Keying by the user who liked spreads writes too, but every count read then scans the whole table: even behind the {cache}, the store runs at 278% on reads.",
-      "Sending likes through a {queue} and adding them up in batches cuts writes further, at the cost of counts that lag more.",
+      "Publishing likes to an {event-stream} and adding them up in a {stream-processor}: each post's total is written once per window, so the singer's 1,200 likes a second become one write every few seconds, with no suffix and no ten-key reads. The price is counts that lag by the window, and one more system to run.",
       "A single counter in memory is fastest, but it's lost on a restart unless something durable records the likes.",
     ],
   },

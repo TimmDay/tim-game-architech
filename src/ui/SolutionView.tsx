@@ -1,4 +1,4 @@
-import { ChevronDown, Star } from "lucide-react"
+import { ChevronDown, Star, TriangleAlert } from "lucide-react"
 import { useMemo } from "react"
 import type { Level } from "~/levels"
 import { discuss } from "~/levels/roles"
@@ -136,6 +136,48 @@ export function SolutionView({
       </section>
       <section>
         <H>Alternatives, and why not</H>
+        {s.tradeOffs?.length ? (
+          <ul className="mb-3 space-y-2.5">
+            {s.tradeOffs.map((t, i) => (
+              <li
+                key={i}
+                className="rounded-xl border border-amber-300/25 bg-amber-300/[0.04] p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <TriangleAlert
+                    size={16}
+                    className="shrink-0 text-amber-300"
+                    aria-hidden
+                  />
+                  <span className="font-mono text-[11px] font-semibold tracking-[0.14em] text-amber-200 uppercase">
+                    Trade off
+                  </span>
+                  <span className="text-[14px] font-medium text-slate-100">
+                    <Rich text={t.title} provider={provider} />
+                  </span>
+                </div>
+                <dl className="mt-2 space-y-1.5 text-[14px] leading-relaxed text-slate-300">
+                  <div className="flex gap-2.5">
+                    <dt className="w-12 shrink-0 font-mono text-[11px] leading-6 text-emerald-300 uppercase">
+                      Save
+                    </dt>
+                    <dd>
+                      <Rich text={t.save} provider={provider} />
+                    </dd>
+                  </div>
+                  <div className="flex gap-2.5">
+                    <dt className="w-12 shrink-0 font-mono text-[11px] leading-6 text-cyan-300 uppercase">
+                      Spend
+                    </dt>
+                    <dd>
+                      <Rich text={t.spend} provider={provider} />
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {list(s.alternatives)}
       </section>
 

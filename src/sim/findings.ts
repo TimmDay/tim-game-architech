@@ -305,6 +305,8 @@ export function findings(
         text: `Only ${rps(got)} of ${rps(expectedWrites)} writes reach ${label}. The rest are lost.`,
       })
     }
+  }
+  if (targets) {
     // Typed writes (sign-ins, file chunks) have stores of their own.
     for (const t of load.traffic ?? []) {
       if (t.of !== "writes") continue

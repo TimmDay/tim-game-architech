@@ -71,6 +71,7 @@ export type ConceptId =
   | "stateless-tokens"
   | "vector-search"
   | "queue-per-subscriber"
+  | "time-series-data"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
   "simplest-design": {
@@ -120,6 +121,12 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "A {pubsub} pushes each message to every subscriber as it's published. A subscriber that can't take it (busy, deploying, down) fails the delivery, and the provider retries on its own schedule: a minute by default and an hour at most for one major provider's web endpoints, a day for another, a week for a third. After that the message is dropped, or dead-lettered if you set that up. Subscribing a {queue} for each consumer makes the wait yours to choose: each one can fall behind and catch up, scale and fail on its own, with its own dead-letter queue. Publishing is still one call.",
     interview:
       "Name the three: a {queue} shares work between copies of one consumer, a {pubsub} copies each message to every subscriber, and an {event-stream} keeps a log each reader can replay. Then say the usual fan-out: one topic, a queue per subscriber.",
+  },
+  "time-series-data": {
+    title: "Time-series data",
+    body: "Measurements over time: a series is one metric on one server, with a new point every few seconds. A {time-series-db} appends points cheaply, compresses them (a point can shrink to a couple of bytes, because neighbours are alike), and answers 'this series over this hour' fast. It thins old data into rollups (one point a minute, then an hour) and deletes what's past its retention. Its weak spot is the number of series: a tag with unbounded values, such as a user ID, turns 200,000 series into millions.",
+    interview:
+      "Say the series count (servers × metrics), the point rate, the retention and the rollups. Then say what you'd refuse as a tag: anything with unbounded values.",
   },
   "rate-limiting": {
     title: "Rate limiting",

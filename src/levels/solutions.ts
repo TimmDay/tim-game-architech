@@ -18,6 +18,37 @@ export type Solution = {
 }
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "server-metrics": {
+    overview:
+      "Agents send batches of points to a small tier of collectors, which check them and write them to a {time-series-db}. One instance appends 20,000 points a second at 40% and answers dashboards' time ranges at 50%. The series count is fixed by the fleet (5,000 servers × 40 metrics), which is exactly where a time-series store shines. The collectors run in two zones with room to lose one, because monitoring that dies with the outage is no use.",
+    walkthrough: [
+      "Every ten seconds, each server's agent sends one batch of 40 points: {load-balancer} → collector ({app-server}).",
+      "The collector checks the batch: known metric names, tags from an allowed list, timestamps that make sense. A tag with unbounded values, such as a request ID, is dropped here before it can multiply the series.",
+      "It writes the points to the {time-series-db}, which appends them to each series and compresses them.",
+      "Dashboards and alert rules ask the same collectors for a series over a time range. The store keeps 10-second points for 15 days, then one-minute rollups for a year.",
+    ],
+    numbers: [
+      "21,000 requests a second: 20,000 points and 1,000 time-range reads.",
+      "A point costs a collector a fortieth of an ordinary request, so the points are about 500 requests' work, plus the 1,000 reads. Four collectors run at 38%, and at 75% when a zone goes. Three would leave one in the surviving zone at 150%, and a third of requests fail.",
+      "The {time-series-db} runs at 40% on writes and 50% on reads, with p99 about 80ms.",
+      "One {sql-primary} takes about 3,000 writes a second: 20,000 is 667%, and 81% of requests fail.",
+      "{nosql} needs 20 blocks of 1,000 writes a second: $19,000 a month for the store alone, $19,471 in all, and at 100% p99 reaches about 442ms.",
+      "A {cache} for dashboards isn't needed: the store's reads are at 50%, and $300 more would break the budget.",
+      "Cost: about $191 for the {load-balancer} (most of it per-request fees) + 4 × $70 + $600 = $1,071 of $1,300.",
+    ],
+    tradeoffs: [
+      "Rollups lose detail: a one-minute average hides a spike that lasted five seconds. Keep the maximum as well as the average.",
+      "The collectors are a guard, not just a relay. Without them, one team adding a user ID tag can turn 200,000 series into millions and slow the store for everyone.",
+      "One store instance is managed and spans zones, but it's still one failure domain for every dashboard. Its provider's availability is most of the design's 99.88%.",
+      "Points that arrive late (an agent that was offline) are written into the past, which some stores handle poorly.",
+    ],
+    alternatives: [
+      "Agents can write to a managed store directly, with credentials of their own, and skip the collectors: about $913 here. You lose the place to check tags, so you rely on the store's own limits.",
+      "Sharding a {sql-primary}, or a time-series extension for one, works at smaller fleets, and keeps metrics next to your other data. At 20,000 points a second, you'd be running seven or more shards.",
+      "An {event-stream} between collectors and store lets you replay points after a store outage, and feed other consumers (anomaly detection, billing). It's one more thing to run.",
+      "Logs and traces are different shapes: text to search, and trees of spans. They usually go to stores of their own.",
+    ],
+  },
   "order-placed": {
     overview:
       "The checkout saves the order and publishes one order-placed event to a {pubsub}, then answers the shopper. The topic copies the event to each team: a {queue} for the email service, a {queue} for the stock service, and a delivery straight into the {data-warehouse}. Each team works at its own pace, retries on its own and deploys on its own. A slow email provider is the email team's problem alone.",

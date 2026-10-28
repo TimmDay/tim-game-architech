@@ -2748,6 +2748,77 @@ const CLASSICS: Level[] = [
     topics: ["topic-event-logs"],
     hint: "The checkout shouldn't call three teams' systems, or even know they exist. Publish one event that each of them hears, and give each one somewhere to wait for its messages.",
   },
+  {
+    id: "server-metrics",
+    mode: "build",
+    track: "classic",
+    requires: ["step-counter", "zone-outage"],
+    title: "Server Metrics",
+    tagline: "200,000 lines on a graph, a new point on each every ten seconds.",
+    scenario: {
+      product: "the monitoring service",
+      reads: "engineers' dashboards and the alert rules",
+      writes: "metric points from every server's agent",
+      hot: "the dashboards everyone has open",
+      records: "every metric's points over time",
+    },
+    brief:
+      "A company runs 5,000 servers, and an agent on each sends 40 measurements (CPU, memory, requests, errors) every ten seconds: 20,000 points a second, from 200,000 series that hardly ever change. Agents send them in batches of 40, so a collector spends about a fortieth of an ordinary request on each point. Dashboards and alert rules read 1,000 time ranges a second. A monitoring system has to outlive what it watches: the chaos round is a zone outage, exactly when everyone opens their dashboards.",
+    load: {
+      peakRps: 21_000,
+      readFraction: 1 / 21,
+      cacheableFraction: 0.5,
+      heavyWriteFraction: 0,
+      traffic: [
+        {
+          id: "points",
+          label: "Metric points",
+          of: "writes",
+          share: 1,
+          relayCost: 1 / 40,
+          to: ["time-series-db", "sql-primary", "nosql"],
+        },
+      ],
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.998,
+      budgetUsd: 1_300,
+      writesReach: [],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "zone-outage" }],
+      label: "A zone goes down",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "sql-primary",
+      "nosql",
+      "time-series-db",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["collect", "app-server", 4, 4, 4, 2],
+        ["tsdb", "time-series-db", 7, 4],
+      ],
+      [`${C}>lb`, "lb>collect", "collect>tsdb"],
+    ),
+    concepts: ["time-series-data", "key-value-modelling", "availability-zones"],
+    topics: ["topic-storage"],
+    hint: "20,000 small writes a second is more than one {sql-primary} takes, and a lot of {nosql} capacity to pay for. A store built for appending timestamped points takes it on one instance.",
+  },
 ]
 
 /**

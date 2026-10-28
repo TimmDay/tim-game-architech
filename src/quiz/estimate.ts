@@ -97,6 +97,35 @@ export const ESTIMATES: Record<string, EstimateCard[]> = {
       "Does anyone need an alert before the 20 minutes are up?",
     ),
   ],
+  "server-metrics": [
+    mc(
+      "5,000 servers each send 40 metrics every 10 seconds. How many points a second?",
+      "20,000",
+      ["200,000", "2,000", "500"],
+      "5,000 × 40 is 200,000 series; one point each every 10 seconds is 20,000 a second. 200,000 is the series count; 500 is the batches.",
+    ),
+    mc(
+      "About how many points is that a day?",
+      "About 1.7 billion",
+      ["About 72 million", "About 17 million", "About 170 billion"],
+      "20,000 × 86,400 is about 1.73 billion. Multiplying by 3,600 instead gives 72 million: an hour, not a day.",
+    ),
+    mc(
+      "Compressed, a point takes about 2 bytes. How much is a day of raw points?",
+      "About 3.5 GB",
+      ["About 35 GB", "About 350 MB", "About 3.5 TB"],
+      "1.73 billion × 2 bytes is about 3.5 GB. Uncompressed, at 16 bytes each, it would be about 28 GB.",
+    ),
+    talk(
+      "Raw points for 15 days, then one-minute rollups for a year. Roughly how much storage?",
+      [
+        "Raw: 15 × 3.5 GB is about 52 GB.",
+        "Rollups: six times fewer points, three values each (minimum, maximum, average): about half a day's raw size per day, so about 640 GB for a year.",
+        "A year of raw points would be about 1.3 TB: rollups halve it, and make long queries far faster.",
+      ],
+      "Which would you cut first if storage had to halve again?",
+    ),
+  ],
   "clinic-records": [
     mc(
       "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",

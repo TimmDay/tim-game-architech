@@ -34,6 +34,23 @@ function checkLabel(
     case "budget":
       return `Cost ${usd(g.peak.monthlyCostUsd)}/mo (≤ ${usd(t.budgetUsd)})`
     case "writes":
+      if (t.writesReach.length === 0)
+        return (
+          <>
+            {(level.load.traffic ?? [])
+              .filter((x) => x.of === "writes")
+              .map((x, i) => (
+                <span key={x.id}>
+                  {i > 0 && "; "}
+                  {x.label} reach{" "}
+                  <Rich
+                    text={x.to.map((k) => `{${k}}`).join(" or ")}
+                    provider={provider}
+                  />
+                </span>
+              ))}
+          </>
+        )
       return (
         <>
           Every write reaches{" "}

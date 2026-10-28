@@ -40,6 +40,7 @@ import {
   VIDEO_NIGHT,
   ASK_THE_DOCS,
   ORDER_PLACED,
+  SERVER_METRICS,
 } from "./classics"
 import {
   ANALYTICS_ATE_PROD,
@@ -90,6 +91,7 @@ export const DECKS: Record<string, DeckCard[]> = {
   "click-counter": CLICK_COUNTER,
   "ask-the-docs": ASK_THE_DOCS,
   "order-placed": ORDER_PLACED,
+  "server-metrics": SERVER_METRICS,
   "balance-sheet": BALANCE_SHEET,
   "full-basket": FULL_BASKET,
   "tenant-split": TENANT_SPLIT,

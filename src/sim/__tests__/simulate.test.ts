@@ -587,3 +587,27 @@ describe("a level's quota", () => {
     expect(open.perComponent.push?.utilization).toBeCloseTo(0.6)
   })
 })
+
+describe("a stream processor", () => {
+  it("aggregates like a worker: a minute of events leaves as one write", () => {
+    const g = graph(
+      [
+        ["s", "event-stream", 3, 3, 10],
+        ["agg", "stream-processor", 5, 3, 4],
+        ["kv", "nosql", 7, 3],
+      ],
+      [`${C}>s`, "s>agg", "agg>kv"],
+    )
+    const r = simulate(
+      g,
+      load({
+        peakRps: 10_000,
+        readFraction: 0,
+        heavyWriteFraction: 1,
+        job: { seconds: 0.002, cpuBound: true, emits: 0.001 },
+      }),
+    )
+    expect(r.perComponent.agg?.utilization).toBeCloseTo(0.5)
+    expect(r.perComponent.kv?.writeRps).toBeCloseTo(10)
+  })
+})

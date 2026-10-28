@@ -155,6 +155,14 @@ export function failureDomains(c: PlacedComponent): number {
  */
 /** The tiers that run request code: where an inline slow job would land. */
 const REQUEST_TIERS = new Set(["app-server", "serverless"])
+/**
+ * Consumers that do the level's job on what they take in, so a minute of
+ * clicks can leave as one write (`job.emits`).
+ */
+export const AGGREGATORS = new Set<ComponentKind>([
+  "worker",
+  "stream-processor",
+])
 
 export function doesHeavyWorkInline(graph: Graph, c: PlacedComponent): boolean {
   if (!REQUEST_TIERS.has(c.kind)) return false
@@ -495,8 +503,12 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
         cacheable: next.flow.cacheable - hits,
       }
     }
-    if (c.kind === "worker") {
-      const cap = workerJobsPerSecond(load) * (alive.get(c.id) ?? 0)
+    if (AGGREGATORS.has(c.kind)) {
+      const perUnit =
+        c.kind === "worker"
+          ? workerJobsPerSecond(load)
+          : CATALOGUE[c.kind].capacity.writeRps
+      const cap = perUnit * (alive.get(c.id) ?? 0)
       const passed = workerPassed.get(c.id) ?? 0
       const total = out.reads + out.writes
       const room = Math.max(0, cap - passed)

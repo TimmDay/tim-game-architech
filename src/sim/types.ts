@@ -22,6 +22,18 @@ export type ComponentKind =
   | "data-warehouse"
   | "doc-ai"
   | "third-party-api"
+  // Sandbox only, for diagramming: no level uses these yet.
+  | "realtime-gateway"
+  | "pubsub"
+  | "push-service"
+  | "stream-processor"
+  | "scheduler"
+  | "time-series-db"
+  | "coordination"
+  | "graph-db"
+  | "vector-db"
+  | "rate-limiter"
+  | "auth-service"
 
 export type Category = "edge" | "compute" | "data" | "messaging"
 
@@ -249,6 +261,11 @@ export type LoadProfile = {
    * second region only buys survival of a region outage.
    */
   regions?: { farShare: number; rttMs: number }
+  /**
+   * This account's quota on a service, in instances, where it's below the
+   * catalogue's maximum: a push quota the provider hasn't raised yet.
+   */
+  quota?: Partial<Record<ComponentKind, number>>
 }
 
 export type Fault =

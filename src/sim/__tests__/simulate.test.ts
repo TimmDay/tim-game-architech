@@ -573,3 +573,41 @@ describe("regions", () => {
     expect(strong - eventual).toBeCloseTo(150)
   })
 })
+
+describe("a level's quota", () => {
+  const g = graph([["push", "push-service", 3, 3, 5]], [`${C}>push`])
+
+  it("counts no more instances than the quota allows", () => {
+    const capped = simulate(
+      g,
+      load({ peakRps: 3_000, readFraction: 0, quota: { "push-service": 2 } }),
+    )
+    const open = simulate(g, load({ peakRps: 3_000, readFraction: 0 }))
+    expect(capped.perComponent.push?.utilization).toBeCloseTo(1.5)
+    expect(open.perComponent.push?.utilization).toBeCloseTo(0.6)
+  })
+})
+
+describe("a stream processor", () => {
+  it("aggregates like a worker: a minute of events leaves as one write", () => {
+    const g = graph(
+      [
+        ["s", "event-stream", 3, 3, 10],
+        ["agg", "stream-processor", 5, 3, 4],
+        ["kv", "nosql", 7, 3],
+      ],
+      [`${C}>s`, "s>agg", "agg>kv"],
+    )
+    const r = simulate(
+      g,
+      load({
+        peakRps: 10_000,
+        readFraction: 0,
+        heavyWriteFraction: 1,
+        job: { seconds: 0.002, cpuBound: true, emits: 0.001 },
+      }),
+    )
+    expect(r.perComponent.agg?.utilization).toBeCloseTo(0.5)
+    expect(r.perComponent.kv?.writeRps).toBeCloseTo(10)
+  })
+})

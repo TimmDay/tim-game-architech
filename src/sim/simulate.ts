@@ -7,6 +7,7 @@ import {
   NOSQL_KEY_LIMIT,
   workerJobsPerSecond,
   LATENCY_INFLATION_CAP,
+  maxInstancesOf,
 } from "./catalogue"
 import type {
   ComponentKind,
@@ -39,7 +40,7 @@ export type Carries = "all" | "reads" | "writes" | "none"
  * player never has to annotate a line.
  *
  * Into or out of a queue or stream: messages, which are writes. Into a read-only
- * store: reads. Into a {third-party-api}: writes. A writes-to-a-replica mistake is therefore impossible to draw by
+ * store: reads. Into a {third-party-api} or {push-service}: writes. A writes-to-a-replica mistake is therefore impossible to draw by
  * accident, but routing ALL traffic through a replica (as the only store) still
  * shows up, because a component's own writes have nowhere to go.
  */
@@ -61,7 +62,8 @@ export function carries(graph: Graph, edge: Edge): Carries {
   if (to?.kind === "search-index") return "reads"
   // A provider you call (a charge, a push, a webhook) is sent the work, not
   // asked for your users' reads: those stay with your own stores.
-  if (to?.kind === "third-party-api") return "writes"
+  if (to?.kind === "third-party-api" || to?.kind === "push-service")
+    return "writes"
   // Read/write splitting: once a caller reads somewhere else (replicas, or a
   // search index, directly or through a cache in front of it), its primary
   // takes the writes.
@@ -153,6 +155,14 @@ export function failureDomains(c: PlacedComponent): number {
  */
 /** The tiers that run request code: where an inline slow job would land. */
 const REQUEST_TIERS = new Set(["app-server", "serverless"])
+/**
+ * Consumers that do the level's job on what they take in, so a minute of
+ * clicks can leave as one write (`job.emits`).
+ */
+export const AGGREGATORS = new Set<ComponentKind>([
+  "worker",
+  "stream-processor",
+])
 
 export function doesHeavyWorkInline(graph: Graph, c: PlacedComponent): boolean {
   if (!REQUEST_TIERS.has(c.kind)) return false
@@ -268,6 +278,7 @@ export const GLOBAL_KINDS = new Set<ComponentKind>([
   "dns",
   "cdn",
   "third-party-api",
+  "push-service",
 ])
 /** Compute: its instances are shared out between regions, not copied. */
 export const SPLIT_ACROSS_REGIONS = new Set<ComponentKind>([
@@ -306,6 +317,22 @@ export function simulate(
   load: LoadProfile,
   faults: Fault[] = [],
 ): SimResult {
+  return run(withinQuota(graph, load), load, faults)
+}
+
+/** Instances past the level's quota don't exist: the provider refuses them. */
+function withinQuota(graph: Graph, load: LoadProfile): Graph {
+  if (!load.quota) return graph
+  return {
+    ...graph,
+    components: graph.components.map((c) => {
+      const max = maxInstancesOf(c.kind, load)
+      return c.instances > max ? { ...c, instances: max } : c
+    }),
+  }
+}
+
+function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
   const byId = new Map(graph.components.map((c) => [c.id, c]))
   // A hung consumer shows up as its queue getting older.
   const watched = (c: PlacedComponent) =>
@@ -476,8 +503,12 @@ export function simulate(
         cacheable: next.flow.cacheable - hits,
       }
     }
-    if (c.kind === "worker") {
-      const cap = workerJobsPerSecond(load) * (alive.get(c.id) ?? 0)
+    if (AGGREGATORS.has(c.kind)) {
+      const perUnit =
+        c.kind === "worker"
+          ? workerJobsPerSecond(load)
+          : CATALOGUE[c.kind].capacity.writeRps
+      const cap = perUnit * (alive.get(c.id) ?? 0)
       const passed = workerPassed.get(c.id) ?? 0
       const total = out.reads + out.writes
       const room = Math.max(0, cap - passed)
@@ -771,7 +802,14 @@ export function topologyAvailability(
   return a
 }
 
-const DURABLE = new Set<ComponentKind>(["sql-primary", "nosql", "object-store"])
+const DURABLE = new Set<ComponentKind>([
+  "sql-primary",
+  "nosql",
+  "object-store",
+  "time-series-db",
+  "graph-db",
+  "vector-db",
+])
 
 /**
  * A slow dependency, seen from both ends. The dependency's answers take

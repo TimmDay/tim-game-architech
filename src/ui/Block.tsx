@@ -18,6 +18,17 @@ import {
   ScanText,
   Zap,
   Handshake,
+  Cable,
+  Megaphone,
+  BellRing,
+  Workflow,
+  CalendarClock,
+  ChartLine,
+  Crown,
+  Share2,
+  Sparkles,
+  Gauge,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react"
 import { CATALOGUE } from "~/sim/catalogue"
@@ -43,6 +54,17 @@ export const ICONS: Record<ComponentKind, LucideIcon> = {
   "data-warehouse": Warehouse,
   "doc-ai": ScanText,
   "third-party-api": Handshake,
+  "realtime-gateway": Cable,
+  pubsub: Megaphone,
+  "push-service": BellRing,
+  "stream-processor": Workflow,
+  scheduler: CalendarClock,
+  "time-series-db": ChartLine,
+  coordination: Crown,
+  "graph-db": Share2,
+  "vector-db": Sparkles,
+  "rate-limiter": Gauge,
+  "auth-service": KeyRound,
 }
 
 const S = 0.62

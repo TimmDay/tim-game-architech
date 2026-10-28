@@ -54,6 +54,8 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
   cdn: ["rateLimit", "alerts"],
   "load-balancer": ["rateLimit", "alerts"],
   "api-gateway": ["auth", "rateLimit", "alerts"],
+  "rate-limiter": ["rateLimit", "alerts"],
+  "realtime-gateway": ["rateLimit", "alerts"],
   "app-server": [
     "auth",
     "rateLimit",
@@ -71,6 +73,7 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
     "alerts",
   ],
   worker: ["timeouts", "retries", "idempotency", "alerts"],
+  "stream-processor": ["timeouts", "retries", "idempotency", "alerts"],
   cache: ["alerts"],
   "sql-primary": ["backups", "encrypted", "alerts"],
   "sql-replica": ["encrypted", "alerts"],
@@ -80,6 +83,7 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
   "data-warehouse": ["encrypted", "alerts"],
   queue: ["dlq", "alerts"],
   "event-stream": ["alerts"],
+  pubsub: ["alerts"],
 }
 
 const REQUEST_TIERS: ComponentKind[] = ["app-server", "serverless"]
@@ -98,6 +102,8 @@ const ENTRY_KINDS: ComponentKind[] = [
   "cdn",
   "load-balancer",
   "api-gateway",
+  "rate-limiter",
+  "realtime-gateway",
   "app-server",
   "serverless",
 ]
@@ -138,7 +144,10 @@ export function expectedPractices(graph: Graph, stakes: Stakes): Expectation[] {
     if (stakes.personalData && ENCRYPTED_KINDS.includes(kind))
       want(c, "encryption")
     if (kind === "queue") want(c, "dlq")
-    const caller = REQUEST_TIERS.includes(kind) || kind === "worker"
+    const caller =
+      REQUEST_TIERS.includes(kind) ||
+      kind === "worker" ||
+      kind === "stream-processor"
     if (caller && callsSomething(c)) {
       want(c, "timeouts")
       want(c, "backoff")

@@ -269,9 +269,172 @@ export const CATALOGUE: Record<ComponentKind, ComponentSpec> = {
     costPerInstanceMonthUsd: 0,
     maxInstances: 20,
   },
+
+  // --- Sandbox only, for diagramming. No level uses these yet, so their
+  // numbers are rough orders of magnitude, not tuned against a reference.
+  "realtime-gateway": {
+    ...base,
+    kind: "realtime-gateway",
+    category: "edge",
+    // Holds users' WebSocket connections open and relays messages both ways.
+    // Billed per message (connection minutes, the other half, aren't modelled).
+    capacity: { readRps: 10_000, writeRps: 10_000 },
+    baseLatency: { p50Ms: 5, p99Ms: 25 },
+    baselineAvailability: 0.9995,
+    managed: true,
+    routesTraffic: true,
+    costPerInstanceMonthUsd: 0,
+    costPerMillion: { reads: 1, writes: 1 },
+    maxInstances: 10,
+  },
+  pubsub: {
+    ...base,
+    kind: "pubsub",
+    category: "messaging",
+    // A topic: every subscriber gets every message, pushed to it, with no
+    // replay. Tens of thousands of publishes a second per topic.
+    capacity: { readRps: 1_000_000, writeRps: 30_000 },
+    baseLatency: { p50Ms: 10, p99Ms: 50 },
+    baselineAvailability: 0.9999,
+    managed: true,
+    async: true,
+    broadcasts: true,
+    costPerInstanceMonthUsd: 0,
+    costPerMillion: { reads: 0.5, writes: 0.5 },
+    maxInstances: 1,
+  },
+  "push-service": {
+    ...base,
+    kind: "push-service",
+    category: "compute",
+    // Hands notifications to the phone platforms' push networks. Delivery
+    // takes as long as they take, and isn't guaranteed. One instance is 1,000
+    // sends a second of quota; ten is about one major service's default
+    // (600,000 a minute per project). Levels can set a lower quota.
+    capacity: { readRps: 1_000, writeRps: 1_000 },
+    baseLatency: { p50Ms: 100, p99Ms: 800 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 0,
+    costPerMillion: { reads: 0.5, writes: 0.5 },
+    maxInstances: 10,
+  },
+  "stream-processor": {
+    ...base,
+    kind: "stream-processor",
+    category: "compute",
+    // One processing unit of a managed stream job: windowed counts and joins
+    // over a few thousand events a second, with state kept between them.
+    capacity: { readRps: 5_000, writeRps: 5_000 },
+    baseLatency: { p50Ms: 50, p99Ms: 300 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 80,
+    maxInstances: 40,
+  },
+  scheduler: {
+    ...base,
+    kind: "scheduler",
+    category: "compute",
+    // Fires jobs on a timetable at whatever it's wired to. Billed per trigger.
+    // One major provider delivers 1,000 a second by default and delays the rest.
+    capacity: { readRps: 1_000, writeRps: 1_000 },
+    baseLatency: { p50Ms: 10, p99Ms: 60 },
+    baselineAvailability: 0.9995,
+    managed: true,
+    routesTraffic: true,
+    costPerInstanceMonthUsd: 0,
+    costPerMillion: { reads: 1, writes: 1 },
+    maxInstances: 1,
+  },
+  "time-series-db": {
+    ...base,
+    kind: "time-series-db",
+    category: "data",
+    // Built for appending timestamped points fast and reading them back by
+    // time range: many more writes than reads.
+    capacity: { readRps: 2_000, writeRps: 50_000 },
+    baseLatency: { p50Ms: 5, p99Ms: 40 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 600,
+    maxInstances: 10,
+  },
+  coordination: {
+    ...base,
+    kind: "coordination",
+    category: "data",
+    // A small cluster for locks, leader election and config, run yourself.
+    // Every write needs a majority, so more nodes add safety, not capacity.
+    capacity: { readRps: 10_000, writeRps: 2_000 },
+    baseLatency: { p50Ms: 2, p99Ms: 15 },
+    baselineAvailability: 0.995,
+    scalesOut: false,
+    costPerInstanceMonthUsd: 100,
+    maxInstances: 5,
+  },
+  "graph-db": {
+    ...base,
+    kind: "graph-db",
+    category: "data",
+    // One instance answering short traversals: friends of friends, a few hops.
+    capacity: { readRps: 5_000, writeRps: 1_000 },
+    baseLatency: { p50Ms: 10, p99Ms: 60 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 700,
+    maxInstances: 15,
+  },
+  "vector-db": {
+    ...base,
+    kind: "vector-db",
+    category: "data",
+    // Nearest-neighbour search over embeddings: approximate, and slower than
+    // a key lookup. Billed per query, plus storage.
+    capacity: { readRps: 1_000, writeRps: 1_000 },
+    baseLatency: { p50Ms: 40, p99Ms: 150 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 50,
+    costPerMillion: { reads: 2.5, writes: 0.2 },
+    maxInstances: 10,
+  },
+  "rate-limiter": {
+    ...base,
+    kind: "rate-limiter",
+    category: "edge",
+    // Counts requests per caller at the edge and turns away the excess.
+    capacity: { readRps: 100_000, writeRps: 100_000 },
+    baseLatency: { p50Ms: 1, p99Ms: 5 },
+    baselineAvailability: 0.9999,
+    managed: true,
+    routesTraffic: true,
+    costPerInstanceMonthUsd: 5,
+    costPerMillion: { reads: 0.6, writes: 0.6 },
+    maxInstances: 1,
+  },
+  "auth-service": {
+    ...base,
+    kind: "auth-service",
+    category: "compute",
+    // Sign-in and token checks. Billed per monthly active user, which isn't
+    // modelled, so it's free here; its quota is a few hundred calls a second.
+    capacity: { readRps: 500, writeRps: 500 },
+    baseLatency: { p50Ms: 30, p99Ms: 150 },
+    baselineAvailability: 0.9995,
+    managed: true,
+    costPerInstanceMonthUsd: 0,
+    maxInstances: 10,
+  },
 }
 
 export const KINDS = Object.keys(CATALOGUE) as ComponentKind[]
+
+/** The most instances of a kind this level allows: its quota, if lower. */
+export const maxInstancesOf = (
+  kind: ComponentKind,
+  load?: Pick<LoadProfile, "quota">,
+) => Math.min(CATALOGUE[kind].maxInstances, load?.quota?.[kind] ?? Infinity)
 
 /** CPU time an ordinary API request takes on an {app-server}, in seconds. */
 export const APP_REQUEST_SECONDS = 0.002

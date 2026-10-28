@@ -1,5 +1,5 @@
 import { expectedPractices, missingPractices, type Stakes } from "./practices"
-import { partitionKeyOf, shardsOf, simulate } from "./simulate"
+import { AGGREGATORS, partitionKeyOf, shardsOf, simulate } from "./simulate"
 import type {
   ComponentKind,
   Fault,
@@ -154,9 +154,10 @@ export function writesAt(
     const into = graph.edges.filter((e) => e.to === c.id)
     const fedByWorkers =
       into.length > 0 &&
-      into.every(
-        (e) => graph.components.find((x) => x.id === e.from)?.kind === "worker",
-      )
+      into.every((e) => {
+        const from = graph.components.find((x) => x.id === e.from)
+        return from !== undefined && AGGREGATORS.has(from.kind)
+      })
     // Counted as the writes it stands for, so aggregation isn't a lost write.
     const w = result.perComponent[c.id]?.writeRps ?? 0
     best = Math.max(best, fedByWorkers && emits > 0 ? w / emits : w)

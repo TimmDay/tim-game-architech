@@ -4,6 +4,7 @@ import {
   inlineJobCost,
   inlineJobMs,
   SATURATION_WARN,
+  maxInstancesOf,
   workerJobsPerSecond,
 } from "./catalogue"
 import { behindAsync, doesHeavyWorkInline, failureDomains } from "./simulate"
@@ -157,9 +158,10 @@ export function report(
               : "Replicas lag slightly: a user may not see their own change for a moment.",
           })
         }
-      } else if (spec.scalesOut && spec.maxInstances > 1) {
+      } else if (spec.scalesOut && maxInstancesOf(c.kind, load) > 1) {
+        const max = maxInstancesOf(c.kind, load)
         const need = instancesFor(c, m.utilization)
-        const fits = need <= spec.maxInstances
+        const fits = need <= max
         const extra = Math.max(0, need - c.instances)
         advice.push({
           severity,
@@ -168,7 +170,7 @@ export function report(
           why,
           fix: fits
             ? `Run ${need} instances (${extra > 0 ? `+${extra}, ${usd(extra * spec.costPerInstanceMonthUsd)}/month more` : "the same count"}) to bring it to about 70%.`
-            : `It would need ${need} instances and tops out at ${spec.maxInstances}. Take load off it instead: a {cache} or {cdn} for repeated reads, or a {queue} for slow work.`,
+            : `It would need ${need} instances and tops out at ${max}. Take load off it instead: a {cache} or {cdn} for repeated reads, or a {queue} for slow work.`,
           consider: m.behindAsync
             ? "It's behind a hand-off, so users don't wait on it: a short backlog in a burst is fine, as long as it drains."
             : c.kind === "app-server" || c.kind === "serverless"

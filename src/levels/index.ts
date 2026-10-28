@@ -1217,7 +1217,7 @@ const CLASSICS: Level[] = [
       job: "pushing each message to recipients who are offline",
     },
     brief:
-      "A messaging app. WhatsApp has said it delivers around 100 billion messages a day. Here, peak is 10,000 requests a second and half of them are messages being sent: 5,000 writes a second, every one of which must be stored and then delivered. Recipients who aren't online get a push notification. A {sql-primary} takes about 3,000 writes a second, and adding instances doesn't add write capacity.",
+      "A messaging app. WhatsApp has said it delivers around 100 billion messages a day. Here, peak is 10,000 requests a second and half of them are messages being sent: 5,000 writes a second, every one of which must be stored and then delivered. Phones that are online hold a connection open for new messages, either to your own servers or to a {realtime-gateway} billed per message. Recipients who aren't online get a push notification. A {sql-primary} takes about 3,000 writes a second, and adding instances doesn't add write capacity.",
     load: {
       peakRps: 10_000,
       readFraction: 0.5,
@@ -1256,6 +1256,7 @@ const CLASSICS: Level[] = [
       "event-stream",
       "worker",
       "serverless",
+      "realtime-gateway",
     ],
     reference: graph(
       [
@@ -1550,6 +1551,7 @@ const CLASSICS: Level[] = [
       "event-stream",
       "worker",
       "data-warehouse",
+      "realtime-gateway",
     ],
     reference: graph(
       [
@@ -1660,7 +1662,7 @@ const CLASSICS: Level[] = [
       job: "handing each notification to the push provider",
     },
     brief:
-      "A sports app's notification service: other parts of the app ask it to tell someone about a goal, a kick-off or a reply, and it sends a push to their phone. Peak is 3,000 requests a second: 1,200 notifications to send, and 1,800 apps loading their inbox. Pushes go through a provider, a {third-party-api} that sells quota in blocks of 100 messages a second, up to 2,000, and refuses anything over it. In the chaos round a cup final goal doubles everything. A notification may arrive a little late. It must never be lost, and the app must never stall waiting for one.",
+      "A sports app's notification service: other parts of the app ask it to tell someone about a goal, a kick-off or a reply, and it sends a push to their phone. Peak is 3,000 requests a second: 1,200 notifications to send, and 1,800 apps loading their inbox. Pushes go through a {push-service}. One major provider allows 10,000 a second by default, but this account's quota is 2,000 a second (two {push-service} instances' worth), and anything over it is refused. In the chaos round a cup final goal doubles everything. A notification may arrive a little late. It must never be lost, and the app must never stall waiting for one.",
     load: {
       peakRps: 3_000,
       readFraction: 0.6,
@@ -1668,13 +1670,15 @@ const CLASSICS: Level[] = [
       heavyWriteFraction: 1,
       // Handing a notification to the provider: one call, mostly waiting.
       job: { seconds: 0.15, cpuBound: false },
+      // Raising a push quota takes days of shown usage, not a setting.
+      quota: { "push-service": 2 },
     },
     targets: {
       p99Ms: 300,
       maxErrorRate: 0.001,
       availability: 0.999,
-      budgetUsd: 3_250,
-      writesReach: ["sql-primary", "third-party-api"],
+      budgetUsd: 3_750,
+      writesReach: ["sql-primary", "push-service"],
       noBacklog: "peak",
       stakes: {
         signedIn: true,
@@ -1696,7 +1700,7 @@ const CLASSICS: Level[] = [
       "queue",
       "event-stream",
       "worker",
-      "third-party-api",
+      "push-service",
     ],
     reference: graph(
       [
@@ -1706,7 +1710,7 @@ const CLASSICS: Level[] = [
         ["db", "sql-primary", 7, 6, 2, 2],
         ["sends", "queue", 7, 2],
         ["push", "worker", 9, 2, 3, 2],
-        ["provider", "third-party-api", 11, 2, 20],
+        ["provider", "push-service", 11, 2, 2],
       ],
       [
         `${C}>dns`,
@@ -2164,7 +2168,7 @@ const CLASSICS: Level[] = [
       job: "adding clicks into per-ad, per-minute counts",
     },
     brief:
-      "An ad network: advertisers pay per click, and watch their counts on a dashboard. Peak is 15,000 clicks a second, each one a redirect that must be fast, and each one recorded so finance can bill it and check the bill later. One ad can take 5% of all clicks, and any one {nosql} key takes about 1,000 writes a second. In the chaos round a big game's half-time ad doubles everything.",
+      "An ad network: advertisers pay per click, and watch their counts on a dashboard. Peak is 15,000 clicks a second, each one a redirect that must be fast, and each one recorded so finance can bill it and check the bill later. One ad can take 5% of all clicks, and any one {nosql} key takes about 1,000 writes a second. A {stream-processor} is built for counting over a stream: it keeps running totals per window, checkpoints them, and writes each window's result. In the chaos round a big game's half-time ad doubles everything.",
     load: {
       peakRps: 15_000,
       readFraction: 0,
@@ -2206,6 +2210,7 @@ const CLASSICS: Level[] = [
       "queue",
       "event-stream",
       "worker",
+      "stream-processor",
       "data-warehouse",
     ],
     reference: graph(
@@ -2214,7 +2219,7 @@ const CLASSICS: Level[] = [
         ["lb", "load-balancer", 3, 4],
         ["app", "app-server", 5, 4, 40, 2],
         ["clicks", "event-stream", 7, 4, 40],
-        ["agg", "worker", 9, 2, 20, 2],
+        ["agg", "stream-processor", 9, 2, 8],
         ["counts", "nosql", 11, 2, 1, 1, { partitionKey: "ad" }],
         ["raw", "data-warehouse", 9, 6],
       ],
@@ -2230,7 +2235,7 @@ const CLASSICS: Level[] = [
     ),
     concepts: ["queue-vs-log", "hot-keys", "idempotency"],
     topics: ["topic-sharding", "topic-event-logs"],
-    hint: "Publish each click to an {event-stream} and redirect at once. Let {worker} instances count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
+    hint: "Publish each click to an {event-stream} and redirect at once. Let a {stream-processor} count a minute at a time, so the hot ad's key sees one write a minute, not 750 a second.",
   },
   {
     id: "shared-doc",
@@ -2299,6 +2304,7 @@ const CLASSICS: Level[] = [
       "event-stream",
       "worker",
       "object-store",
+      "realtime-gateway",
     ],
     reference: graph(
       [
@@ -3556,6 +3562,7 @@ const OPS: Level[] = [
       "dns",
       "load-balancer",
       "api-gateway",
+      "rate-limiter",
       "app-server",
       "cache",
       "sql-primary",

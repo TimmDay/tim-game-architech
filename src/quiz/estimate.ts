@@ -848,7 +848,7 @@ export const ESTIMATES: Record<string, EstimateCard[]> = {
       "5% of 15,000 is 750, doubled to 1,500, past the 1,000 one {nosql} key takes. One counter per ad is a hot key.",
     ),
     mc(
-      "Workers add clicks into one count per ad per minute and write about 15 counts a second. How many fewer writes is that than one per click?",
+      "The {stream-processor} adds clicks into one count per ad per minute and writes about 15 counts a second. How many fewer writes is that than one per click?",
       "About 1,000 times fewer",
       ["About 15 times fewer", "About 60 times fewer", "About 100 times fewer"],
       "15,000 clicks ÷ 15 counts is 1,000. Adding up before writing is what makes the counts cheap.",

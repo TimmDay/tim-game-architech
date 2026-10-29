@@ -107,6 +107,12 @@ describe("daily results", () => {
     s = recordDaily(s, date, g(3, 8000))
     s = recordDaily(s, date, g(3, 8500))
     expect(dailyBest(s, date)).toEqual({ stars: 3, cost: 8000 })
+    // A dollar cheaper isn't a new record: keys can't be taken back.
+    const keys = Object.keys(s.awarded).length
+    s = recordDaily(s, date, g(3, 7999))
+    expect(Object.keys(s.awarded).length).toBe(keys)
+    s = recordDaily(s, date, g(3, 7700))
+    expect(dailyBest(s, date)).toEqual({ stars: 3, cost: 7700 })
     expect(dailyBest(s, "2026-11-02")).toBeNull()
   })
 

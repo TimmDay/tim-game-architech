@@ -186,6 +186,12 @@ export function dailyBest(s: ReviewState, date: string): DailyBest | null {
 const better = (a: DailyBest, b: DailyBest) =>
   a.stars > b.stars || (a.stars === b.stars && a.cost < b.cost)
 
+/** A cost has to fall this far to make a new record. */
+export const COST_STEP = 0.03
+const worthKeeping = (run: DailyBest, best: DailyBest) =>
+  run.stars > best.stars ||
+  (run.stars === best.stars && run.cost <= best.cost * (1 - COST_STEP))
+
 /** Three stars on the day's puzzle, once a day: worth points (see review.ts). */
 export const dailyWinKey = (date: string) => `dailywin:${date}`
 
@@ -197,7 +203,9 @@ export function recordDaily(
 ): ReviewState {
   const run = { stars: g.stars, cost: Math.round(g.peak.monthlyCostUsd) }
   const best = dailyBest(s, date)
-  if (best && !better(run, best)) return s
+  // Each record is a key that can never be removed (awards merge as a set),
+  // so a cheaper run only counts once it's a real step cheaper.
+  if (best && !worthKeeping(run, best)) return s
   const awarded = {
     ...s.awarded,
     [`${PREFIX}${date}:${run.stars}:${run.cost}`]: true as const,

@@ -27,6 +27,7 @@ import { useBoardEditor } from "~/game/useBoardEditor"
 import { setHum, sfx, stopHum } from "~/game/sound"
 import { updateReview } from "~/game/points-store"
 import { isDue, passScenario, review } from "~/game/review"
+import { gradedMoments, hintKey, sandboxMoments } from "~/game/moments"
 import { mark } from "~/game/achievements"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
 import { LEVELS, type Level } from "~/levels"
@@ -235,6 +236,7 @@ export function Play({
           stopHum()
           setPhase("idle")
           const peak = simulate(graph, load)
+          updateReview((s) => sandboxMoments(s, graph))
           setSandboxRun({ result: peak, report: report(graph, load, peak) })
         }, 1600)
       } else {
@@ -297,20 +299,18 @@ export function Play({
           setTraffic(1)
           setPhase("idle")
           setGraded(g)
-          if (g.stars > 0 && !sandbox) {
-            const now = Date.now()
-            // Moments the achievements watch for, which saved stars can't tell.
-            updateReview((s) => {
-              let next = mark(s, `provider:${provider}`)
-              if (
-                g.stars === 3 &&
-                g.peak.monthlyCostUsd <= level.targets.budgetUsd * 0.75
-              )
-                next = mark(next, "event:penny-pincher")
-              if (new Date(now).getHours() < 5)
-                next = mark(next, "event:night-owl")
-              return next
-            })
+          const prev = progress[level.id]
+          const now = Date.now()
+          updateReview((s) =>
+            gradedMoments(s, {
+              level,
+              grade: g,
+              provider,
+              now: new Date(now),
+              hadStars: (prev?.stars ?? 0) > 0,
+            }),
+          )
+          if (g.stars > 0) {
             updateReview((s) => {
               // A due revisit counts as a Retention review, worth its own points.
               const revisit = isDue(s, `level:${level.id}`, now)
@@ -319,7 +319,6 @@ export function Play({
               return passScenario(revisit, level.id, now)
             })
           }
-          const prev = progress[level.id]
           onProgress({
             ...progress,
             [level.id]: {
@@ -466,6 +465,7 @@ export function Play({
       study={wide ? study : undefined}
       onConcept={(c) => setInfo({ concept: c })}
       onTopic={onTopic}
+      onHint={() => updateReview((s) => mark(s, hintKey(level.id)))}
       diagnose={
         level.mode === "repair" ? (
           <DiagnoseBox

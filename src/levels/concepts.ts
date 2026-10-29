@@ -74,6 +74,10 @@ export type ConceptId =
   | "time-series-data"
   | "graph-data"
   | "leader-election"
+  | "rag"
+  | "token-math"
+  | "model-fallback"
+  | "batch-inference"
 
 export const CONCEPTS: Record<ConceptId, Card> = {
   "simplest-design": {
@@ -141,6 +145,30 @@ export const CONCEPTS: Record<ConceptId, Card> = {
     body: "Some work must happen once: tonight's reminders, a billing run, assigning shards. Run it on every server and it happens once per server; run it on one and it stops when that one dies. Leader election gives you both: the servers ask a {coordination} cluster for a lease, one gets it and does the work, and if it stops renewing, another takes over. The cluster agrees by majority, so it needs three or five nodes across zones: with two, losing either leaves no majority, and nobody leads.",
     interview:
       "Say what happens to a leader that's paused, not dead: its lease runs out, someone else takes over, and then it wakes up. A fencing token (a number that rises with each new leader, checked by whatever it writes to) stops the old one doing harm. Then say what's simpler, if you can use it: a managed {scheduler}, or a database row lock.",
+  },
+  rag: {
+    title: "Retrieval-augmented generation (RAG)",
+    body: "A model only knows what it was trained on, so to answer from your documents you find the passages that answer the question (with a {vector-db}, keyword search, or both), put them in the prompt, and ask the model to answer from them and cite them. Retrieval decides the quality: the model can only use what it's given. Filter passages by who's asking before they reach the prompt, or the model will happily repeat a document the user may not see.",
+    interview:
+      "Walk the request: check who's asking, retrieve the top passages they may read, build the prompt, stream the answer with its sources. Then say what you'd cache, how many tokens a call is, and how you'd measure answers against a set of questions with known good ones.",
+  },
+  "token-math": {
+    title: "Tokens set the bill and the quota",
+    body: "A model bills per token, input and output separately (output several times dearer), and its quota is tokens a minute. A call's tokens are the instructions, the question, any retrieved context and the answer. Multiply by calls a second for the quota you need, and by calls a month for the bill. Trimming the prompt, capping the answer, caching repeats and choosing a smaller model each cut both.",
+    interview:
+      "Do the arithmetic out loud: 3,000 tokens in and 300 out at 20 calls a second is 66,000 tokens a second, about four million a minute. Then say which of those tokens you could drop.",
+  },
+  "model-fallback": {
+    title: "Model fallback",
+    body: "A hosted model throttles at its quota and has outages like any service, often by region. A gateway in front of it can spread calls across two regions or two providers, and send everything to one when the other fails, as long as the survivor's quota can carry everyone. The same gateway checks each team's key, limits each team, and records who spent what.",
+    interview:
+      "Say what happens when the main model is slow, throttled or down: retry with backoff, fail over to a second region with headroom, and degrade gracefully (a smaller model, or a cached answer) before failing.",
+  },
+  "batch-inference": {
+    title: "Batch inference",
+    body: "Providers take a file of requests and return the answers within about a day, at about half the price and under a separate, larger quota. Anything nobody's waiting for belongs there: tagging, summarising archives, building embeddings, scoring a test set. Live traffic keeps the live quota to itself.",
+    interview:
+      "Split work by how fresh it must be. Seconds: the live model. Tomorrow: batch. Then say how you'd match results to requests, retry the failures, and notice if a batch didn't come back.",
   },
   "rate-limiting": {
     title: "Rate limiting",
@@ -613,6 +641,18 @@ export const COMPONENT_CARDS: Record<ComponentKind, Card> = {
     body: "Counts requests per caller (key, user, address) and turns away the excess with a 429 before it reaches anything expensive. Often a feature of the {api-gateway} rather than a box of its own.",
     interview:
       "Token bucket or sliding window, counters in a shared {cache}, and what the client sees: a Retry-After header.",
+  },
+  "llm-api": {
+    title: "{llm-api}",
+    body: "A hosted language model: send a prompt, get an answer back a token at a time. It's billed per token (input and output, output several times dearer) and limited in tokens a minute, so the size of each prompt decides both the bill and how many calls the quota takes. The first token arrives in a second or two; a long answer takes several more.",
+    interview:
+      "Work out tokens per call before anything else: prompt, retrieved context and answer. Multiply by calls a second for the quota, and by calls a month for the bill. Then say what you'd cache, what you'd stream, and what happens when the provider throttles.",
+  },
+  "llm-batch": {
+    title: "{llm-batch}",
+    body: "The same models for work that can wait: upload a file of requests and collect the answers within about a day, at about half the on-demand price and under a separate, larger quota. Classifying a backlog, tagging yesterday's tickets and building embeddings for a new index all fit.",
+    interview:
+      "Ask how fresh the result must be. If tomorrow is fine, batch it: half the price, and it doesn't compete with live traffic for quota.",
   },
   "auth-service": {
     title: "{auth-service}",

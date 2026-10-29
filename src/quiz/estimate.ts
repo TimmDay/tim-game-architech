@@ -192,6 +192,93 @@ export const ESTIMATES: Record<string, EstimateCard[]> = {
       "How would you spot it from the provider's bill alone?",
     ),
   ],
+  "ask-the-intranet": [
+    mc(
+      "100,000 employees each ask about 3 questions a working day, and a quarter of them come in the busiest hour. About how many a second then?",
+      "About 20 a second",
+      ["About 3.5 a second", "About 83 a second", "About 300 a second"],
+      "300,000 questions, a quarter in one hour: 75,000 ÷ 3,600 is about 20. Spread over the whole day it's 3.5; all in one hour, 83.",
+    ),
+    mc(
+      "A call is 3,000 tokens in at $3 per million, and 300 out at $15 per million. What does one cost?",
+      "About 1.35 cents",
+      ["About 0.9 cents", "About 13.5 cents", "About 0.45 cents"],
+      "3,000 × $3 / 1,000,000 is 0.9 cents; 300 × $15 / 1,000,000 is 0.45 cents. Together 1.35. Forgetting the output gives 0.9.",
+    ),
+    mc(
+      "At 20 calls a second of 3,300 tokens, how many tokens a minute is that?",
+      "About 4 million",
+      ["About 66,000", "About 400,000", "About 240 million"],
+      "3,300 × 20 is 66,000 a second; × 60 is about 4 million a minute. 66,000 is the per-second figure.",
+    ),
+    talk(
+      "How much could the {cache} save, and what limits it?",
+      [
+        "40% of questions repeat a popular one; at 95% hits it answers 7.6 of 20 a second.",
+        "That's 38% fewer calls: the bill drops from about $106,000 to $66,000 a month.",
+        "It can't cache answers that depend on who's asking, or that must be fresh.",
+      ],
+      "What else would cut tokens per call?",
+    ),
+  ],
+  "shared-quota": [
+    mc(
+      "40 calls a second, each 1,000 tokens in and 200 out. How many tokens a minute?",
+      "About 2.9 million",
+      ["About 48,000", "About 2.4 million", "About 290 million"],
+      "1,200 × 40 is 48,000 a second; × 60 is about 2.9 million a minute. Leaving out the output gives 2.4 million.",
+    ),
+    mc(
+      "A region has four blocks of a million tokens a minute. How many of these calls a second does it take?",
+      "About 56",
+      ["About 14", "About 4,000", "About 3,300"],
+      "4 million ÷ 60 is about 66,700 tokens a second; ÷ 1,200 per call is about 56. One block is about 14.",
+    ),
+    mc(
+      "One call costs about 0.6 cents. At 40 a second, averaging 30% of that over a month, what's the bill?",
+      "About $190,000",
+      ["About $19,000", "About $630,000", "About $6,300"],
+      "40 × 0.3 × 2.6 million seconds is about 31.5 million calls; × $0.006 is about $189,000. Forgetting the 30% gives about $630,000.",
+    ),
+    talk(
+      "How much quota does each region need, and why?",
+      [
+        "All forty teams need about 40 calls a second.",
+        "Each region must carry that alone when the other is down: 40 of its 56, 72%.",
+        "Holding it costs nothing extra in tokens, but half of it is idle on a normal day.",
+      ],
+      "What changes if one team's launch doubles its traffic?",
+    ),
+  ],
+  "overnight-tags": [
+    mc(
+      "About 576,000 tickets to tag over an 8-hour night. How many a second?",
+      "About 20",
+      ["About 7", "About 160", "About 72,000"],
+      "8 hours is 28,800 seconds; 576,000 ÷ 28,800 is 20. Over a whole day it would be about 7.",
+    ),
+    mc(
+      "Each call is 2,000 tokens in and 100 out. At 20 a second, against a live quota of two blocks (about 33,400 tokens a second), how full is it?",
+      "About 126%",
+      ["About 63%", "About 12%", "About 252%"],
+      "2,100 × 20 is 42,000 tokens a second; ÷ 33,400 is 126%. One block would be 252%.",
+    ),
+    mc(
+      "Live, a call costs about 0.75 cents. What does batch at half price save a month, on about 15.8 million calls?",
+      "About $59,000",
+      ["About $118,000", "About $5,900", "About $590,000"],
+      "15.8 million × $0.0075 is about $118,000 live; batch is half, so it saves about $59,000.",
+    ),
+    talk(
+      "What else would cut the nightly bill?",
+      [
+        "A smaller model for a fixed list of labels, often at a fraction of the price.",
+        "Sending the first message and last reply instead of the whole thread.",
+        "Once there are months of tags, a small classifier trained on them.",
+      ],
+      "Which would you try first, and how would you check it's still accurate?",
+    ),
+  ],
   "clinic-records": [
     mc(
       "Say 2,000 clinics each write about 3 records a second at peak. How many writes a second in all?",

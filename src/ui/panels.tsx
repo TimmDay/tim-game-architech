@@ -31,7 +31,12 @@ import { CONCEPTS, type ConceptId } from "~/levels/concepts"
 import type { Scenario } from "~/levels/roles"
 import type { Level } from "~/levels"
 import { CLIENT_NAME, serviceName, type Provider } from "~/providers/names"
-import { CATALOGUE, maxInstancesOf, workerJobsPerSecond } from "~/sim/catalogue"
+import {
+  CATALOGUE,
+  callsPerSecond,
+  maxInstancesOf,
+  workerJobsPerSecond,
+} from "~/sim/catalogue"
 import type { Finding } from "~/sim/findings"
 import type { Targets } from "~/sim/grade"
 import type { Settings } from "~/game/edit"
@@ -1037,14 +1042,19 @@ export function InspectPanel({
   const n = serviceName(c.kind, provider)
   const generic = serviceName(c.kind, "generic")
   const m = result?.perComponent[c.id]
+  const calls = callsPerSecond(spec, load?.tokens)
   const capacityNote =
     c.kind === "worker"
       ? `${rps(workerJobsPerSecond(load ?? {}))} jobs each, for this job`
-      : spec.readOnly
-        ? `${rps(spec.capacity.readRps)} reads each, no writes`
-        : spec.capacity.readRps === spec.capacity.writeRps
-          ? `${rps(spec.capacity.readRps)} each`
-          : `${rps(spec.capacity.readRps)} reads / ${rps(spec.capacity.writeRps)} writes`
+      : calls !== undefined
+        ? `${Math.round(calls).toLocaleString("en-US")} calls a second each, at ${(
+            (load?.tokens?.input ?? 0) + (load?.tokens?.output ?? 0)
+          ).toLocaleString("en-US")} tokens a call`
+        : spec.readOnly
+          ? `${rps(spec.capacity.readRps)} reads each, no writes`
+          : spec.capacity.readRps === spec.capacity.writeRps
+            ? `${rps(spec.capacity.readRps)} each`
+            : `${rps(spec.capacity.readRps)} reads / ${rps(spec.capacity.writeRps)} writes`
 
   return (
     <div className="space-y-3">

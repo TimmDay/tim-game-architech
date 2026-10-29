@@ -92,6 +92,7 @@ export const OFFERS: Partial<Record<ComponentKind, (keyof Practices)[]>> = {
   queue: ["dlq", "alerts"],
   "event-stream": ["alerts"],
   pubsub: ["alerts"],
+  "llm-batch": ["alerts"],
 }
 
 const REQUEST_TIERS: ComponentKind[] = ["app-server", "serverless"]

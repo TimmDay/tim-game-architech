@@ -14,7 +14,13 @@ export type IncidentLine = {
    */
   tone: "bad" | "warn" | "good" | "info"
   text: string
+  /** The line is about one component: repair mode holds it back until diagnosis. */
+  componentId?: string
 }
+
+/** Repair mode before diagnosis: what the system did, not which part did it. */
+export const symptomLines = (lines: IncidentLine[]) =>
+  lines.filter((l) => l.componentId === undefined)
 
 const rps = (n: number) =>
   n >= 1000 ? `${(n / 1000).toFixed(1)}k/s` : `${Math.round(n)}/s`
@@ -85,10 +91,15 @@ export function incidentLines(
     if (b.aliveInstances < a.aliveInstances)
       out.push(
         b.aliveInstances === 0
-          ? { tone: "warn", text: `${name} is down: all ${c.instances} gone` }
+          ? {
+              tone: "warn",
+              text: `${name} is down: all ${c.instances} gone`,
+              componentId: c.id,
+            }
           : {
               tone: "warn",
               text: `${name} lost ${a.aliveInstances - b.aliveInstances} of ${c.instances}`,
+              componentId: c.id,
             },
       )
     const over = (m: typeof a) =>
@@ -97,9 +108,10 @@ export function incidentLines(
       out.push({
         tone: "warn",
         text: `${name} overloaded, dropping ${rps(b.droppedRps)}`,
+        componentId: c.id,
       })
     if (recovering && b.aliveInstances > a.aliveInstances)
-      out.push({ tone: "good", text: `${name} is back` })
+      out.push({ tone: "good", text: `${name} is back`, componentId: c.id })
   }
 
   const limit = chaosErrorLimit(targets)
@@ -138,7 +150,11 @@ export function incidentLines(
   for (const id of after.exposed.filter((x) => !before.exposed.includes(x))) {
     const c = graph.components.find((x) => x.id === id)
     if (c)
-      out.push({ tone: "bad", text: `{${c.kind}} answered without a sign-in` })
+      out.push({
+        tone: "bad",
+        text: `{${c.kind}} answered without a sign-in`,
+        componentId: c.id,
+      })
   }
   if (after.dataLossMinutes > before.dataLossMinutes)
     out.push({

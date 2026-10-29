@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { LEVELS, levelById, type Level } from "~/levels"
 import { grade } from "../grade"
-import { describeFault, incidentLines } from "../incident"
+import { describeFault, incidentLines, symptomLines } from "../incident"
 import { simulate } from "../simulate"
 import type { Graph } from "../types"
 
@@ -60,6 +60,24 @@ describe("the incident log", () => {
           hit.some((x) => x.tone === "bad"),
           l.id,
         ).toBe(true)
+    }
+  })
+
+  it("names no component before a repair level is diagnosed", () => {
+    for (const l of LEVELS.filter((l) => l.mode === "repair")) {
+      const graph = l.starter as Graph
+      const peak = simulate(graph, l.load)
+      const chaos = simulate(graph, l.load, l.chaos.faults)
+      const lines = [
+        ...incidentLines(graph, peak, chaos, l.targets),
+        ...incidentLines(graph, chaos, peak, l.targets, { recovering: true }),
+      ]
+      const shown = symptomLines(lines)
+      for (const x of shown) expect(x.text, l.id).not.toMatch(/\{[a-z-]+\}/)
+      // The lines held back are exactly the ones about one part.
+      expect(lines.length - shown.length).toBe(
+        lines.filter((x) => x.componentId).length,
+      )
     }
   })
 

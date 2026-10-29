@@ -35,7 +35,12 @@ import { findings, symptomsOnly, type Finding } from "~/sim/findings"
 import { grade as gradeBuild, type Grade } from "~/sim/grade"
 import { report, type Report } from "~/sim/advice"
 import { simulate } from "~/sim/simulate"
-import { describeFault, incidentLines, type IncidentLine } from "~/sim/incident"
+import {
+  describeFault,
+  incidentLines,
+  symptomLines,
+  type IncidentLine,
+} from "~/sim/incident"
 import type {
   ComponentKind,
   Fault,
@@ -212,7 +217,9 @@ export function Play({
       timers.current.push(window.setTimeout(fn, ms))
     const log = (lines: IncidentLine[]) => {
       const at = (performance.now() - start) / 1000
-      setIncident((x) => [...x, ...lines.map((l) => ({ ...l, at }))])
+      // Before diagnosis, a repair level's log can't name the culprit either.
+      const shown = spoilerFree ? symptomLines(lines) : lines
+      setIncident((x) => [...x, ...shown.map((l) => ({ ...l, at }))])
     }
     const RAMP = 2600
     const step = (now: number) => {
@@ -336,6 +343,7 @@ export function Play({
     sandbox,
     setTool,
     provider,
+    spoilerFree,
   ])
   useEffect(
     () => () => {

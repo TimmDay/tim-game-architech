@@ -252,7 +252,7 @@ export function Home({
   }
   return (
     <main className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
-      <div className="grid items-center gap-6 md:grid-cols-[1.1fr_1fr]">
+      <div className="grid items-center gap-6 md:grid-cols-[1.25fr_1fr]">
         <div>
           <p className="font-mono text-[11px] tracking-[0.25em] text-cyan-300/80 uppercase">
             A system design game
@@ -303,6 +303,7 @@ export function Home({
             >
               <BookOpen size={15} /> Codex
             </button>
+            <RetainButton onOpen={onRetention} />
           </div>
           {total > 0 && (
             <p className="mt-3 flex items-center gap-1.5 font-mono text-[12px] text-amber-200/80">
@@ -341,7 +342,6 @@ export function Home({
         repair,
         "text-rose-200",
       )}
-      <RetentionSection onOpen={onRetention} />
       {shelf(
         "classics",
         "Classics",
@@ -565,44 +565,21 @@ function FundamentalsSection({ onDeck }: { onDeck: (id: string) => void }) {
   )
 }
 
-/** The third mode: revising what you've already met, on a schedule. */
-function RetentionSection({ onOpen }: { onOpen: () => void }) {
+/** The third mode: revising what you've already met, with what's due now. */
+function RetainButton({ onOpen }: { onOpen: () => void }) {
   const state = useReview()
   // "Now" is fixed for the visit; reopening the page refreshes it.
   const [now] = useState(() => Date.now())
   const due = dueQueue(state, now, Infinity).length
-  const tracked = Object.keys(state.items).length
   return (
-    <Shelf
-      id="retention"
-      title="Retain"
-      icon={<Brain size={22} />}
-      accent="text-emerald-200"
-      blurb="Revise the cards, questions and scenarios you've already met. Ones you know come back rarely; ones you missed come back tomorrow, worth double."
-      summary={`${due} due`}
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Retain, ${due} to revise`}
+      title="Revise what you've already met. Ones you missed come back worth double."
+      className="flex items-center gap-1.5 rounded-xl border border-white/15 px-4 py-2.5 text-[14px] text-slate-200 hover:border-white/30"
     >
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-emerald-300/25 bg-gradient-to-r from-emerald-400/[0.08] to-transparent p-5 text-left transition hover:border-emerald-300/50"
-      >
-        <span>
-          <span className="font-display block text-[28px] leading-none font-bold text-white">
-            {due}
-            <span className="ml-2 text-[15px] font-semibold text-emerald-200">
-              due now
-            </span>
-          </span>
-          <span className="mt-1.5 block text-[13px] text-slate-400">
-            {tracked === 0
-              ? "Nothing to revise yet: play a level, flip deck cards or take a quiz."
-              : `${tracked} things on your review schedule.`}
-          </span>
-        </span>
-        <span className="rounded-xl bg-emerald-300 px-4 py-2 text-[14px] font-bold text-slate-950">
-          {due > 0 ? "Revise" : "Open"}
-        </span>
-      </button>
-    </Shelf>
+      <Brain size={15} /> Retain ({due})
+    </button>
   )
 }

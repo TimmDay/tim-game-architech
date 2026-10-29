@@ -175,6 +175,7 @@ export function BriefPanel({
   provider,
   onConcept,
   onTopic,
+  onHint,
   diagnose,
   components,
   study,
@@ -184,6 +185,8 @@ export function BriefPanel({
   onConcept: (id: ConceptId) => void
   /** Open a Fundamentals deck the level links to. */
   onTopic?: (id: string) => void
+  /** The hint was opened: Unassisted watches for it. */
+  onHint?: () => void
   diagnose?: React.ReactNode
   /** The palette, on wide screens: building comes before reading up. */
   components?: React.ReactNode
@@ -242,7 +245,10 @@ export function BriefPanel({
       <div>
         <button
           type="button"
-          onClick={() => setHint((h) => !h)}
+          onClick={() => {
+            if (!hint) onHint?.()
+            setHint((h) => !h)
+          }}
           className="flex items-center gap-1.5 text-[13px] text-slate-400 hover:text-white"
         >
           <Lightbulb size={14} /> {hint ? "Hide hint" : "Show hint"}

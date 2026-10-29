@@ -1,5 +1,5 @@
 import { DECKS } from "~/decks"
-import { LEVELS } from "~/levels"
+import { LEVELS, type Level } from "~/levels"
 import { QUIZZES } from "~/quiz/questions"
 import { ESTIMATES } from "~/quiz/estimate"
 import { SCHEMA } from "~/quiz/schema"
@@ -44,6 +44,15 @@ export type Achievement = {
     | "Plane"
     | "Calculator"
     | "CalendarCheck"
+    | "Briefcase"
+    | "Network"
+    | "LifeBuoy"
+    | "BrainCircuit"
+    | "Flag"
+    | "Zap"
+    | "EyeOff"
+    | "Bomb"
+    | "FlaskConical"
   earned: (c: AchievementContext) => boolean
 }
 
@@ -60,6 +69,16 @@ export const starCount = (progress: Progress) =>
 export const MAX_STARS = LEVELS.length * 3
 const build = LEVELS.filter((l) => l.mode === "build")
 const repair = LEVELS.filter((l) => l.mode === "repair")
+const shelf = (track: Level["track"]) => LEVELS.filter((l) => l.track === track)
+const allThree = (c: AchievementContext, levels: Level[]) =>
+  levels.every((l) => stars(c, l.id) === 3)
+
+/** Every kind of chaos some level throws, and the levels that throw each. */
+const CHAOS = new Map<string, string[]>()
+for (const l of LEVELS)
+  for (const f of l.chaos.faults)
+    CHAOS.set(f.kind, [...(CHAOS.get(f.kind) ?? []), l.id])
+export const CHAOS_KINDS = CHAOS.size
 
 export const ACHIEVEMENTS: Achievement[] = [
   {
@@ -212,6 +231,70 @@ export const ACHIEVEMENTS: Achievement[] = [
     description: "Three stars on seven daily puzzles.",
     icon: "CalendarCheck",
     earned: (c) => count(c.review, "dailywin:") >= 7,
+  },
+  {
+    id: "offer-letter",
+    title: "Offer letter",
+    description: "Three stars on every classic interview question.",
+    icon: "Briefcase",
+    earned: (c) => allThree(c, shelf("classic")),
+  },
+  {
+    id: "partition-tolerant",
+    title: "Partition tolerant",
+    description: "Three stars on every level on the CAP shelf.",
+    icon: "Network",
+    earned: (c) => allThree(c, shelf("cap")),
+  },
+  {
+    id: "incident-commander",
+    title: "Incident commander",
+    description: "Three stars on every production incident.",
+    icon: "LifeBuoy",
+    earned: (c) => allThree(c, shelf("ops")),
+  },
+  {
+    id: "token-economist",
+    title: "Token economist",
+    description: "Three stars on every AI systems level.",
+    icon: "BrainCircuit",
+    earned: (c) => allThree(c, shelf("ai")),
+  },
+  {
+    id: "under-par",
+    title: "Under par",
+    description: "Three stars for less than the suggested solution costs.",
+    icon: "Flag",
+    earned: (c) => flag(c.review, "event:under-par"),
+  },
+  {
+    id: "first-try",
+    title: "First try",
+    description: "Three stars on the first run of a level.",
+    icon: "Zap",
+    earned: (c) => flag(c.review, "event:first-try"),
+  },
+  {
+    id: "unassisted",
+    title: "Unassisted",
+    description: "Three stars on a classic without opening its hint.",
+    icon: "EyeOff",
+    earned: (c) => flag(c.review, "event:unassisted"),
+  },
+  {
+    id: "seen-it-all",
+    title: "Seen it all",
+    description: `Three stars against every kind of chaos: all ${CHAOS_KINDS} of them.`,
+    icon: "Bomb",
+    earned: (c) =>
+      [...CHAOS.values()].every((ids) => ids.some((id) => stars(c, id) === 3)),
+  },
+  {
+    id: "mad-scientist",
+    title: "Mad scientist",
+    description: "Run a Sandbox design with 20 or more components.",
+    icon: "FlaskConical",
+    earned: (c) => flag(c.review, "event:mad-scientist"),
   },
 ]
 

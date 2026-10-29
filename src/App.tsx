@@ -31,6 +31,7 @@ import { Deck } from "~/screens/Deck"
 import { Home } from "~/screens/Home"
 import { Play } from "~/screens/Play"
 import { ProviderToggle } from "~/ui/ProviderToggle"
+import { canInterview } from "~/game/interview"
 
 const SANDBOX: Level = {
   id: "sandbox",
@@ -59,7 +60,7 @@ const SANDBOX: Level = {
 type Route =
   | { screen: "home" }
   | { screen: "codex" }
-  | { screen: "play"; levelId: string }
+  | { screen: "play"; levelId: string; interview?: boolean }
   | { screen: "deck"; levelId: string; start?: "schema" | "estimate" }
   | { screen: "retention" }
   | { screen: "survival" }
@@ -78,6 +79,8 @@ function parse(hash: string): Route {
     }
   if (screen === "play" && id && (id === "sandbox" || levelById(id)))
     return { screen: "play", levelId: id }
+  if (screen === "interview" && id && levelById(id) && canInterview(id))
+    return { screen: "play", levelId: id, interview: true }
   return { screen: "home" }
 }
 
@@ -166,9 +169,11 @@ function AppScreens({
     return (
       <>
         <Play
-          key={level.id}
+          key={`${level.id}${route.interview ? "/interview" : ""}`}
           level={level}
           sandbox={level === SANDBOX}
+          interview={route.interview}
+          onEndInterview={() => go(`/play/${level.id}`)}
           provider={provider}
           progress={progress}
           onProgress={(p) => {
@@ -252,6 +257,7 @@ function AppScreens({
           onDeck={(id) => go(`/deck/${id}`)}
           onRetention={() => go("/retention")}
           onSurvival={() => go("/survival")}
+          onInterview={(id) => go(`/interview/${id}`)}
         />
       )}
     </div>

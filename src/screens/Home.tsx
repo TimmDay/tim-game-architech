@@ -18,11 +18,13 @@ import {
   Star,
   Stethoscope,
   Wrench,
+  MessageSquareQuote,
 } from "lucide-react"
 import { useState } from "react"
 import { DECKS } from "~/decks"
 import { TOPICS } from "~/decks/topics"
 import { TrophyRoom } from "~/ui/TrophyRoom"
+import { canInterview } from "~/game/interview"
 import { useReview } from "~/game/points-store"
 import { bestSurvivalWave, dueQueue } from "~/game/review"
 import { isComplete, isUnlocked } from "~/game/progression"
@@ -103,6 +105,7 @@ function LevelCard({
   diagnosed,
   onPlay,
   onDeck,
+  onInterview,
   lockedBy,
 }: {
   level: Level
@@ -111,6 +114,8 @@ function LevelCard({
   diagnosed?: boolean
   onPlay: () => void
   onDeck: () => void
+  /** Classics: a timed mock interview over the board. */
+  onInterview?: () => void
   /** Titles of unfinished prerequisites; empty when the level is open. */
   lockedBy: string[]
 }) {
@@ -182,6 +187,15 @@ function LevelCard({
       >
         <Layers size={12} /> Discussion deck · {DECKS[level.id]?.length ?? 0}
       </button>
+      {onInterview && !locked && (
+        <button
+          type="button"
+          onClick={onInterview}
+          className="absolute right-4 bottom-3 flex items-center gap-1 rounded-full border border-fuchsia-300/25 px-2.5 py-1 text-[11px] text-fuchsia-200/90 hover:border-fuchsia-300/60 hover:text-fuchsia-100"
+        >
+          <MessageSquareQuote size={12} /> Mock interview
+        </button>
+      )}
     </div>
   )
 }
@@ -194,6 +208,7 @@ export function Home({
   onDeck,
   onRetention,
   onSurvival,
+  onInterview,
 }: {
   progress: Progress
   onPlay: (id: string) => void
@@ -202,6 +217,7 @@ export function Home({
   onDeck: (id: string) => void
   onRetention: () => void
   onSurvival: () => void
+  onInterview: (id: string) => void
 }) {
   const build = LEVELS.filter((l) => l.mode === "build" && !l.track)
   const classics = LEVELS.filter((l) => l.track === "classic")
@@ -239,6 +255,11 @@ export function Home({
               diagnosed={progress[l.id]?.diagnosedFirstTry}
               onPlay={() => onPlay(l.id)}
               onDeck={() => onDeck(l.id)}
+              onInterview={
+                l.track === "classic" && canInterview(l.id)
+                  ? () => onInterview(l.id)
+                  : undefined
+              }
               lockedBy={missingPrereqs(l, progress)}
             />
           ))}

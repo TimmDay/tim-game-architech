@@ -37,6 +37,7 @@ import { report, type Report } from "~/sim/advice"
 import { simulate } from "~/sim/simulate"
 import type { ComponentKind, Graph, LoadProfile, SimResult } from "~/sim/types"
 import { Board } from "~/ui/Board"
+import { Interviewer } from "~/ui/Interviewer"
 import { CardView } from "~/ui/CardView"
 import { DiscussView } from "~/ui/DiscussView"
 import { SolutionView } from "~/ui/SolutionView"
@@ -72,6 +73,8 @@ const EMPTY: Graph = { components: [], edges: [] }
 export function Play({
   level,
   sandbox,
+  interview,
+  onEndInterview,
   provider,
   progress,
   onProgress,
@@ -83,6 +86,9 @@ export function Play({
 }: {
   level: Level
   sandbox?: boolean
+  /** A mock interview runs over the board: the interviewer panel is open. */
+  interview?: boolean
+  onEndInterview?: () => void
   provider: Provider
   progress: Progress
   onProgress: (p: Progress) => void
@@ -105,6 +111,7 @@ export function Play({
   const [shake, setShake] = useState(false)
   const running = phase !== "idle"
   const [graded, setGraded] = useState<Grade | null>(null)
+  const [lastStars, setLastStars] = useState<number | null>(null)
   const [sandboxRun, setSandboxRun] = useState<{
     result: SimResult
     report: Report
@@ -220,6 +227,7 @@ export function Play({
             )
             setPhase("idle")
             setGraded(g)
+            setLastStars(g.stars)
             if (g.stars > 0 && !sandbox) {
               const now = Date.now()
               // Moments the achievements watch for, which saved stars can't tell.
@@ -605,6 +613,16 @@ export function Play({
             </span>
           </div>
         </div>
+      )}
+      {interview && (
+        <Interviewer
+          levelId={level.id}
+          provider={provider}
+          lastStars={lastStars}
+          hidden={running}
+          onDeck={() => onDeck()}
+          onClose={() => onEndInterview?.()}
+        />
       )}
       {toast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-14 flex justify-center px-4">

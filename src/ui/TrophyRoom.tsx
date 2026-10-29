@@ -1,14 +1,22 @@
 import clsx from "clsx"
 import {
+  Bomb,
   Brain,
+  BrainCircuit,
+  Briefcase,
   Calculator,
   ChevronDown,
   Crown,
   Database,
+  EyeOff,
+  Flag,
+  FlaskConical,
   Globe,
   GraduationCap,
   Layers,
+  LifeBuoy,
   Moon,
+  Network,
   PiggyBank,
   Plane,
   Search,
@@ -22,6 +30,7 @@ import {
   Telescope,
   Trophy,
   Wrench,
+  Zap,
   type LucideIcon,
 } from "lucide-react"
 import { useState } from "react"
@@ -59,6 +68,15 @@ const ICONS: Record<Achievement["icon"], LucideIcon> = {
   Moon,
   Plane,
   Calculator,
+  Briefcase,
+  Network,
+  LifeBuoy,
+  BrainCircuit,
+  Flag,
+  Zap,
+  EyeOff,
+  Bomb,
+  FlaskConical,
 }
 
 /** Rank, progress to the next one, and every achievement, earned or not. */

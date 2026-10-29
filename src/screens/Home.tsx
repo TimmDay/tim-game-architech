@@ -315,11 +315,15 @@ export function Home({
           <Diorama />
         </div>
       </div>
+      {/* After the first level: the daily can land on any level. */}
+      {started && (
+        <div className="mt-6">
+          <DailyCard date={dailyDate(new Date())} onPlay={onDaily} />
+        </div>
+      )}
       <div className="mt-4 max-w-md">
         <InstallCard />
       </div>
-      {/* After the first level: the daily can land on any level. */}
-      {started && <DailyCard date={dailyDate(new Date())} onPlay={onDaily} />}
 
       {shelf(
         "build",

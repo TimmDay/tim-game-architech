@@ -138,6 +138,7 @@ export function Results({
   onNext,
   onConcept,
   onDeck,
+  footer,
 }: {
   grade: Grade
   level: Level
@@ -147,6 +148,8 @@ export function Results({
   onNext?: () => void
   onConcept: (c: ConceptId) => void
   onDeck?: () => void
+  /** Below the buttons: the daily puzzle's best and its share button. */
+  footer?: React.ReactNode
 }) {
   // The stars land one by one (see the star-in delays below); sound them too.
   useEffect(() => {
@@ -279,6 +282,7 @@ export function Results({
           Now practise talking it through: open the discussion deck
         </button>
       )}
+      {footer}
     </Modal>
   )
 }

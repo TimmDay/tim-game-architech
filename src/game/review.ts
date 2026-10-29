@@ -41,6 +41,8 @@ export const POINTS = {
   scenarioRevisit: 25,
   /** Survival: each wave number, the first time you clear it. */
   survivalWave: 10,
+  /** The daily puzzle: three stars on it, once a day. */
+  dailyWin: 15,
 } as const
 
 const DAY = 24 * 60 * 60 * 1000
@@ -96,6 +98,7 @@ export function awardValue(key: string): number {
   if (key.startsWith("pass:")) return POINTS.scenarioPass
   if (key.startsWith("star:")) return POINTS.star
   if (key.startsWith("survival:")) return POINTS.survivalWave
+  if (key.startsWith("dailywin:")) return POINTS.dailyWin
   if (key.startsWith("ach:")) return ACHIEVEMENT_POINTS
   return 0 // markers: "event:", "provider:"
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
+import { dailyDate, dailyFor } from "~/game/daily"
 import {
+  clearOldDailyBuilds,
   loadProgress,
   loadProvider,
   saveProgress,
@@ -63,6 +65,7 @@ type Route =
   | { screen: "deck"; levelId: string; start?: "schema" | "estimate" }
   | { screen: "retention" }
   | { screen: "survival" }
+  | { screen: "daily" }
 
 /** Routes live in the hash so the back button and a home-screen PWA both behave. */
 function parse(hash: string): Route {
@@ -70,6 +73,7 @@ function parse(hash: string): Route {
   if (screen === "codex") return { screen: "codex" }
   if (screen === "retention") return { screen: "retention" }
   if (screen === "survival") return { screen: "survival" }
+  if (screen === "daily") return { screen: "daily" }
   if (screen === "deck" && id && (levelById(id) || DECK_TITLES[id]))
     return {
       screen: "deck",
@@ -185,6 +189,28 @@ function AppScreens({
     )
   }
 
+  if (route.screen === "daily") {
+    const today = dailyDate(new Date())
+    const daily = dailyFor(today)
+    clearOldDailyBuilds(daily.level.id)
+    return (
+      <Play
+        key={daily.level.id}
+        level={daily.level}
+        provider={provider}
+        progress={progress}
+        onProgress={() => {}}
+        onExit={() => go("/")}
+        onNext={() => {}}
+        onDeck={(start) =>
+          go(`/deck/${daily.base.id}${start ? `/${start}` : ""}`)
+        }
+        onTopic={(id) => go(`/deck/${id}`)}
+        toggle={toggle}
+      />
+    )
+  }
+
   if (route.screen === "survival") {
     const missing = SURVIVAL_REQUIRES.filter((id) => !isComplete(id, progress))
     if (missing.length === 0)
@@ -252,6 +278,7 @@ function AppScreens({
           onDeck={(id) => go(`/deck/${id}`)}
           onRetention={() => go("/retention")}
           onSurvival={() => go("/survival")}
+          onDaily={() => go("/daily")}
         />
       )}
     </div>

@@ -217,6 +217,15 @@ export function BriefPanel({
           <Rich text={level.brief} provider={provider} />
         </p>
       </div>
+      {level.daily && (
+        <p className="rounded-lg border border-amber-300/30 bg-amber-300/[0.06] p-3 text-[13px] leading-relaxed text-amber-100">
+          <span className="font-mono text-[11px] font-semibold tracking-[0.14em] text-amber-200 uppercase">
+            Today&apos;s twist
+          </span>
+          <br />
+          {level.daily.twist}. The numbers here include it.
+        </p>
+      )}
       {diagnose}
       <div>
         <H>Targets</H>

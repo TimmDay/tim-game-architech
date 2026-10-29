@@ -12,6 +12,7 @@ import { useEffect, useState } from "react"
 import { sfx } from "~/game/sound"
 import { FindingList, H } from "./panels"
 import { Rich } from "./Rich"
+import { IncidentLines, type IncidentEntry } from "./IncidentLog"
 
 const STAR_LABEL = [
   "Handles peak",
@@ -139,6 +140,7 @@ export function Results({
   onConcept,
   onDeck,
   footer,
+  incident = [],
 }: {
   grade: Grade
   level: Level
@@ -150,6 +152,8 @@ export function Results({
   onDeck?: () => void
   /** Below the buttons: the daily puzzle's best and its share button. */
   footer?: React.ReactNode
+  /** What the chaos round did, step by step, as the run showed it. */
+  incident?: IncidentEntry[]
 }) {
   // The stars land one by one (see the star-in delays below); sound them too.
   useEffect(() => {
@@ -231,6 +235,19 @@ export function Results({
           </div>
         ))}
       </div>
+
+      {incident.length > 0 && (
+        <details className="group mt-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between">
+            <H>What happened</H>
+            <ChevronDown
+              size={15}
+              className="text-slate-500 transition group-open:rotate-180"
+            />
+          </summary>
+          <IncidentLines entries={incident} provider={provider} />
+        </details>
+      )}
 
       {findings.length > 0 && (
         <div className="mt-4">

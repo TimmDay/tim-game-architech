@@ -53,6 +53,7 @@ import type {
 } from "~/sim/types"
 import { IncidentLog, type IncidentEntry } from "~/ui/IncidentLog"
 import { Board } from "~/ui/Board"
+import { Interviewer } from "~/ui/Interviewer"
 import { CardView } from "~/ui/CardView"
 import { DiscussView } from "~/ui/DiscussView"
 import { SolutionView } from "~/ui/SolutionView"
@@ -88,6 +89,8 @@ const EMPTY: Graph = { components: [], edges: [] }
 export function Play({
   level,
   sandbox,
+  interview,
+  onEndInterview,
   provider,
   progress,
   onProgress,
@@ -99,6 +102,9 @@ export function Play({
 }: {
   level: Level
   sandbox?: boolean
+  /** A mock interview runs over the board: the interviewer panel is open. */
+  interview?: boolean
+  onEndInterview?: () => void
   provider: Provider
   progress: Progress
   onProgress: (p: Progress) => void
@@ -121,6 +127,7 @@ export function Play({
   const [shake, setShake] = useState(false)
   const running = phase !== "idle"
   const [graded, setGraded] = useState<Grade | null>(null)
+  const [lastStars, setLastStars] = useState<number | null>(null)
   const [sandboxRun, setSandboxRun] = useState<{
     result: SimResult
     report: Report
@@ -301,6 +308,7 @@ export function Play({
           setTraffic(1)
           setPhase("idle")
           setGraded(g)
+          setLastStars(g.stars)
           // The daily keeps its own result, and none of the level's.
           if (level.daily) {
             const { date } = level.daily
@@ -717,6 +725,16 @@ export function Play({
             )}
           </div>
         </div>
+      )}
+      {interview && (
+        <Interviewer
+          levelId={level.id}
+          provider={provider}
+          lastStars={lastStars}
+          hidden={running}
+          onDeck={() => onDeck()}
+          onClose={() => onEndInterview?.()}
+        />
       )}
       {running && incident.length > 0 && (
         <IncidentLog entries={incident} provider={provider} />

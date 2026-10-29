@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest"
 import { DECKS } from "~/decks"
 import { LEVELS } from "~/levels"
 import { ESTIMATES } from "~/quiz/estimate"
+import { EMPTY, seeCard } from "../review"
 import {
   canInterview,
   interviewPlan,
+  markCard,
   promptKey,
   summarise,
   TOTAL_MINUTES,
@@ -67,5 +69,25 @@ describe("mock interviews", () => {
     expect(s.missed).toEqual([c])
     expect(s.phases[0]).toMatchObject({ seconds: 400, budget: 300 })
     expect(summarise(plan, {}, {}).score).toBe(0)
+  })
+
+  it("sends a missed card back to the first box in Retention", () => {
+    const day = 86_400_000
+    // Seen and got before: it's in a later box, due in a while.
+    let s = seeCard(EMPTY, "c1", true, 0)
+    const before = s.items["card:c1"]!
+    s = markCard(s, "c1", "missed", 10 * day)
+    expect(s.items["card:c1"]).toMatchObject({ box: 0, weak: true })
+    expect(s.items["card:c1"]!.due).toBeLessThanOrEqual(before.due + 10 * day)
+    // Covered leaves a scheduled card where it was.
+    const kept = markCard(seeCard(EMPTY, "c2", true, 0), "c2", "covered", day)
+    expect(kept.items["card:c2"]).toEqual(
+      seeCard(EMPTY, "c2", true, 0).items["card:c2"],
+    )
+    // A first sight is scheduled as the deck schedules it.
+    expect(markCard(EMPTY, "c3", "missed", 0).items["card:c3"]).toMatchObject({
+      box: 0,
+      weak: true,
+    })
   })
 })

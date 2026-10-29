@@ -1,6 +1,7 @@
 import { DECKS } from "~/decks"
 import type { CardCategory, DeckCard } from "~/decks/types"
 import { ESTIMATES, type EstimateCard } from "~/quiz/estimate"
+import { review, seeCard, type ReviewState } from "./review"
 
 /**
  * A mock interview: one classic, 45 minutes, in the phases an interviewer
@@ -133,4 +134,22 @@ export function summarise(
       p.prompts.filter((x) => marks[promptKey(x)] === "missed"),
     ),
   }
+}
+
+/**
+ * A deck card marked in the interview, as the deck marks it. A card already
+ * on the Retention schedule keeps its place unless it's missed: then it goes
+ * back to the first box, as a wrong answer in Retention does.
+ */
+export function markCard(
+  s: ReviewState,
+  cardId: string,
+  m: Mark,
+  now: number,
+): ReviewState {
+  const seen = seeCard(s, cardId, m === "covered", now)
+  const id = `card:${cardId}`
+  return m === "missed" && s.items[id]
+    ? review(seen, id, false, now).state
+    : seen
 }

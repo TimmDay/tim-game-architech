@@ -13,6 +13,7 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import {
   interviewPlan,
+  markCard,
   promptKey,
   summarise,
   TOTAL_MINUTES,
@@ -21,7 +22,7 @@ import {
   type Prompt,
 } from "~/game/interview"
 import { updateReview } from "~/game/points-store"
-import { answerEstimate, seeCard } from "~/game/review"
+import { answerEstimate } from "~/game/review"
 import { loadDeckMarks, saveDeckMarks } from "~/game/storage"
 import type { Provider } from "~/providers/names"
 import { Rich } from "./Rich"
@@ -150,7 +151,7 @@ export function Interviewer({
         ...loadDeckMarks(levelId),
         [id]: m === "covered" ? "got" : "revisit",
       })
-      updateReview((s) => seeCard(s, id, m === "covered", now))
+      updateReview((s) => markCard(s, id, m, now))
     } else if (prompt.kind === "estimate") {
       const i = prompt.index
       updateReview((s) => answerEstimate(s, levelId, i, m === "covered"))
@@ -244,7 +245,8 @@ export function Interviewer({
             {s.missed.length > 0 && (
               <div>
                 <p className="mb-1 text-[12px] text-slate-400">
-                  Missed, now marked to revisit in the deck and in Retention:
+                  Missed. Cards come back soon in Retention and are marked to
+                  revisit in the deck:
                 </p>
                 <ul className="space-y-1">
                   {s.missed.map((p) => (

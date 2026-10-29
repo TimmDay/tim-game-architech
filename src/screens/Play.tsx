@@ -29,6 +29,8 @@ import { updateReview } from "~/game/points-store"
 import { isDue, passScenario, review } from "~/game/review"
 import { gradedMoments, hintKey, sandboxMoments } from "~/game/moments"
 import { mark } from "~/game/achievements"
+import { recordDaily } from "~/game/daily"
+import { DailyResult } from "~/ui/DailyCard"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
 import { LEVELS, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
@@ -299,6 +301,12 @@ export function Play({
           setTraffic(1)
           setPhase("idle")
           setGraded(g)
+          // The daily keeps its own result, and none of the level's.
+          if (level.daily) {
+            const { date } = level.daily
+            updateReview((s) => recordDaily(s, date, g))
+            return
+          }
           const prev = progress[level.id]
           const now = Date.now()
           updateReview((s) =>
@@ -604,7 +612,7 @@ export function Play({
   )
 
   const idx = LEVELS.findIndex((l) => l.id === level.id)
-  const next = LEVELS[idx + 1]
+  const next = level.daily ? undefined : LEVELS[idx + 1]
 
   const board = (
     <div className={clsx("relative min-h-0 flex-1", shake && "shake")}>
@@ -813,6 +821,7 @@ export function Play({
       onNext={next ? () => onNext(next.id) : undefined}
       onConcept={(c) => setInfo({ concept: c })}
       onDeck={sandbox ? undefined : onDeck}
+      footer={level.daily ? <DailyResult date={level.daily.date} /> : undefined}
       incident={incident}
     />
   ) : null

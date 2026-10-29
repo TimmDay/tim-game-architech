@@ -139,6 +139,7 @@ export function Results({
   onNext,
   onConcept,
   onDeck,
+  footer,
   incident = [],
 }: {
   grade: Grade
@@ -149,6 +150,8 @@ export function Results({
   onNext?: () => void
   onConcept: (c: ConceptId) => void
   onDeck?: () => void
+  /** Below the buttons: the daily puzzle's best and its share button. */
+  footer?: React.ReactNode
   /** What the chaos round did, step by step, as the run showed it. */
   incident?: IncidentEntry[]
 }) {
@@ -296,6 +299,7 @@ export function Results({
           Now practise talking it through: open the discussion deck
         </button>
       )}
+      {footer}
     </Modal>
   )
 }

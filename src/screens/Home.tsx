@@ -23,6 +23,8 @@ import { useState } from "react"
 import { DECKS } from "~/decks"
 import { TOPICS } from "~/decks/topics"
 import { TrophyRoom } from "~/ui/TrophyRoom"
+import { DailyCard } from "~/ui/DailyCard"
+import { dailyDate } from "~/game/daily"
 import { useReview } from "~/game/points-store"
 import { bestSurvivalWave, dueQueue } from "~/game/review"
 import { isComplete, isUnlocked } from "~/game/progression"
@@ -194,6 +196,7 @@ export function Home({
   onDeck,
   onRetention,
   onSurvival,
+  onDaily,
 }: {
   progress: Progress
   onPlay: (id: string) => void
@@ -202,6 +205,7 @@ export function Home({
   onDeck: (id: string) => void
   onRetention: () => void
   onSurvival: () => void
+  onDaily: () => void
 }) {
   const build = LEVELS.filter((l) => l.mode === "build" && !l.track)
   const classics = LEVELS.filter((l) => l.track === "classic")
@@ -311,6 +315,12 @@ export function Home({
           <Diorama />
         </div>
       </div>
+      {/* After the first level: the daily can land on any level. */}
+      {started && (
+        <div className="mt-6">
+          <DailyCard date={dailyDate(new Date())} onPlay={onDaily} />
+        </div>
+      )}
       <div className="mt-4 max-w-md">
         <InstallCard />
       </div>

@@ -3614,7 +3614,7 @@ const CAP: Level[] = [
 ]
 
 /**
- * Production incidents: chaos rounds that only the production settings can
+ * Hardening: chaos rounds that only the production settings can
  * survive. A slow partner, a poison message, a login flood, a bad migration
  * and a silent hang.
  */

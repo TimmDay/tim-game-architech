@@ -137,7 +137,7 @@ function LevelCard({
               : level.track === "cap"
                 ? "P"
                 : level.track === "ops"
-                  ? "O"
+                  ? "H"
                   : level.track === "ai"
                     ? "A"
                     : level.mode === "build"
@@ -360,7 +360,7 @@ export function Home({
       )}
       {shelf(
         "ops",
-        "Production incidents",
+        "Hardening",
         <Siren size={22} />,
         "The failures a load test never shows: a partner that slows to a crawl, a message that fails forever, a login flood, a bad migration, a worker that hangs without crashing. Only the production settings in each component's sidebar get you through.",
         ops,

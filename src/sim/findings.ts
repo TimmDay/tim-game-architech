@@ -206,7 +206,15 @@ export function findings(
       continue
     }
 
-    if (m.utilization >= 1) {
+    if (m.aliveInstances === 0 && c.instances > 0) {
+      // Not overloaded: there's nothing left to overload.
+      out.push({
+        severity: "error",
+        componentId: c.id,
+        concept: c.zones > 1 ? "n-plus-one-redundancy" : "availability-zones",
+        text: `Every ${name(c)} instance is down, so everything sent to it fails${m.droppedRps > 0 ? `: ${rps(m.droppedRps)}` : ""}.`,
+      })
+    } else if (m.utilization >= 1) {
       const onWrites =
         spec.capacity.writeRps > 0 &&
         m.writeRps / spec.capacity.writeRps >= m.readRps / spec.capacity.readRps
@@ -665,22 +673,33 @@ export function findings(
         (chaos.perComponent[c.id]?.aliveInstances ?? 1) === 0 &&
         !CATALOGUE[c.kind].optionalOnPath,
     )
-    if ((chaos.errorRate > 0.01 && !refusingIsTheJob) || dead.length > 0) {
+    const failing = chaos.errorRate > 0.01 && !refusingIsTheJob
+    // A part can be lost and the rest carry its load (a second region):
+    // only failed requests make it an error.
+    if (failing || (dead.length > 0 && chaos.errorRate > 0))
       out.push({
         severity: "error",
         concept:
           dead.length > 0 ? "availability-zones" : "n-plus-one-redundancy",
         text: `${chaosLabel}: ${pct(chaos.errorRate)} of requests fail.`,
       })
-      // Separate, and tied to the component, so repair mode can hold it back.
-      for (const c of dead)
-        out.push({
-          severity: "error",
-          componentId: c.id,
-          concept: "single-point-of-failure",
-          text: `${chaosLabel}: ${name(c)} lost every instance.`,
-        })
-    }
+    // Separate, and tied to the component, so repair mode can hold it back.
+    for (const c of dead)
+      out.push(
+        chaos.errorRate > 0
+          ? {
+              severity: "error",
+              componentId: c.id,
+              concept: "single-point-of-failure",
+              text: `${chaosLabel}: ${name(c)} lost every instance.`,
+            }
+          : {
+              severity: "warn",
+              componentId: c.id,
+              concept: "availability-zones",
+              text: `${chaosLabel}: ${name(c)} lost every instance, and the rest of the design carried its load.`,
+            },
+      )
   }
 
   return out

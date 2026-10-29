@@ -36,7 +36,20 @@ import { findings, symptomsOnly, type Finding } from "~/sim/findings"
 import { grade as gradeBuild, type Grade } from "~/sim/grade"
 import { report, type Report } from "~/sim/advice"
 import { simulate } from "~/sim/simulate"
-import type { ComponentKind, Graph, LoadProfile, SimResult } from "~/sim/types"
+import {
+  describeFault,
+  incidentLines,
+  symptomLines,
+  type IncidentLine,
+} from "~/sim/incident"
+import type {
+  ComponentKind,
+  Fault,
+  Graph,
+  LoadProfile,
+  SimResult,
+} from "~/sim/types"
+import { IncidentLog, type IncidentEntry } from "~/ui/IncidentLog"
 import { Board } from "~/ui/Board"
 import { CardView } from "~/ui/CardView"
 import { DiscussView } from "~/ui/DiscussView"
@@ -60,7 +73,7 @@ import { Results } from "~/ui/Results"
 import { SandboxReport } from "~/ui/SandboxReport"
 
 type Tab = "brief" | "build" | "inspect" | "quiz" | "test"
-type Phase = "idle" | "ramp" | "hold" | "chaos"
+type Phase = "idle" | "ramp" | "hold" | "chaos" | "recover"
 type Info =
   | { concept: ConceptId }
   | { kind: ComponentKind }
@@ -158,13 +171,17 @@ export function Play({
   }, [toast])
 
   const chaosOn = phase === "chaos"
+  // The faults landed so far: the chaos round brings them in one at a time.
+  const [faults, setFaults] = useState<Fault[]>([])
+  const [faultLabel, setFaultLabel] = useState("")
+  const [incident, setIncident] = useState<IncidentEntry[]>([])
   const liveLoad = useMemo(
     () => ({ ...load, peakRps: load.peakRps * traffic }),
     [load, traffic],
   )
   const result = useMemo(
-    () => simulate(graph, liveLoad, chaosOn ? level.chaos.faults : []),
-    [graph, liveLoad, chaosOn, level.chaos.faults],
+    () => simulate(graph, liveLoad, faults),
+    [graph, liveLoad, faults],
   )
   // Repair mode hides the findings that would name the culprit until it's found.
   const spoilerFree = level.mode === "repair" && !diag.solved
@@ -181,12 +198,30 @@ export function Play({
 
   // --- the graded run: ramp, hold at peak, then pull the chaos lever --------
   const raf = useRef(0)
+  const timers = useRef<number[]>([])
+  /** Ends the run now, with its result: what Skip calls. */
+  const finishNow = useRef<(() => void) | null>(null)
+  const clearRun = () => {
+    cancelAnimationFrame(raf.current)
+    for (const t of timers.current) clearTimeout(t)
+    timers.current = []
+  }
   const run = useCallback(() => {
     setLive(true)
     setTool({ t: "select" })
     setPhase("ramp")
+    setFaults([])
+    setIncident([])
     if (!wide) setSheetOpen(false)
     const start = performance.now()
+    const later = (ms: number, fn: () => void) =>
+      timers.current.push(window.setTimeout(fn, ms))
+    const log = (lines: IncidentLine[]) => {
+      const at = (performance.now() - start) / 1000
+      // Before diagnosis, a repair level's log can't name the culprit either.
+      const shown = spoilerFree ? symptomLines(lines) : lines
+      setIncident((x) => [...x, ...shown.map((l) => ({ ...l, at }))])
+    }
     const RAMP = 2600
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / RAMP)
@@ -206,51 +241,94 @@ export function Play({
         }, 1600)
       } else {
         setPhase("hold")
-        setTimeout(() => {
-          setPhase("chaos")
-          sfx.siren()
-          setHum(1.4)
-          setShake(true)
-          setTimeout(() => setShake(false), 650)
-          setTimeout(() => {
-            stopHum()
-            const g = gradeBuild(
+        // Every step of the round is a real simulate() call: one more fault
+        // each time, then none. The last step is exactly what the grade sees.
+        const all = level.chaos.faults
+        const g = gradeBuild(graph, level.load, level.targets, all)
+        const atPeak = g.peak
+        const steps = all.map((_, i) =>
+          simulate(graph, level.load, all.slice(0, i + 1)),
+        )
+        const chaosPass = g.checks.find((c) => c.id === "chaos")?.pass
+        // One fault keeps the level's own words for it.
+        const label = (i: number) =>
+          all.length === 1 ? level.chaos.label : describeFault(all[i] as Fault)
+        const FAULT_MS = all.length === 1 ? 2200 : 1600
+        let t = 1100
+        all.forEach((_, i) => {
+          later(t, () => {
+            setFaults(all.slice(0, i + 1))
+            setFaultLabel(label(i))
+            setPhase("chaos")
+            sfx.siren()
+            setHum(1.4)
+            setShake(true)
+            later(650, () => setShake(false))
+            log([
+              { tone: "info", text: label(i) },
+              ...incidentLines(
+                graph,
+                i === 0 ? atPeak : (steps[i - 1] as SimResult),
+                steps[i] as SimResult,
+                level.targets,
+                { verdict: i === all.length - 1 ? chaosPass : undefined },
+              ),
+            ])
+          })
+          t += FAULT_MS
+        })
+        later(t, () => {
+          setFaults([])
+          setPhase("recover")
+          setHum(1)
+          log(
+            incidentLines(
               graph,
-              level.load,
+              steps[steps.length - 1] ?? atPeak,
+              atPeak,
               level.targets,
-              level.chaos.faults,
-            )
-            setPhase("idle")
-            setGraded(g)
-            const prev = progress[level.id]
-            const now = Date.now()
-            updateReview((s) =>
-              gradedMoments(s, {
-                level,
-                grade: g,
-                provider,
-                now: new Date(now),
-                hadStars: (prev?.stars ?? 0) > 0,
-              }),
-            )
-            if (g.stars > 0) {
-              updateReview((s) => {
-                // A due revisit counts as a Retention review, worth its own points.
-                const revisit = isDue(s, `level:${level.id}`, now)
-                  ? review(s, `level:${level.id}`, true, now, deviceId()).state
-                  : s
-                return passScenario(revisit, level.id, now)
-              })
-            }
-            onProgress({
-              ...progress,
-              [level.id]: {
-                ...prev,
-                stars: Math.max(prev?.stars ?? 0, g.stars),
-              },
+              { recovering: true },
+            ),
+          )
+        })
+        const finish = () => {
+          clearRun()
+          finishNow.current = null
+          stopHum()
+          setFaults([])
+          setTraffic(1)
+          setPhase("idle")
+          setGraded(g)
+          const prev = progress[level.id]
+          const now = Date.now()
+          updateReview((s) =>
+            gradedMoments(s, {
+              level,
+              grade: g,
+              provider,
+              now: new Date(now),
+              hadStars: (prev?.stars ?? 0) > 0,
+            }),
+          )
+          if (g.stars > 0) {
+            updateReview((s) => {
+              // A due revisit counts as a Retention review, worth its own points.
+              const revisit = isDue(s, `level:${level.id}`, now)
+                ? review(s, `level:${level.id}`, true, now, deviceId()).state
+                : s
+              return passScenario(revisit, level.id, now)
             })
-          }, 2200)
-        }, 1100)
+          }
+          onProgress({
+            ...progress,
+            [level.id]: {
+              ...prev,
+              stars: Math.max(prev?.stars ?? 0, g.stars),
+            },
+          })
+        }
+        finishNow.current = finish
+        later(t + 1000, finish)
       }
     }
     raf.current = requestAnimationFrame(step)
@@ -264,14 +342,24 @@ export function Play({
     sandbox,
     setTool,
     provider,
+    spoilerFree,
   ])
   useEffect(
     () => () => {
-      cancelAnimationFrame(raf.current)
+      clearRun()
       stopHum()
     },
     [],
   )
+  // Escape skips to the result, once the ramp is over.
+  useEffect(() => {
+    if (!running) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") finishNow.current?.()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [running])
 
   // A crunch each time another block tips over while traffic is flowing.
   const overloaded = useMemo(
@@ -291,7 +379,9 @@ export function Play({
       ? "Ramping traffic…"
       : phase === "hold"
         ? "Holding at peak…"
-        : "Chaos!"
+        : phase === "recover"
+          ? "Recovering…"
+          : "Chaos!"
 
   // --- board interactions --------------------------------------------------
   const openTab = (t: Tab) => {
@@ -592,19 +682,36 @@ export function Play({
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3">
           <div
             className={clsx(
-              "flex items-center gap-3 rounded-full border px-4 py-1.5 font-mono text-[12px] backdrop-blur",
+              "flex items-center gap-3 rounded-full border py-1.5 pr-1.5 pl-4 font-mono text-[12px] backdrop-blur",
               chaosOn
                 ? "chaos-flash border-rose-400/60 bg-rose-950/80 text-rose-100"
-                : "border-cyan-300/30 bg-slate-950/80 text-cyan-100",
+                : phase === "recover"
+                  ? "border-emerald-300/40 bg-slate-950/80 text-emerald-100"
+                  : "border-cyan-300/30 bg-slate-950/80 text-cyan-100",
             )}
           >
             <Activity size={14} className="animate-pulse" />
-            {chaosOn ? level.chaos.label : phaseLabel}
+            {chaosOn ? faultLabel : phaseLabel}
             <span className="text-slate-400">
               p99 {ms(result.p99Ms)} · err {pct(result.errorRate, 1)}
             </span>
+            {!sandbox && phase !== "ramp" ? (
+              <button
+                type="button"
+                onClick={() => finishNow.current?.()}
+                className="pointer-events-auto rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] text-slate-200 hover:bg-white/20"
+                title="Skip to the result (Esc)"
+              >
+                Skip
+              </button>
+            ) : (
+              <span className="w-1.5" />
+            )}
           </div>
         </div>
+      )}
+      {running && incident.length > 0 && (
+        <IncidentLog entries={incident} provider={provider} />
       )}
       {toast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-14 flex justify-center px-4">
@@ -706,6 +813,7 @@ export function Play({
       onNext={next ? () => onNext(next.id) : undefined}
       onConcept={(c) => setInfo({ concept: c })}
       onDeck={sandbox ? undefined : onDeck}
+      incident={incident}
     />
   ) : null
   const infoModal = info ? (

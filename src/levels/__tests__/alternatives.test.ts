@@ -36,6 +36,22 @@ const PRICED: [level: string, build: (g: Graph) => Graph][] = [
   ["people-you-may-know", (g) => swap(g, "graph", "sql-primary", 2)],
   ["people-you-may-know", (g) => swap(g, "graph", "nosql", 1)],
   ["run-once", (g) => bypass(g, "texts", "dispatch", "send")],
+  ["ask-the-intranet", (g) => swap(g, "passages", "search-index", 1)],
+  [
+    "overnight-tags",
+    (g) => ({
+      ...g,
+      components: [
+        ...g.components,
+        { id: "line", kind: "queue", x: 0, y: 0, instances: 1, zones: 1 },
+      ],
+      edges: [
+        ...g.edges.filter((e) => e.id !== "nightly>tagger"),
+        { id: "nightly>line", from: "nightly", to: "line" },
+        { id: "line>tagger", from: "line", to: "tagger" },
+      ],
+    }),
+  ],
   [
     "order-placed",
     (g) =>

@@ -426,6 +426,39 @@ export const CATALOGUE: Record<ComponentKind, ComponentSpec> = {
     costPerInstanceMonthUsd: 0,
     maxInstances: 10,
   },
+  "llm-api": {
+    ...base,
+    kind: "llm-api",
+    category: "compute",
+    // A hosted, mid-sized model. Quota is counted in tokens a minute, per
+    // model and region; one instance is a block of a million (about 16,700 a
+    // second). Billed per token, output several times input. The p99 is the
+    // time to the first token of a long prompt; the answer streams after it.
+    capacity: { readRps: 10, writeRps: 10 },
+    baseLatency: { p50Ms: 600, p99Ms: 2_500 },
+    baselineAvailability: 0.999,
+    managed: true,
+    costPerInstanceMonthUsd: 0,
+    tokensPerSecond: 16_700,
+    costPerMillionTokens: { input: 3, output: 15 },
+    maxInstances: 20,
+  },
+  "llm-batch": {
+    ...base,
+    kind: "llm-batch",
+    category: "compute",
+    // The same models, sent as a file of requests and returned within about
+    // a day, at about half the price, under a far larger quota of its own.
+    capacity: { readRps: 100, writeRps: 100 },
+    baseLatency: { p50Ms: 3_600_000, p99Ms: 86_400_000 },
+    baselineAvailability: 0.999,
+    managed: true,
+    async: true,
+    costPerInstanceMonthUsd: 0,
+    tokensPerSecond: 167_000,
+    costPerMillionTokens: { input: 1.5, output: 7.5 },
+    maxInstances: 10,
+  },
 }
 
 export const KINDS = Object.keys(CATALOGUE) as ComponentKind[]
@@ -499,11 +532,28 @@ export function monthlyUsageUsd(
   readRps: number,
   writeRps: number,
   averageOfPeak = AVERAGE_OF_PEAK,
+  /** A model's tokens per call, when it's billed per token. */
+  tokens?: LoadProfile["tokens"],
 ): number {
+  const month = (rps: number) => (rps * averageOfPeak * SECONDS_PER_MONTH) / 1e6
+  const t = spec.costPerMillionTokens
+  if (t && tokens)
+    return (
+      month(readRps + writeRps) *
+      (tokens.input * t.input + tokens.output * t.output)
+    )
   const p = spec.costPerMillion
   if (!p) return 0
-  const month = (rps: number) => (rps * averageOfPeak * SECONDS_PER_MONTH) / 1e6
   return month(readRps) * p.reads + month(writeRps) * p.writes
+}
+
+/** Calls a second one block of a model's quota takes, at the level's tokens per call. */
+export function callsPerSecond(
+  spec: ComponentSpec,
+  tokens?: LoadProfile["tokens"],
+): number | undefined {
+  if (!spec.tokensPerSecond || !tokens) return undefined
+  return spec.tokensPerSecond / (tokens.input + tokens.output)
 }
 
 /** Above this utilisation latency starts to climb noticeably. */

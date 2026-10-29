@@ -60,6 +60,7 @@ import {
   SLOW_PARTNER,
   TOKEN_CHECK,
 } from "./ops"
+import { ASK_THE_INTRANET, OVERNIGHT_TAGS, SHARED_QUOTA } from "./ai"
 import { TOPICS } from "./topics"
 import type { DeckCard } from "./types"
 
@@ -116,6 +117,9 @@ export const DECKS: Record<string, DeckCard[]> = {
   "three-am-page": THREE_AM_PAGE,
   "analytics-ate-prod": ANALYTICS_ATE_PROD,
   "half-the-orders": HALF_THE_ORDERS,
+  "ask-the-intranet": ASK_THE_INTRANET,
+  "shared-quota": SHARED_QUOTA,
+  "overnight-tags": OVERNIGHT_TAGS,
   ...Object.fromEntries(TOPICS.map((t) => [t.id, t.cards])),
 }
 

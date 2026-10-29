@@ -1296,3 +1296,91 @@ describe("push alerts' priced alternatives", () => {
     expect(text).toContain(`$${r.peak.monthlyCostUsd.toLocaleString("en-US")}`)
   })
 })
+
+describe("the AI systems' traps", () => {
+  const level = (id: string) => {
+    const l = LEVELS.find((x) => x.id === id)
+    if (!l) throw new Error(`missing ${id}`)
+    return l
+  }
+  type L = ReturnType<typeof level>
+  const failed = (l: L, g: Graph) =>
+    grade(
+      l.targets.stakes ? withPractices(g, l.targets.stakes, l.load) : g,
+      l.load,
+      l.targets,
+      l.chaos.faults,
+    )
+      .checks.filter((c) => !c.pass)
+      .map((c) => c.id)
+  const drop = (g: Graph, id: string, add: string[] = []): Graph => ({
+    components: g.components.filter((c) => c.id !== id),
+    edges: [
+      ...g.edges.filter((e) => e.from !== id && e.to !== id),
+      ...add.map((s) => {
+        const [from = "", to = ""] = s.split(">")
+        return { id: s, from, to }
+      }),
+    ],
+  })
+
+  it("ask the intranet: without the cache, the bill and the all-hands both break", () => {
+    const l = level("ask-the-intranet")
+    expect(failed(l, drop(l.reference, "answers", ["app>model"]))).toEqual(
+      expect.arrayContaining(["budget", "chaos"]),
+    )
+  })
+
+  it("ask the intranet: answering without retrieval fails", () => {
+    const l = level("ask-the-intranet")
+    expect(failed(l, drop(l.reference, "passages"))).toContain("reads")
+  })
+
+  it("ask the intranet: users can't call the model directly", () => {
+    const l = level("ask-the-intranet")
+    const g: Graph = {
+      components: l.reference.components.filter((c) => c.id === "model"),
+      edges: [{ id: `${C}>model`, from: C, to: "model" }],
+    }
+    expect(failed(l, g)).toContain("structure")
+  })
+
+  it("shared quota: one region is slow every day and dark in an outage", () => {
+    const l = level("shared-quota")
+    expect(failed(l, drop(l.reference, "second"))).toEqual(
+      expect.arrayContaining(["latency", "chaos"]),
+    )
+  })
+
+  it("shared quota: without the gateway, keys are everywhere and the flood gets through", () => {
+    const l = level("shared-quota")
+    const g = drop(l.reference, "gateway", [`${C}>main`, `${C}>second`])
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["structure", "chaos"]))
+  })
+
+  it("overnight tags: the live model can't keep up, and costs twice as much", () => {
+    const l = level("overnight-tags")
+    const g: Graph = {
+      components: [
+        ...l.reference.components.map((c) =>
+          c.id === "batch"
+            ? { ...c, kind: "llm-api" as const, instances: 2 }
+            : c,
+        ),
+      ],
+      edges: l.reference.edges,
+    }
+    expect(failed(l, g)).toEqual(expect.arrayContaining(["budget", "backlog"]))
+  })
+
+  it("overnight tags: one tagger leaves the night's work undone in an outage", () => {
+    const l = level("overnight-tags")
+    const g: Graph = {
+      ...l.reference,
+      components: l.reference.components.map((c) =>
+        c.id === "tagger" ? { ...c, instances: 1, zones: 1 } : c,
+      ),
+    }
+    expect(failed(l, g)).toEqual(["chaos"])
+  })
+})

@@ -13,6 +13,7 @@ import {
   Library,
   Shuffle,
   Siren,
+  BrainCircuit,
   Split,
   Star,
   Stethoscope,
@@ -135,9 +136,11 @@ function LevelCard({
                 ? "P"
                 : level.track === "ops"
                   ? "O"
-                  : level.mode === "build"
-                    ? "B"
-                    : "R"}
+                  : level.track === "ai"
+                    ? "A"
+                    : level.mode === "build"
+                      ? "B"
+                      : "R"}
             {String(index + 1).padStart(2, "0")}
           </span>
           <span className="flex gap-0.5" aria-label={`${stars} of 3 stars`}>
@@ -204,6 +207,7 @@ export function Home({
   const classics = LEVELS.filter((l) => l.track === "classic")
   const cap = LEVELS.filter((l) => l.track === "cap")
   const ops = LEVELS.filter((l) => l.track === "ops")
+  const ai = LEVELS.filter((l) => l.track === "ai")
   const repair = LEVELS.filter((l) => l.mode === "repair")
   const total = LEVELS.reduce((s, l) => s + (progress[l.id]?.stars ?? 0), 0)
   const started = build[0] !== undefined && isComplete(build[0].id, progress)
@@ -351,6 +355,14 @@ export function Home({
         "The failures a load test never shows: a partner that slows to a crawl, a message that fails forever, a login flood, a bad migration, a worker that hangs without crashing. Only the production settings in each component's sidebar get you through.",
         ops,
         "text-lime-200",
+      )}
+      {shelf(
+        "ai",
+        "AI systems",
+        <BrainCircuit size={22} />,
+        "Systems built around a hosted model: a chatbot over the company's documents, a gateway many teams share, a job that tags a day's tickets overnight. The model is most of the bill and most of the wait, and its quota is counted in tokens.",
+        ai,
+        "text-fuchsia-200",
       )}
       <FundamentalsSection onDeck={onDeck} />
       <SurvivalSection progress={progress} onOpen={onSurvival} />

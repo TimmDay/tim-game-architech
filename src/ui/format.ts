@@ -1,9 +1,13 @@
 export const ms = (n: number) =>
   !Number.isFinite(n)
     ? "∞"
-    : n >= 1000
-      ? `${(n / 1000).toFixed(1)}s`
-      : `${Math.round(n)}ms`
+    : n >= 3_600_000
+      ? `${Math.round(n / 3_600_000)}h`
+      : n >= 60_000
+        ? `${Math.round(n / 60_000)}min`
+        : n >= 1000
+          ? `${(n / 1000).toFixed(1)}s`
+          : `${Math.round(n)}ms`
 
 export const pct = (n: number, digits = 1) =>
   !Number.isFinite(n) ? "∞" : `${(n * 100).toFixed(digits)}%`
@@ -31,11 +35,15 @@ export const rps = (n: number) =>
 export function priceNote(spec: {
   costPerInstanceMonthUsd: number
   costPerMillion?: { reads: number; writes: number }
+  costPerMillionTokens?: { input: number; output: number }
 }): string {
   const per = spec.costPerMillion
-  const usage = per
-    ? `$${Math.max(per.reads, per.writes).toLocaleString("en-US")}/M req`
-    : ""
+  const tok = spec.costPerMillionTokens
+  const usage = tok
+    ? `$${tok.input}/$${tok.output}/M tok`
+    : per
+      ? `$${Math.max(per.reads, per.writes).toLocaleString("en-US")}/M req`
+      : ""
   if (spec.costPerInstanceMonthUsd === 0) return usage || "free"
   const fee = `${usd(spec.costPerInstanceMonthUsd)}/mo`
   return usage ? `${fee} + ${usage}` : fee

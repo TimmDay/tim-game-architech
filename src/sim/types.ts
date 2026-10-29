@@ -34,6 +34,9 @@ export type ComponentKind =
   | "vector-db"
   | "rate-limiter"
   | "auth-service"
+  // A hosted model, called while someone waits, or in bulk at half price.
+  | "llm-api"
+  | "llm-batch"
 
 export type Category = "edge" | "compute" | "data" | "messaging"
 
@@ -86,6 +89,13 @@ export type ComponentSpec = {
    * Costed from the traffic at peak, scaled down to an average month.
    */
   costPerMillion?: { reads: number; writes: number }
+  /**
+   * Model APIs: one instance is a block of quota, in tokens a second, and
+   * calls are billed per token. With the level's tokens per call these set
+   * how many calls a second a block takes, and what each one costs.
+   */
+  tokensPerSecond?: number
+  costPerMillionTokens?: { input: number; output: number }
   maxInstances: number
 }
 
@@ -267,6 +277,11 @@ export type LoadProfile = {
    */
   quota?: Partial<Record<ComponentKind, number>>
   /**
+   * Tokens in one model call: the prompt (question, retrieved passages,
+   * instructions) and the answer. Unset: the level calls no model.
+   */
+  tokens?: { input: number; output: number }
+  /**
    * Work a clock starts, not a user: tomorrow's appointment reminders, sent
    * when they fall due. A component of one of the `by` kinds with nothing
    * wired into it runs the timer. Each running instance does the work in
@@ -309,6 +324,11 @@ export type Fault =
    * a few API keys, so only something that reads the key can limit it.
    */
   | { kind: "credential-stuffing"; multiplier: number; perKey?: boolean }
+  /**
+   * A provider's outage: the first component of this kind (in the order it
+   * was placed) is down entirely, whatever its quota.
+   */
+  | { kind: "provider-outage"; target: ComponentKind }
   /** Someone calls the API without signing in. */
   | { kind: "unauthenticated-probe" }
   /** A bad migration corrupts the system of record and it must be restored. */

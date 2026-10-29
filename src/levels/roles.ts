@@ -381,6 +381,20 @@ const ROLE: Record<ComponentKind, (c: Ctx) => Discussion> = {
       "Counting across many servers needs a shared counter, which is one more thing on the path.",
     ],
   }),
+  "llm-api": ({ up }) => ({
+    role: `Generates answers for ${list(up) || "its callers"} from a prompt: the question, the passages it's given, and instructions. Billed per token, and quota'd in tokens a minute.`,
+    tradeoffs: [
+      "It's usually most of the bill and most of the wait: every token you trim from the prompt saves both.",
+      "The first words arrive in a second or two; stream them, so nobody watches a spinner for the whole answer.",
+    ],
+  }),
+  "llm-batch": ({ up }) => ({
+    role: `Takes ${list(up) || "a file of requests"}'s calls in bulk and returns the answers within about a day, at about half the price.`,
+    tradeoffs: [
+      "Cheap and plentiful, and useless for anyone waiting: only work that can wait a day belongs here.",
+      "Results come back as a file, so something must match them to their requests and retry the failures.",
+    ],
+  }),
   "auth-service": ({ up }) => ({
     role: `Signs users in for ${list(up) || "the app"} and issues tokens the other services can check on their own.`,
     tradeoffs: [

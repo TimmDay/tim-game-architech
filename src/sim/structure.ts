@@ -28,6 +28,8 @@ const BALANCERS = new Set<ComponentKind>([
   "queue",
   "event-stream",
 ])
+/** Hosted models: something has to build each prompt and hold the key. */
+const MODELS = new Set<ComponentKind>(["llm-api", "llm-batch"])
 /** Where requests run code: they need somewhere to read from. */
 const REQUEST_TIERS = new Set<ComponentKind>(["app-server", "serverless"])
 /** Run your code: what has to stand between users and a store. */
@@ -95,13 +97,14 @@ export function structureProblems(
       seen.add(key)
       const spec = CATALOGUE[to.kind]
       // Files can be served to users from a bucket, directly or through a
-      // {cdn}; anything else in a store, or put on a queue, goes through code.
+      // {cdn}; anything else in a store, on a queue or sent to a model goes
+      // through code, which holds the keys.
       const from = byId.get(e.from)
       const files =
         to.kind === "object-store" &&
         (e.from === CLIENT_ID || from?.kind === "cdn")
       if (
-        (spec.category === "data" || spec.async) &&
+        (spec.category === "data" || spec.async || MODELS.has(to.kind)) &&
         !coded &&
         !files &&
         !direct(e.from, e.carries)
@@ -137,6 +140,22 @@ export function structureProblems(
       })
     }
   }
+  // 7. A model is called by code that builds the prompt, or by a {cache}
+  // in front of that code's calls; a timer or a queue can't write a prompt.
+  for (const c of graph.components) {
+    if (!MODELS.has(c.kind)) continue
+    for (const e of graph.edges) {
+      if (e.to !== c.id) continue
+      const from = byId.get(e.from)
+      if (!from || CODE.has(from.kind) || from.kind === "cache") continue
+      out.push({
+        componentId: c.id,
+        concept: "async-processing",
+        text: `${name(from)} sends work straight to ${name(c)}, but something has to build each prompt and read the answers. Put a {worker} in between.`,
+      })
+    }
+  }
+
   // 5. A store answers; it doesn't pass requests on. A {cache} in front of
   // its store does, and a store may publish its changes to a stream.
   for (const c of graph.components) {
@@ -165,6 +184,19 @@ export function structureProblems(
         text: `${name(c)} has nothing behind it, so a request it hasn't seen has no answer. Put the store it caches behind it.`,
       })
     }
+
+  // 8. A {cache} straight in front of another one adds nothing a bigger
+  // one wouldn't: the second sees only what the first already missed.
+  for (const e of graph.edges) {
+    const from = byId.get(e.from)
+    const to = byId.get(e.to)
+    if (from?.kind === "cache" && to?.kind === "cache")
+      out.push({
+        componentId: to.id,
+        concept: "cache-aside",
+        text: `${name(to)} sits straight behind another {cache}, so it only sees what the first one missed. Make the first one bigger instead.`,
+      })
+  }
 
   // 4. Code that's asked for something must have somewhere to read it from.
   if (peak)

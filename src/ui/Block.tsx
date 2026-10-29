@@ -1,5 +1,7 @@
 import {
   Archive,
+  BrainCircuit,
+  Hourglass,
   Boxes,
   Cog,
   Database,
@@ -65,6 +67,8 @@ export const ICONS: Record<ComponentKind, LucideIcon> = {
   "vector-db": Sparkles,
   "rate-limiter": Gauge,
   "auth-service": KeyRound,
+  "llm-api": BrainCircuit,
+  "llm-batch": Hourglass,
 }
 
 const S = 0.62

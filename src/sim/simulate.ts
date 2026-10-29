@@ -1,5 +1,6 @@
 import {
   CATALOGUE,
+  callsPerSecond,
   consumerJobsPerSecond,
   DEFAULT_JOB,
   inlineJobCost,
@@ -428,6 +429,12 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
   const alive = new Map(
     graph.components.map((c) => [c.id, aliveInstances(c, faults, watched(c))]),
   )
+  // A provider's outage takes the first of its kind entirely.
+  for (const f of faults)
+    if (f.kind === "provider-outage") {
+      const hit = graph.components.find((c) => c.kind === f.target)
+      if (hit) alive.set(hit.id, 0)
+    }
   const asyncSet = behindAsync(graph, load)
   const multiplier = faults.reduce(
     (m, f) => (f.kind === "traffic-spike" ? m * f.multiplier : m),
@@ -689,10 +696,14 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
               consumerJobsPerSecond(c.kind, load),
             )
           : undefined
+    // A model's quota is tokens, so its calls a second depend on their size.
+    const calls = callsPerSecond(spec, load.tokens)
     const perUnit =
       jobsPerUnit !== undefined
         ? { readRps: jobsPerUnit, writeRps: jobsPerUnit }
-        : spec.capacity
+        : calls !== undefined
+          ? { readRps: calls, writeRps: calls }
+          : spec.capacity
     const readCap = (perUnit.readRps * units) / readCost
     const writeCap = (perUnit.writeRps * units) / writeCost
     const rho = (load: number, cap: number) =>
@@ -835,6 +846,7 @@ function run(graph: Graph, load: LoadProfile, faults: Fault[]): SimResult {
                   f.reads,
                   f.writes,
                   load.averageOfPeak,
+                  load.tokens,
                 )
             : sum
         }, 0),

@@ -53,7 +53,13 @@ const pct = (n: number) => `${Math.round(n * 100)}%`
 const rps = (n: number) => `${Math.round(n).toLocaleString("en-US")}/s`
 const name = (c: PlacedComponent) => `{${c.kind}}`
 const ms = (n: number) =>
-  n >= 1000 ? `${(n / 1000).toFixed(1)}s` : `${Math.round(n)}ms`
+  n >= 3_600_000
+    ? `${Math.round(n / 3_600_000)}h`
+    : n >= 60_000
+      ? `${Math.round(n / 60_000)}min`
+      : n >= 1000
+        ? `${(n / 1000).toFixed(1)}s`
+        : `${Math.round(n)}ms`
 
 /** Why each missing practice matters, after the component's name. */
 const PRACTICE_TEXT: Record<PracticeId, [ConceptId, string]> = {

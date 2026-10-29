@@ -43,6 +43,110 @@ export const solutionText = (s: Solution): string[] => [
 ]
 
 export const SOLUTIONS: Record<string, Solution> = {
+  "ask-the-intranet": {
+    overview:
+      "Retrieval-augmented generation (RAG) with a cache for the questions everyone asks. The app checks who's asking, finds the passages they may read in a {vector-db}, and sends the question and passages to the {llm-api}, streaming the answer back with its sources. A {cache} in front of the model answers this week's repeated questions, which is what keeps both the bill and the quota in hand.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. The app checks the employee's sign-in and looks up which groups they're in.",
+      "It asks the {vector-db} for the closest passages, filtered to documents those groups may read, before anything reaches a prompt.",
+      "It looks the question up in the {cache}. About 40% are repeats of a popular one this week (the new expense policy, the holiday calendar), answered without calling the model.",
+      "Otherwise it sends instructions, the question and six passages to the {llm-api}, about 3,000 tokens, and streams the answer of about 300 tokens back with links to its sources. Answers that don't depend on the asker's permissions are cached for a day.",
+    ],
+    numbers: [
+      "20 questions a second at 9am. Each call is 3,000 tokens in and 300 out: 66,000 tokens a second, about four million a minute, against a quota of six million.",
+      "The {cache} answers about 7.6 a second, so the model gets 12.4: 41% of the quota, and 82% when the all-hands doubles the traffic. Without it the model runs at 66%, then 132% in the spike, and a quarter of questions fail.",
+      "Each call costs about 1.35 cents: 3,000 × $3 per million in, plus 300 × $15 per million out. Working hours average a seventh of the peak, so that's about 4.9 million calls a month.",
+      "p99 to the first words is about 4.3 seconds, nearly all of it the model; five blocks of quota would put it at about 5.0 seconds, the limit.",
+      "Cost: about $25 for the {load-balancer} + 2 × $70 + $70 for the {vector-db} + 2 × $150 for the {cache} + $65,989 for the model = $66,524 of $75,000. Without the cache the model alone is $106,434.",
+    ],
+    tradeoffs: [
+      "Cached answers can be a day old when a policy changes; clear the cache for any document that's edited.",
+      "Answers that depend on who's asking (their own leave balance) can't be shared, so they skip the cache.",
+      "Six passages is a guess: fewer is cheaper and faster, more is more likely to contain the answer. Measure it.",
+      "The model can still state something wrong with confidence. Showing the sources lets people check.",
+    ],
+    alternatives: [
+      "Keyword search in a {search-index} instead of the {vector-db} passes too, at $66,654. It finds exact policy names and codes better and paraphrases worse. Many systems run both and merge the results.",
+      "Fine-tuning a model on the documents teaches it the style, not the facts, and it goes stale with every edit. Retrieval keeps answers current and citable.",
+      "A smaller, cheaper model would cut the bill several times over, if its answers hold up against a test set of real questions. Try it before buying more quota.",
+      "Trimming the prompt (shorter instructions, four passages instead of six) cuts tokens, and so cost and quota, in proportion.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {vector-db}",
+        save: "Without it, at $66,524, with one less thing to run: retrieval is cheap and fast next to the model.",
+        spend:
+          "About $290 a month more, $66,816, and it buys nothing you'd notice: p99 stays about 4.3 seconds, nearly all of it the model.",
+      },
+    ],
+  },
+  "shared-quota": {
+    overview:
+      "A model gateway: every team calls one {api-gateway} with its own key. It checks the key, limits each team, records usage for the bill, and spreads calls over the model in two regions, each with its own quota. Either region's four blocks can carry all forty teams, so when one goes down the other takes everything, and one team's runaway script is turned away at the door.",
+    walkthrough: [
+      "A team's service calls the {api-gateway} with its key. The gateway checks it and counts the team's tokens against its limit.",
+      "Calls within the limit are spread over the {llm-api} in two regions. Each region has its own quota.",
+      "If a region throttles or fails, the gateway sends everything to the other.",
+      "Usage per team goes to the platform's bill each night, so each team sees what it spends.",
+    ],
+    numbers: [
+      "40 calls a second, each 1,000 tokens in and 200 out: 48,000 tokens a second, about 2.9 million a minute.",
+      "A region's four blocks are four million tokens a minute, about 56 calls a second. Split over two regions, each runs at 36%; when one goes, the other runs at 72%.",
+      "One region alone runs at 72% every day: p99 to the first token is about 8.9 seconds against 5, and when it goes down, every call fails.",
+      "Three blocks per region pass too, at 48%, but leave the survivor at 96% when the other region is down.",
+      "The runaway script sends four times everyone's traffic under one key. Limited per key at the gateway, it gets a 429 and everyone else carries on; without the limit, the surviving region runs at 287%.",
+      "Each call costs about 0.6 cents: 1,000 × $3 per million in, plus 200 × $15 per million out. That's 31.5 million calls a month.",
+      "Cost: about $32 for the {api-gateway} + 2 × $94,608 for the model = $189,248 of $200,000.",
+    ],
+    tradeoffs: [
+      "Two regions double the quota you have to hold, and half of it is idle until the other region fails.",
+      "A per-team limit can stop a team mid-launch. Agree the limits in advance, and let teams raise them on request.",
+      "The gateway is on every call, so it must be as available as the model behind it.",
+      "Different regions can run slightly different model versions; pin the version you test against.",
+    ],
+    alternatives: [
+      "A second provider instead of a second region guards against a provider-wide outage too, but its answers differ, so every prompt needs testing on both.",
+      "Letting each team call the model directly is simpler, and puts the keys in forty places, with no limits and no single bill. One team's script can then use everyone's quota.",
+      "An {app-server} tier in front of the models can't spread calls the way a gateway does here: it would call both regions for every request, at $378,597.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of a region",
+        save: "Without it, at $189,248, with one less thing to run: teams' prompts rarely repeat word for word.",
+        spend:
+          "About $300 a month more, $189,548, and it buys nothing: nothing repeats, so every call still reaches the model.",
+      },
+    ],
+  },
+  "overnight-tags": {
+    overview:
+      "Batch inference. Nobody reads the tags until morning, so the live model and its quota aren't needed. A {scheduler} starts the tagging at night; {worker} instances gather the day's tickets into a file of requests and send it to the {llm-batch} endpoint, which returns the tags within the day at half the price, straight into the {data-warehouse}. The live quota stays free for anything that's really waiting.",
+    walkthrough: [
+      "Daytime: agents work tickets through {load-balancer} → {app-server} → {sql-primary}.",
+      "Each night the {scheduler} starts the tagging job.",
+      "A {worker} reads the day's tickets, builds one request per ticket (instructions, the thread, the tags to choose from) and submits them as a batch to the {llm-batch} endpoint.",
+      "When the batch completes, the results are loaded into the {data-warehouse}, matched to tickets by ID. Failed requests are sent again in the next batch.",
+    ],
+    numbers: [
+      "About 20 tickets a second over the night, each 2,000 tokens in and 100 out: 42,000 tokens a second.",
+      "The live quota is two blocks, about 33,400 tokens a second: 126%. Live calls would fall behind by about four tickets a second, every night.",
+      "The batch endpoint's quota is far larger: one block takes 167,000 tokens a second, so the job uses 25%.",
+      "Live, each ticket costs about 0.75 cents: $118,260 a month. Batch is half: $59,130.",
+      "Two {worker} instances in two zones run at 20%, and the survivor at 40% after a zone outage. One would leave the tags undone for the night.",
+      "Cost: about $27 for the {load-balancer} + 2 × $70 + 2 × $400 + $16 for the {scheduler} + 2 × $120 + $59,130 for batch + $1,000 for the {data-warehouse} = $61,353 of $70,000.",
+    ],
+    tradeoffs: [
+      "Results arrive within the day, not on a schedule: the morning report must cope with a late batch.",
+      "A batch either completes or doesn't, so watch for one that never came back and resubmit it.",
+      "Urgent tickets can't wait: if support wants a hot ticket flagged in minutes, those few go to the live model.",
+    ],
+    alternatives: [
+      "Tagging each ticket live as it's created spreads the work over the day and gives tags at once, but at twice the price, and it competes with live traffic for the quota.",
+      "A smaller model for tagging is often accurate enough for a fixed set of labels, at a fraction of the price. Test it against a few hundred hand-tagged tickets.",
+      "A classifier trained on past tags is cheaper still once you have the labels, and needs retraining as products change.",
+      "A {queue} between the {scheduler} and the workers, or between the batch and the {data-warehouse}, passes too, at $61,372: worth it to spread a big night over more workers, or to retry a failed load without resubmitting the batch.",
+    ],
+  },
   "run-once": {
     overview:
       "Two dispatcher {worker} instances, in two zones, ask a {coordination} cluster for a lease. One gets it and becomes the leader: it finds the reminders that are due, marks them in the {sql-primary}, and puts them on a {queue} for the senders. The other waits. If the leader's zone goes down, its lease runs out and the other takes over. The cluster has three nodes in three zones, so losing any one zone leaves a majority to grant that lease.",

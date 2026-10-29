@@ -237,6 +237,23 @@ export const SERVICE_NAMES: Record<
     azure: { name: "Microsoft Entra External ID", short: "Entra ID" },
     gcp: { name: "Identity Platform", short: "Identity Platform" },
   },
+  // Vertex AI became Gemini Enterprise Agent Platform in April 2026; Azure
+  // OpenAI now sits inside Microsoft Foundry Models.
+  "llm-api": {
+    generic: { name: "Model API", short: "Model API" },
+    aws: { name: "Amazon Bedrock", short: "Bedrock" },
+    azure: { name: "Azure OpenAI in Foundry Models", short: "Azure OpenAI" },
+    gcp: { name: "Gemini Enterprise Agent Platform", short: "Agent Platform" },
+  },
+  "llm-batch": {
+    generic: { name: "Batch Model API", short: "Model Batch" },
+    aws: { name: "Amazon Bedrock batch inference", short: "Bedrock Batch" },
+    azure: { name: "Azure OpenAI Batch", short: "OpenAI Batch" },
+    gcp: {
+      name: "Gemini Enterprise Agent Platform batch",
+      short: "Agent Batch",
+    },
+  },
 }
 
 export const serviceName = (kind: ComponentKind, provider: Provider) =>

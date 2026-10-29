@@ -165,6 +165,18 @@ export const ACRONYMS: Record<string, Acronym> = {
     expansion: "Structured Query Language",
     note: "The language of relational databases.",
   },
+  HR: {
+    expansion: "Human Resources",
+    note: "The team that looks after hiring, pay, leave and policies.",
+  },
+  LLM: {
+    expansion: "Large Language Model",
+    note: "A model trained on a great deal of text that writes text back: the engine behind chatbots.",
+  },
+  RAG: {
+    expansion: "Retrieval-Augmented Generation",
+    note: "Find the passages that answer a question, then hand them to a model to write the answer from.",
+  },
   SSO: {
     expansion: "Single Sign-On",
     note: "One login (e.g. your company's) for many apps.",

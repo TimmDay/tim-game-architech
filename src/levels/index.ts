@@ -53,7 +53,7 @@ export type Level = {
    * Build levels with their own shelf: classic interview questions, and the
    * CAP trade-offs (network splits, consistency and sharding).
    */
-  track?: "classic" | "cap" | "ops"
+  track?: "classic" | "cap" | "ops" | "ai"
 }
 
 type Row = [
@@ -4045,6 +4045,236 @@ const OPS: Level[] = [
 ]
 
 /**
+ * AI systems: designs around a hosted model. The model is billed per token
+ * and quota'd in tokens a minute, so each level gives its tokens per call.
+ */
+const AI: Level[] = [
+  {
+    id: "ask-the-intranet",
+    mode: "build",
+    track: "ai",
+    requires: ["ask-the-docs"],
+    title: "Ask the Intranet",
+    tagline: "A hundred thousand employees, one chatbot, and a token bill.",
+    scenario: {
+      product: "the company's internal assistant",
+      reads: "employees asking questions about policies, benefits and tools",
+      writes:
+        "nothing: documents are indexed by the pipeline from Ask the Docs",
+      hot: "this week's most asked questions, and their answers",
+      records:
+        "every internal document, split into passages with who may read them",
+    },
+    brief:
+      "A company of 100,000 people wants one place to ask about its policies, benefits and tools. Each question finds the most relevant passages in a {vector-db}, then a {llm-api} writes the answer from them (retrieval-augmented generation, RAG). At 9am that's 20 questions a second. A prompt with its passages is about 3,000 tokens and the answer about 300, and the account's quota is six blocks of a million tokens a minute. Answers stream, so p99 here is the time to the first words. The chaos round is an all-hands announcement that sends everyone at once, and someone probing the bot without signing in.",
+    load: {
+      peakRps: 20,
+      readFraction: 1,
+      cacheableFraction: 0.4,
+      heavyWriteFraction: 0,
+      // Working hours only: a month averages about a seventh of the peak.
+      averageOfPeak: 0.15,
+      tokens: { input: 3_000, output: 300 },
+      quota: { "llm-api": 6 },
+    },
+    targets: {
+      p99Ms: 5_000,
+      maxErrorRate: 0.001,
+      availability: 0.995,
+      budgetUsd: 75_000,
+      writesReach: [],
+      readsReach: ["vector-db", "search-index"],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [
+        { kind: "traffic-spike", multiplier: 2 },
+        { kind: "unauthenticated-probe" },
+      ],
+      label: "An all-hands sends everyone at once (2x), and an unsigned probe",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "cache",
+      "search-index",
+      "vector-db",
+      "llm-api",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 4],
+        ["app", "app-server", 4, 4, 2, 2],
+        ["passages", "vector-db", 7, 6],
+        ["answers", "cache", 6, 2, 2, 2],
+        ["model", "llm-api", 9, 2, 6],
+      ],
+      [`${C}>lb`, "lb>app", "app>passages", "app>answers", "answers>model"],
+    ),
+    concepts: ["rag", "token-math", "cache-aside"],
+    topics: ["topic-storage"],
+    hint: "Every model call costs a cent or so and a slice of a quota you can't raise today. Many people ask the same few questions: answer those before they reach the model.",
+  },
+  {
+    id: "shared-quota",
+    mode: "build",
+    track: "ai",
+    requires: ["fair-share"],
+    title: "Shared Quota",
+    tagline: "Forty teams, one model bill, and one team's runaway script.",
+    scenario: {
+      product: "the company's model platform",
+      reads: "teams' services calling the model",
+      writes: "nothing",
+      hot: "nothing worth caching: every prompt is different",
+      records: "each team's usage and limits",
+    },
+    brief:
+      "Forty teams call a hosted {llm-api} for summaries, search and support replies: 40 calls a second at peak, each about 1,000 tokens in and 200 out. The account's quota is four blocks of a million tokens a minute per region, and the platform team wants one place to check keys, limit each team and pay the bill. The chaos round has two things at once: the model's main region goes down, and one team's evaluation script, under its own key, sends four times everyone's traffic.",
+    load: {
+      peakRps: 40,
+      readFraction: 1,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      tokens: { input: 1_000, output: 200 },
+      quota: { "llm-api": 4 },
+    },
+    targets: {
+      p99Ms: 5_000,
+      maxErrorRate: 0.001,
+      availability: 0.995,
+      budgetUsd: 200_000,
+      writesReach: [],
+      noBacklog: false,
+      stakes: {
+        signedIn: true,
+        personalData: false,
+        money: false,
+        abuse: true,
+      },
+    },
+    chaos: {
+      faults: [
+        { kind: "provider-outage", target: "llm-api" },
+        { kind: "credential-stuffing", multiplier: 4, perKey: true },
+      ],
+      label:
+        "The model's main region goes down, and one team's script floods (4x)",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "api-gateway",
+      "app-server",
+      "cache",
+      "llm-api",
+    ],
+    reference: graph(
+      [
+        ["gateway", "api-gateway", 2, 4],
+        ["main", "llm-api", 5, 2, 4],
+        ["second", "llm-api", 5, 6, 4],
+      ],
+      [`${C}>gateway`, "gateway>main", "gateway>second"],
+    ),
+    concepts: ["model-fallback", "rate-limiting", "provider-quotas"],
+    topics: ["topic-apis"],
+    hint: "One region's quota takes all forty teams, but not when it's down, and not when one team floods it. Spread calls over two regions with room for either to carry everyone, and limit each team's key where calls come in.",
+  },
+  {
+    id: "overnight-tags",
+    mode: "build",
+    track: "ai",
+    requires: ["on-schedule"],
+    title: "Overnight Tags",
+    tagline: "Half a million tickets to tag by morning. Nobody's waiting.",
+    scenario: {
+      product: "the support desk",
+      reads: "agents opening tickets",
+      writes: "agents replying and closing tickets",
+      hot: "open tickets",
+      records: "tickets and their replies",
+      job: "asking the model for a ticket's topic, product and sentiment",
+    },
+    brief:
+      "A support desk takes 300 requests a second from its agents. Every night, the analytics team wants each of the day's tickets tagged by a model (topic, product, sentiment) and loaded into the {data-warehouse} by morning: about 20 tickets a second over the night. A whole ticket thread is about 2,000 tokens in and 100 out. Live calls to the {llm-api} come out of a quota of two blocks of a million tokens a minute, shared with nothing else. A {llm-batch} job returns within about a day at half the price. The chaos round is a zone outage.",
+    load: {
+      peakRps: 300,
+      readFraction: 0.8,
+      cacheableFraction: 0,
+      heavyWriteFraction: 0,
+      tokens: { input: 2_000, output: 100 },
+      quota: { "llm-api": 2 },
+      timed: {
+        label: "Ticket tags",
+        rps: 20,
+        by: ["worker", "scheduler"],
+        to: ["llm-api", "llm-batch"],
+      },
+    },
+    targets: {
+      p99Ms: 300,
+      maxErrorRate: 0.001,
+      availability: 0.999,
+      budgetUsd: 70_000,
+      writesReach: ["sql-primary"],
+      noBacklog: true,
+      stakes: {
+        signedIn: true,
+        personalData: true,
+        money: false,
+        abuse: false,
+      },
+    },
+    chaos: {
+      faults: [{ kind: "zone-outage" }],
+      label: "A zone goes down",
+    },
+    palette: [
+      "dns",
+      "load-balancer",
+      "app-server",
+      "sql-primary",
+      "queue",
+      "worker",
+      "scheduler",
+      "llm-api",
+      "llm-batch",
+      "data-warehouse",
+    ],
+    reference: graph(
+      [
+        ["lb", "load-balancer", 2, 3],
+        ["app", "app-server", 4, 3, 2, 2],
+        ["db", "sql-primary", 7, 3, 2, 2],
+        ["nightly", "scheduler", 2, 7],
+        ["tagger", "worker", 4, 7, 2, 2],
+        ["batch", "llm-batch", 7, 7],
+        ["dw", "data-warehouse", 10, 7],
+      ],
+      [
+        `${C}>lb`,
+        "lb>app",
+        "app>db",
+        "nightly>tagger",
+        "tagger>batch",
+        "batch>dw",
+      ],
+    ),
+    concepts: ["batch-inference", "token-math", "provider-quotas"],
+    topics: ["topic-event-logs"],
+    hint: "Nobody reads these tags until morning. Work that can wait a day doesn't need the live model or its quota: send it in bulk, at half the price.",
+  },
+]
+
+/**
  * References and repair starters get every production practice their stakes
  * call for. A reference shows the full answer; a starter's lesson is its root
  * cause, not a missing setting.
@@ -4065,6 +4295,7 @@ export const LEVELS: Level[] = [
   ...CLASSICS,
   ...CAP,
   ...OPS,
+  ...AI,
   ...REPAIR,
 ].map(hardened)
 
@@ -4076,4 +4307,6 @@ export const SANDBOX_LOAD: LoadProfile = {
   readFraction: 0.8,
   cacheableFraction: 0.6,
   heavyWriteFraction: 0,
+  // A typical model call, for anyone who draws one in.
+  tokens: { input: 2_000, output: 300 },
 }

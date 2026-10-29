@@ -43,6 +43,7 @@ export type Achievement = {
     | "Moon"
     | "Plane"
     | "Calculator"
+    | "CalendarCheck"
     | "Briefcase"
     | "Network"
     | "LifeBuoy"
@@ -223,6 +224,13 @@ export const ACHIEVEMENTS: Achievement[] = [
       "Earn a star between midnight and 5am. Production never sleeps.",
     icon: "Moon",
     earned: (c) => flag(c.review, "event:night-owl"),
+  },
+  {
+    id: "daily-driver",
+    title: "Daily driver",
+    description: "Three stars on seven daily puzzles.",
+    icon: "CalendarCheck",
+    earned: (c) => count(c.review, "dailywin:") >= 7,
   },
   {
     id: "offer-letter",

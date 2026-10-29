@@ -35,7 +35,7 @@ Each level is worth three stars: **handles peak** (errors, latency, budget, data
 
 ## Provider toggle
 
-The **AWS / Azure / GCP / None** switch renames every component everywhere: the board, the palette, briefs, findings and the codex. "None" uses the vendor-neutral textbook name you'd use on an interview whiteboard (In-Memory Key-Value Cache, Message Queue, Event Log). Names were checked against provider docs in October 2026; see `src/providers/names.ts`.
+The **AWS / Azure / GCP / Prem** switch renames every component everywhere: the board, the palette, briefs, findings and the codex. "Prem" (on-premises) uses the vendor-neutral textbook name you'd use on an interview whiteboard (In-Memory Key-Value Cache, Message Queue, Event Log). Names were checked against provider docs in October 2026; see `src/providers/names.ts`.
 
 ## What it teaches
 

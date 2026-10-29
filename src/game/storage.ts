@@ -54,6 +54,18 @@ export const clearBuild = (levelId: string) => {
   }
 }
 
+/** Yesterday's daily builds: scratch work for a puzzle that's gone. */
+export function clearOldDailyBuilds(keepId: string) {
+  try {
+    const keep = scoped(`lb.build.${keepId}`)
+    const prefix = scoped("lb.build.daily-")
+    for (const k of Object.keys(backend()))
+      if (k.startsWith(prefix) && k !== keep) backend().removeItem(k)
+  } catch {
+    // Storage blocked: nothing was saved.
+  }
+}
+
 export type CardMark = "got" | "revisit"
 export const loadDeckMarks = (levelId: string) =>
   read<Record<string, CardMark>>(`lb.deck.${levelId}`, {})

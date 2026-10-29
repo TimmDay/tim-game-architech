@@ -54,6 +54,11 @@ export type Level = {
    * CAP trade-offs (network splits, consistency and sharding).
    */
   track?: "classic" | "cap" | "ops" | "ai"
+  /**
+   * The daily puzzle's derived level (see `~/game/daily`): it saves no
+   * progress of its own, and keeps its result as a daily marker.
+   */
+  daily?: { date: string; number: number; baseId: string; twist: string }
 }
 
 type Row = [

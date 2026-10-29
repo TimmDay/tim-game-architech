@@ -39,6 +39,8 @@ export function gradedMoments(
     hadStars: boolean
   },
 ): ReviewState {
+  // The daily is a replay with a twist, so it earns none of these.
+  if (level.daily) return s
   const firstRun = !s.awarded[ranKey(level.id)] && !hadStars
   let next = mark(s, ranKey(level.id))
   if (grade.stars === 0) return next

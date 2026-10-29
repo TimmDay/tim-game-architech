@@ -10,6 +10,7 @@ import {
   ranKey,
   sandboxMoments,
 } from "../moments"
+import { dailyFor } from "../daily"
 import { EMPTY, type ReviewState } from "../review"
 
 const classic = LEVELS.find((l) => l.track === "classic") as Level
@@ -131,5 +132,10 @@ describe("shelf achievements", () => {
     }).granted.map((a) => a.id)
     expect(ids).toContain("seen-it-all")
     expect(ACHIEVEMENTS.find((a) => a.id === "seen-it-all")).toBeDefined()
+  })
+
+  it("records nothing for the daily puzzle", () => {
+    const { level } = dailyFor("2026-10-29")
+    expect(run(EMPTY, level)).toBe(EMPTY)
   })
 })

@@ -1727,4 +1727,179 @@ export const SOLUTIONS: Record<string, Solution> = {
       "Two queues, with the app publishing to both: it works, but the app now knows every consumer, and adding a third means changing it again.",
     ],
   },
+  "big-merchant": {
+    overview:
+      "The orders were split by seller, and one seller is bigger than a whole shard, so adding shards couldn't help. Split by buyer ID instead: buyers are many and small, and most reads are buyers checking their own orders, so four shards carry everything with room to spare, half as many as before.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. A buyer's request names the buyer, so the app works out the shard from the buyer ID and goes straight there.",
+      "A new order is written to the buyer's shard, with the seller ID on it like any other column.",
+      "A seller's sales page doesn't name a buyer, so it asks all four shards and merges the answers. That's about 15% of reads.",
+      "Each shard is a primary with a standby in a second zone.",
+    ],
+    numbers: [
+      "18,000 requests a second at peak: 9,900 reads and 8,100 writes.",
+      "Before: split by seller over eight shards, the big seller's shard took 40% of the writes, 3,240 a second, against the 3,000 one {sql-primary} takes. It ran at 108% and turned away about 240 requests a second, while the other seven ran at 23%. On the sale weekend, 4.7% of requests failed.",
+      "After: by buyer ID over four shards, each takes about 2,025 writes and 3,600 reads a second, and runs at 68%. On the sale weekend (1.25x) the busiest is at 84%, and nothing fails.",
+      "36 {app-server} instances run at 50%. p99 is about 295ms.",
+      "Cost: about $167 for the {load-balancer} + 36 × $70 + 4 shards × 2 × $400 = $5,887 of $6,500. The eight-shard design was $9,087.",
+    ],
+    tradeoffs: [
+      "The big seller's sales dashboard now asks every shard. For one seller that's fine; for heavy reporting, feed a {data-warehouse} instead.",
+      "Moving from seller to buyer means copying every order to a new shard. Run old and new side by side, check they agree, then switch reads.",
+      "If one buyer ever became huge (a reseller buying for thousands), the same problem would come back on their shard.",
+    ],
+    alternatives: [
+      "Order ID spreads the writes perfectly, but a buyer's order list doesn't name an order, so nine reads in ten ask every shard. At four shards p99 is about 559ms, and on the sale weekend 26% of requests fail.",
+      "Three shards by buyer: each runs at 90%, p99 is about 496ms, and the sale weekend tips it over. Five: $6,687, over budget for nothing it needs.",
+      "Giving the big seller a shard of its own still leaves one shard taking 40% of writes, more than a {sql-primary} can take.",
+    ],
+  },
+  "everyone-asks": {
+    overview:
+      "The messages were split by message ID, which spreads writes perfectly and hides the real cost: opening a conversation doesn't name a message, so nine reads in ten asked all eight shards. Split by conversation ID, and a conversation's messages live on one shard: three shards are enough.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Opening a conversation names it, so the app sends the read to that conversation's shard only.",
+      "A new message is written to its conversation's shard, next to the messages before it, already in order.",
+      "Searching across every conversation still asks all three shards. It's about 3% of reads.",
+      "Each shard is a primary with a standby in a second zone, so a crashed primary fails over.",
+    ],
+    numbers: [
+      "20,000 requests a second at peak: 16,000 reads and 4,000 writes.",
+      "Before: with 90% of reads going to every shard, each of the eight shards saw about 14,600 reads a second, 146% of what it takes. Nothing got through. Each shard took only 500 writes a second, which is why the dashboards looked balanced.",
+      "Going from four shards to eight made it worse, not better: every read waits for the slowest shard, and there were more of them.",
+      "After: by conversation ID over three shards, each takes about 5,650 reads and 1,330 writes a second, and runs at 57%. p99 is about 286ms.",
+      "Cost: about $183 for the {load-balancer} + 36 × $70 + 3 shards × 2 × $400 = $5,103 of $5,600. The eight-shard design was $9,103.",
+    ],
+    tradeoffs: [
+      "A very busy conversation (a company-wide channel) lands on one shard. At 1% of traffic that's fine; a much bigger one would need its own plan.",
+      "Search across conversations still asks every shard. A {search-index} fed from the messages would take that off the database.",
+      "Moving the data means rewriting every message onto its conversation's shard, with both copies running until they agree.",
+    ],
+    alternatives: [
+      "Two shards by conversation: each runs at 82% and p99 is about 379ms. Four: $5,903, over budget.",
+      "Time sent puts every new message on the newest shard, the same trap in a different shape.",
+      "Fewer shards by message ID, four instead of eight, still sends nine reads in ten everywhere: 96% of requests fail when a primary crashes.",
+    ],
+  },
+  "todays-shard": {
+    overview:
+      "The readings were split by date, so every new reading went to today's shard while the others held old days nobody writes to. Replicas couldn't help, because they copy data rather than split it, and only take reads. Split by meter ID: each home's readings stay together, which is what the app reads, and the writes spread over three shards.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. A new reading names its meter, so the app writes it to that meter's shard.",
+      "A customer checking their usage reads their own meter's readings from one shard.",
+      "Each shard is a primary with a standby in a second zone, so a crashed primary fails over.",
+      "The read replicas are gone: three shards take the reads easily, and $800 a month is better spent elsewhere.",
+    ],
+    numbers: [
+      "9,000 requests a second at peak: 3,600 reads and 5,400 writes.",
+      "Before: all 5,400 writes landed on today's shard, which takes 3,000. About 2,400 a second failed, 27% of all requests, while the other three shards sat at 0%. The two {sql-replica} instances were at 18%, taking reads that were never the problem.",
+      "After: by meter ID over three shards, each takes about 1,800 writes and 1,250 reads a second, and runs at 60%. p99 is about 269ms.",
+      "Cost: about $96 for the {load-balancer} + 18 × $70 + 3 shards × 2 × $400 = $3,756 of $4,000. The old design was $5,356.",
+    ],
+    tradeoffs: [
+      "A report across every home (the whole region's usage this hour) asks all three shards. Feed a {data-warehouse} for those.",
+      "Old readings never get cold now: every shard holds every year. Move readings older than the billing period to cheaper storage.",
+      "Splitting by meter keeps one home's history together, but one meter sending far more often than the rest would load its shard harder.",
+    ],
+    alternatives: [
+      "Two shards by meter: each takes 2,700 writes, 90% busy, and p99 is about 485ms. Four: $4,556, over budget.",
+      "Keeping the replicas alongside three shards: $4,556, over budget, for reads the shards already take.",
+      "By region, one city has 60% of the homes, so its shard takes 3,240 writes a second and fails, whatever the shard count.",
+      "At a bigger scale, a {time-series-db} is built for exactly this: readings by meter and time, compressed, with old data rolled up. It isn't offered here.",
+    ],
+  },
+  "double-spend": {
+    overview:
+      "The balances store was set to eventual consistency to save a few milliseconds a write. During the split, both sides accepted payments against the same balances, and neither could see the other's. Set it to strong: a write commits only once a majority of copies have it, so the cut-off side refuses payments until the split heals, and nobody spends the same money twice.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. The app reads and updates the customer's balance in the {nosql} store, which keeps three copies, one per zone.",
+      "A payment commits once two of the three copies have it, so any later read from a majority sees it.",
+      "During a split, the side with two copies keeps working. The side with one can't reach a majority, so it refuses payments and the app tells the customer to try again.",
+      "When the split heals, the cut-off copy catches up. There's nothing to merge, because it accepted nothing.",
+    ],
+    numbers: [
+      "3,000 requests a second at the morning peak: 2,100 reads and 900 writes.",
+      "Before: during the split, about 300 writes a second were accepted on the cut-off side that the rest couldn't see. Nothing errored, which is why it took finance to notice.",
+      "After: the cut-off side refuses about 1,000 requests a second, a third of the traffic, until the split heals. The other two thirds carry on normally.",
+      "Strong writes wait for a copy in a second zone, about 5ms more each: p99 goes from about 236ms to 241ms.",
+      "Two blocks of {nosql} run at 45%. Five {app-server} instances run at 60%.",
+      "Cost: about $49 for the {load-balancer} + 5 × $70 + 2 × $950 = $2,299 of $3,000.",
+    ],
+    tradeoffs: [
+      "Customers in the cut-off zone can't pay with the app for a few minutes. A card at the till still works, and a refused payment is easy to explain. A balance below zero is not.",
+      "Every payment is about 5ms slower, always, to protect against something that happens a few times a year.",
+      "Reads could stay eventual (a balance a second old on the home screen is fine), as long as the payment itself checks a majority.",
+    ],
+    alternatives: [
+      "Move the balances to a {sql-primary} with three copies over three zones: $1,599, cheaper than the {nosql} store, and a single-leader database is consistent by design. It's a data migration rather than a setting, so it's the better long-term fix, and the slower one to ship.",
+      "A {sql-primary} with only two copies: neither side of a split holds a majority, so it refuses everything. $1,199, and the split takes the whole app down.",
+      "Three blocks of {nosql} instead of two: $3,249, over budget, and no safer than two.",
+      "Allow overdrafts and reconcile later: some prepaid schemes do, but then finance owns a debt-collection problem.",
+    ],
+  },
+  "resume-point": {
+    overview:
+      "A saved position in a show was stored with strong consistency, so during the split the cut-off side refused every read and write: a third of viewers couldn't press play, to protect a timestamp. A position a few seconds old costs nothing, and the newest one wins when the copies meet again. Set the store to eventual and every side keeps working.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Pressing play reads the viewer's position in that show from the {nosql} store.",
+      "Every few seconds the player saves the position. The write returns as soon as one copy has it.",
+      "During a split, the cut-off side keeps reading and saving positions on its own copy.",
+      "When it heals, each viewer's two positions are compared and the one saved last wins.",
+    ],
+    numbers: [
+      "8,000 requests a second at peak: 3,200 reads and 4,800 writes.",
+      "Before: during the split, the cut-off side refused about 2,670 requests a second, 33% of all of them.",
+      "After: nobody is refused. About 1,600 writes a second land on the cut-off side and are merged when it heals.",
+      "Six blocks of {nosql} run at 80%. 14 {app-server} instances run at 57%. p99 is about 271ms.",
+      "Cost: about $88 for the {load-balancer} + 14 × $70 + 6 × $950 = $6,768 of $7,500. Switching the mode costs nothing.",
+    ],
+    tradeoffs: [
+      "A viewer who switches device during a split may start a few seconds back. Nobody calls support about that.",
+      "Saved last wins relies on clocks. Use the time the player recorded, not when the server received it, or a delayed write can overwrite a newer one.",
+      "Watching on two devices at once gives two positions, and only one survives. That's usually the right answer anyway.",
+    ],
+    alternatives: [
+      "A {sql-primary} is always consistent, so it refuses the cut-off side too, and 4,800 writes a second is more than it takes: $2,268, and it fails at peak.",
+      "Keeping the position only on the device works until someone switches from the TV to their phone, which is the whole feature.",
+    ],
+  },
+  "summary-on-view": {
+    overview:
+      "Every page view asked the {llm-api} to summarise the article again, though the summary only changes when an editor saves. Summarise once, on save: the app puts a job on a {queue}, a {worker} asks the model and stores the summary with the article, and readers read it like any other field. The model goes from 2,000 calls a second to one every two seconds.",
+    walkthrough: [
+      "{load-balancer} → {app-server}. Opening an article reads it, summary included, from the {sql-primary}.",
+      "When an editor publishes or updates an article, the app saves it and puts a summarise job on the {queue}.",
+      "The {worker} takes the job, sends the article to the {llm-api} and writes the summary back to the article's row.",
+      "For the first few seconds after publishing, the article shows without a summary, or with the previous one.",
+    ],
+    numbers: [
+      "2,000 page views a second at peak, and an article saved about every two seconds: 0.5 writes a second.",
+      "One call is 4,000 tokens in and 200 out: 4,200 tokens, about 1.5 cents (4,000 × $3 per million + 200 × $15 per million).",
+      "Before: 2,000 calls a second. The model's whole quota, 20 blocks of 16,700 tokens a second, manages about 80. 96% of page views failed, and the bill was on course for $23,653,401 a month.",
+      "After: 0.5 calls a second, 13% of one block of quota. The model costs about $5,913 a month.",
+      "Eight {app-server} instances run at 25%, 50% when breaking news doubles the traffic. p99 is about 152ms.",
+      "Cost: about $41 for the {load-balancer} + 8 × $70 + 2 × $400 + $120 for the {worker} + $5,913 for the model = $7,434 of $9,000.",
+    ],
+    tradeoffs: [
+      "A new article shows without its summary for a few seconds. Show nothing rather than a spinner, and nobody notices.",
+      "An editor fixing a typo triggers a new summary. Skip small edits, or summarise only when the first paragraphs change.",
+      "If the model is down, jobs wait in the {queue} and articles keep their old summary. That's a much better failure than every page timing out.",
+    ],
+    alternatives: [
+      "A {serverless} function instead of the {worker}: $7,314, paid per job, and nothing to run between articles.",
+      "An {event-stream} instead of the {queue}: $7,459. It's worth it if other things (search, notifications) want the same publish events.",
+      "Two {worker} instances in two zones: $7,554. Behind a queue, a dead worker only delays summaries, so one is enough.",
+      "A {cdn} in front, caching whole pages: $8,578 with only two {app-server} instances. It's the right move at ten times the traffic, and more than this needs.",
+      "A {cache} in front of the model instead: nine views in ten get the cached summary, but the rest still make 200 calls a second, over twice the quota. It costs $3,436,296 a month and still fails.",
+      "A {llm-batch} job is half the price but returns within about a day. Tomorrow's summary of today's news is no use, and something has to collect the results.",
+    ],
+    tradeOffs: [
+      {
+        title: "Add a {cache} in front of the {sql-primary}",
+        save: "Without it, at $7,434: the {sql-primary} runs at 20%, and one less thing to run.",
+        spend:
+          "At $7,734, the most read articles come from memory: p99 drops by a few milliseconds and the database has room for ten times the traffic.",
+      },
+    ],
+  },
 }

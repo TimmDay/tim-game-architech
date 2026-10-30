@@ -46,11 +46,17 @@ import {
 } from "./classics"
 import {
   ANALYTICS_ATE_PROD,
+  BIG_MERCHANT,
   BLACK_FRIDAY,
+  DOUBLE_SPEND,
+  EVERYONE_ASKS,
   HALF_THE_ORDERS,
   LOST_WRITES,
+  RESUME_POINT,
   SLOW_CHECKOUT,
+  SUMMARY_ON_VIEW,
   THREE_AM_PAGE,
+  TODAYS_SHARD,
 } from "./repair"
 import {
   BAD_MIGRATION,
@@ -117,6 +123,12 @@ export const DECKS: Record<string, DeckCard[]> = {
   "three-am-page": THREE_AM_PAGE,
   "analytics-ate-prod": ANALYTICS_ATE_PROD,
   "half-the-orders": HALF_THE_ORDERS,
+  "big-merchant": BIG_MERCHANT,
+  "everyone-asks": EVERYONE_ASKS,
+  "todays-shard": TODAYS_SHARD,
+  "double-spend": DOUBLE_SPEND,
+  "resume-point": RESUME_POINT,
+  "summary-on-view": SUMMARY_ON_VIEW,
   "ask-the-intranet": ASK_THE_INTRANET,
   "shared-quota": SHARED_QUOTA,
   "overnight-tags": OVERNIGHT_TAGS,

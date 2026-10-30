@@ -1740,8 +1740,8 @@ export const SOLUTIONS: Record<string, Solution> = {
       "18,000 requests a second at peak: 9,900 reads and 8,100 writes.",
       "Before: split by seller over eight shards, the big seller's shard took 40% of the writes, 3,240 a second, against the 3,000 one {sql-primary} takes. It ran at 108% and turned away about 240 requests a second, while the other seven ran at 23%. On the sale weekend, 4.7% of requests failed.",
       "After: by buyer ID over four shards, each takes about 2,025 writes and 3,600 reads a second, and runs at 68%. On the sale weekend (1.25x) the busiest is at 84%, and nothing fails.",
-      "36 {app-server} instances run at 50%. p99 is about 295ms.",
-      "Cost: about $167 for the {load-balancer} + 36 × $70 + 4 shards × 2 × $400 = $5,887 of $6,500. The eight-shard design was $9,087.",
+      "40 {app-server} instances run at 45%. p99 is about 280ms.",
+      "Cost: about $167 for the {load-balancer} + 40 × $70 + 4 shards × 2 × $400 = $6,167 of $6,500. The eight-shard design was $9,367.",
     ],
     tradeoffs: [
       "The big seller's sales dashboard now asks every shard. For one seller that's fine; for heavy reporting, feed a {data-warehouse} instead.",
@@ -1749,8 +1749,8 @@ export const SOLUTIONS: Record<string, Solution> = {
       "If one buyer ever became huge (a reseller buying for thousands), the same problem would come back on their shard.",
     ],
     alternatives: [
-      "Order ID spreads the writes perfectly, but a buyer's order list doesn't name an order, so nine reads in ten ask every shard. At four shards p99 is about 559ms, and on the sale weekend 26% of requests fail.",
-      "Three shards by buyer: each runs at 90%, p99 is about 496ms, and the sale weekend tips it over. Five: $6,687, over budget for nothing it needs.",
+      "Order ID spreads the writes perfectly, but a buyer's order list doesn't name an order, so nine reads in ten ask every shard. At four shards p99 is about 544ms, and on the sale weekend 26% of requests fail.",
+      "Three shards by buyer: each runs at 90%, p99 is about 482ms, and the sale weekend tips it over. Five: $6,967, over budget for nothing it needs.",
       "Giving the big seller a shard of its own still leaves one shard taking 40% of writes, more than a {sql-primary} can take.",
     ],
   },

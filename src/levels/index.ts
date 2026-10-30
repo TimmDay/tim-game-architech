@@ -1176,7 +1176,7 @@ const REPAIR: Level[] = [
     starter: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 36, 2],
+        ["app", "app-server", 4, 4, 40, 2],
         [
           "db",
           "sql-primary",
@@ -1197,7 +1197,7 @@ const REPAIR: Level[] = [
     reference: graph(
       [
         ["lb", "load-balancer", 2, 4],
-        ["app", "app-server", 4, 4, 36, 2],
+        ["app", "app-server", 4, 4, 40, 2],
         ["db", "sql-primary", 7, 4, 2, 2, { shards: 4, partitionKey: "buyer" }],
       ],
       [`${C}>lb`, "lb>app", "app>db"],

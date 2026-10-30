@@ -166,10 +166,18 @@ export function incidentLines(
     })
 
   if (recovering)
-    out.push({
-      tone: after.errorRate <= targets.maxErrorRate ? "good" : "bad",
-      text: `All clear: errors back to ${pct(after.errorRate)}`,
-    })
+    // Back to normal traffic isn't all clear when normal traffic fails too.
+    out.push(
+      after.errorRate <= targets.maxErrorRate
+        ? {
+            tone: "good",
+            text: `All clear: errors back to ${pct(after.errorRate)}`,
+          }
+        : {
+            tone: "bad",
+            text: `Fault over, but errors are still at ${pct(after.errorRate)} at normal peak`,
+          },
+    )
   else if (!out.some((l) => l.tone === "bad"))
     out.push(
       verdict === false

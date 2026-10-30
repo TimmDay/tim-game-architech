@@ -38,6 +38,15 @@ describe("the incident log", () => {
     expect(back.at(-1)?.text).toBe("All clear: errors back to 0.0%")
   })
 
+  it("doesn't call it all clear when the design fails without the fault", () => {
+    const level = levelById("big-merchant") as Level
+    const { back } = play(level, level.starter as Graph)
+    expect(back.at(-1)).toEqual({
+      tone: "bad",
+      text: "Fault over, but errors are still at 1.3% at normal peak",
+    })
+  })
+
   it("says the suggested solution holds", () => {
     const { hit } = play(zoneOutage, zoneOutage.reference)
     expect(hit.at(-1)).toEqual({ tone: "good", text: "Held: errors at 0.0%" })

@@ -249,7 +249,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: "incident-commander",
     title: "Incident commander",
-    description: "Three stars on every production incident.",
+    description: "Three stars on every Hardening level.",
     icon: "LifeBuoy",
     earned: (c) => allThree(c, shelf("ops")),
   },

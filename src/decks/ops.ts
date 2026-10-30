@@ -1,7 +1,7 @@
 import { deck } from "./build"
 
 /**
- * Decks for the production incidents. Each one is about the setting that
+ * Decks for the Hardening levels. Each one is about the setting that
  * decides its chaos round, and what an interviewer asks once you've named it.
  * Same layout as the CAP decks, so quiz questions can cite cards by position:
  * 0-2 clarify, 3-4 product, 5-8 decision, 9-11 trade-off, 12-13 alternative,

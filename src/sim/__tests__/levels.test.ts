@@ -1014,7 +1014,7 @@ describe("the CAP shelf's traps", () => {
   })
 })
 
-describe("the production incidents' traps", () => {
+describe("the Hardening levels' traps", () => {
   const level = (id: string) => {
     const l = LEVELS.find((x) => x.id === id)
     if (!l) throw new Error(`missing ${id}`)

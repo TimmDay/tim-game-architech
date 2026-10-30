@@ -70,7 +70,7 @@ describe("a player's save", () => {
       setDoc(doc(db, "users/alice/save/main"), { ...save(), extra: "x" }),
     )
     const huge = Object.fromEntries(
-      Array.from({ length: 5001 }, (_, i) => [`k${i}`, true]),
+      Array.from({ length: 15001 }, (_, i) => [`k${i}`, true]),
     )
     await assertFails(
       setDoc(doc(db, "users/alice/save/main"), {

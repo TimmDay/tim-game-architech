@@ -19,7 +19,7 @@ service cloud.firestore {
         && d.progress is map && d.progress.size() <= 100
         && d.review is map
         && d.review.keys().hasOnly(['awarded', 'items', 'retention', 'reviewsRight'])
-        && d.review.awarded is map && d.review.awarded.size() <= 5000
+        && d.review.awarded is map && d.review.awarded.size() <= 15000
         && d.review.items is map && d.review.items.size() <= 3000
         && d.review.retention is map && d.review.retention.size() <= 50
         && d.decks is map && d.decks.size() <= 100

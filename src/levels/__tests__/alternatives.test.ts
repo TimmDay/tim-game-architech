@@ -53,6 +53,50 @@ const PRICED: [level: string, build: (g: Graph) => Graph][] = [
     }),
   ],
   [
+    "double-spend",
+    (g) => ({
+      ...g,
+      components: g.components.map((c) =>
+        c.id === "wallets"
+          ? {
+              ...c,
+              kind: "sql-primary" as const,
+              instances: 3,
+              zones: 3,
+              consistency: undefined,
+            }
+          : c,
+      ),
+    }),
+  ],
+  ["summary-on-view", (g) => swap(g, "writer", "serverless")],
+  ["summary-on-view", (g) => swap(g, "jobs", "event-stream")],
+  [
+    "summary-on-view",
+    (g) => ({
+      ...g,
+      components: g.components.map((c) =>
+        c.id === "writer" ? { ...c, instances: 2, zones: 2 } : c,
+      ),
+    }),
+  ],
+  [
+    "summary-on-view",
+    (g) => ({
+      components: [
+        ...g.components.map((c) =>
+          c.id === "app" ? { ...c, instances: 2 } : c,
+        ),
+        { id: "cdn", kind: "cdn", x: 0, y: 0, instances: 1, zones: 1 },
+      ],
+      edges: [
+        ...g.edges.filter((e) => e.id !== "client>lb"),
+        { id: "client>cdn", from: "client", to: "cdn" },
+        { id: "cdn>lb", from: "cdn", to: "lb" },
+      ],
+    }),
+  ],
+  [
     "order-placed",
     (g) =>
       swap(swap(g, "q-email", "event-stream", 1), "q-stock", "event-stream", 1),

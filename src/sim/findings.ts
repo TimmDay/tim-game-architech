@@ -663,6 +663,14 @@ export function findings(
             text: `${chaosLabel}: nothing is watching ${name(c)} or its queue, so the hung instances stay hung and the work piles up.`,
           })
 
+    // The symptom without the culprit, which repair mode can show before
+    // diagnosis: nothing errors, yet the data has stopped agreeing.
+    if (consistent && chaos.divergentRps > 0.5)
+      out.push({
+        severity: "error",
+        concept: "cap-theorem",
+        text: `${chaosLabel}: ${rps(chaos.divergentRps)} writes are accepted on the cut-off side that the rest of the system can't see. Nothing errors, and the data no longer agrees.`,
+      })
     // A consistent design is meant to refuse the minority side.
     const refusingIsTheJob =
       consistent &&

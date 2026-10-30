@@ -1143,3 +1143,1160 @@ export const HALF_THE_ORDERS = deck("half-the-orders", [
     ],
   ],
 ])
+
+export const BIG_MERCHANT = deck("big-merchant", [
+  [
+    "clarify",
+    "Checkout fails for one retailer's customers, and adding shards didn't help. What do you ask first?",
+    [
+      "Since when? If it started the week the big retailer joined, the data changed, not the code.",
+      "Is it every order of theirs, or only at peak?",
+      "What's the partition key, and how big is the biggest value of it?",
+    ],
+    "Adding shards changed nothing. What does that rule out?",
+  ],
+  [
+    "clarify",
+    "Before choosing a new key, what do you want to know about the data?",
+    [
+      "The biggest seller, buyer and order as a share of all traffic.",
+      "Which reads are most common, and which ID each one names.",
+      "Whether anything has to change several records in one transaction, like an order and its items.",
+    ],
+  ],
+  [
+    "clarify",
+    "What do the shard dashboards tell you?",
+    [
+      "One shard at 108% and seven at 23%: the load is uneven, not too big.",
+      "Eight shards could take 24,000 writes a second, and only 8,100 arrive.",
+      "Uneven load points at the key, not at the shard count.",
+    ],
+  ],
+  [
+    "product",
+    "What do you tell the big retailer while you fix it?",
+    [
+      "The truth: their checkout fails at peak because of how orders are stored, and a fix is under way.",
+      "What they can expect this weekend, and what you're doing in the meantime, such as holding back their reporting traffic.",
+      "They're the biggest customer: give them a named contact and regular updates.",
+    ],
+  ],
+  [
+    "decision",
+    "Why didn't going to eight shards help?",
+    [
+      "Split by seller, all of one seller's orders live on one shard, however many shards there are.",
+      "That seller is 40% of writes, so their shard takes 40% whatever the count.",
+      "The extra shards only added idle capacity, and $3,200 a month.",
+    ],
+  ],
+  [
+    "decision",
+    "Why buyer ID rather than order ID?",
+    [
+      "Most reads are buyers checking their own orders, which names the buyer: one shard.",
+      "Order ID spreads writes evenly, but a buyer's order list doesn't name an order, so it asks every shard.",
+      "Buyers are many and small: no one buyer is a noticeable share.",
+    ],
+    "Which reads now ask every shard, and how many are they?",
+  ],
+  [
+    "decision",
+    "How many shards by buyer, and why that many?",
+    [
+      "8,100 writes a second at 3,000 a shard needs at least three, and three would each run at 90%.",
+      "Four run at 68% at peak and 84% on a sale weekend.",
+      "Five passes on load and goes over budget.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What gets worse when you split by buyer?",
+    [
+      "A seller's sales page asks every shard: about 15% of reads.",
+      "The big seller's reports scan all four shards.",
+      "Nothing can update all of one seller's orders in one transaction any more.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What about seller ID for small sellers, and seller then order ID for big ones?",
+    [
+      "It keeps small sellers together and spreads big ones, which is what Fleet Tracker needed.",
+      "Buyers' reads would still ask every shard, because they don't name a seller.",
+      "Here, buyer ID is simpler and fits the common read.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What does moving to a new key cost while it happens?",
+    [
+      "Every order is copied to its new shard, and for a while every write goes to both.",
+      "Compare the old and new copies, then move reads, then stop writing the old ones.",
+      "Keep the old shards until you're sure, so you can go back.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could you give the big seller a shard of its own?",
+    [
+      "Their 40% of writes is still more than one {sql-primary} takes.",
+      "A shard per tenant only works while every tenant fits on one machine.",
+      "As they grow, you'd have to split them again.",
+    ],
+  ],
+  [
+    "alternative",
+    "Would a {nosql} store fix this on its own?",
+    [
+      "It spreads keys over partitions for you, but one hot key still has a limit of its own.",
+      "The problem is the key, and it follows you into any store.",
+      "Orders also lose joins and transactions, which you'd have to rebuild.",
+    ],
+  ],
+  [
+    "scale",
+    "The big seller doubles. What happens?",
+    [
+      "Split by buyer, nothing special: their buyers are spread over every shard.",
+      "Total writes grow, so add a shard when the busiest passes about 70%.",
+      "Their reporting gets heavier: feed it from a {data-warehouse}.",
+    ],
+  ],
+  [
+    "scale",
+    "What happens when eight shards aren't enough?",
+    [
+      "Eight is the most offered here. Beyond it: bigger machines, or a store that splits itself.",
+      "Hash the key onto shards so adding one moves only a share of the data.",
+      "Plan the next split before you need it, not during a sale.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A buyer who also sells: where do their records live?",
+    [
+      "Their orders as a buyer go by buyer ID.",
+      "Their listing as a seller is separate data, with its own home.",
+      "Order IDs must be unique across shards, not just within one.",
+    ],
+  ],
+  [
+    "edge-case",
+    "An order's buyer and seller would be on different shards. Where does the order go?",
+    [
+      "On the buyer's shard, with the seller ID as a column.",
+      "The seller sees it through the read that asks every shard.",
+      "No transaction needs both shards: one order is one row.",
+    ],
+  ],
+  [
+    "resilience",
+    "A shard's primary crashes. What happens?",
+    [
+      "Its standby in the other zone takes over in seconds.",
+      "Only that shard's buyers notice, briefly: about a quarter of them.",
+      "With money involved, two copies per shard is the minimum.",
+    ],
+  ],
+  [
+    "resilience",
+    "How much headroom do you have for the sale weekend?",
+    [
+      "The busiest shard runs at 84% at 1.25x: it holds, and latency rises.",
+      "For more than that, add a shard before the sale, not during it.",
+      "Shed reads that can wait, like seller analytics, first.",
+    ],
+  ],
+  [
+    "security",
+    "Does the new key change who can see what?",
+    [
+      "No: every request still checks that the buyer owns the order.",
+      "Don't let a client choose the shard. The server works it out from the signed-in buyer.",
+      "Every shard holds personal data, so every shard is encrypted.",
+    ],
+  ],
+  [
+    "observability",
+    "What would have caught this before checkout failed?",
+    [
+      "Load per shard, not just the total: the busiest next to the average.",
+      "An alert when one shard runs at more than twice the average.",
+      "The biggest customer's share of traffic, tracked as they grow.",
+    ],
+  ],
+  [
+    "observability",
+    "After the move, how do you know it worked?",
+    [
+      "Shards within a few points of each other.",
+      "p99 back under 300ms, and no errors at peak.",
+      "The share of reads asking every shard where you expected it: about 15%.",
+    ],
+  ],
+])
+
+export const EVERYONE_ASKS = deck("everyone-asks", [
+  [
+    "clarify",
+    "Every shard is overloaded, yet each takes an even share of writes. What do you ask?",
+    [
+      "Which requests are slow: reads or writes?",
+      "How many shards does one read visit?",
+      "What changed when we went from four shards to eight?",
+    ],
+  ],
+  [
+    "clarify",
+    "What are the common reads?",
+    [
+      "Opening a conversation: its latest 50 messages.",
+      "Scrolling back: older messages in the same conversation.",
+      "Search across every conversation, which is rarer.",
+    ],
+  ],
+  [
+    "clarify",
+    "What do you need to know about conversations?",
+    [
+      "How big the biggest one is: a company-wide channel with thousands of members?",
+      "How many messages a second the busiest one gets.",
+      "Whether messages ever move between conversations.",
+    ],
+  ],
+  [
+    "product",
+    "Chat is slow for everyone. What can the product do while you fix it?",
+    [
+      "Load the latest few messages first and older ones as people scroll.",
+      "Show a sent message on the sender's screen straight away.",
+      "Say on the status page that chat is slow, and that messages aren't lost.",
+    ],
+  ],
+  [
+    "decision",
+    "Why did eight shards make it slower than four?",
+    [
+      "A read that asks every shard waits for the slowest one. More shards, more chances of a slow one.",
+      "Each shard still saw nearly every read, so none of them got quieter.",
+      "The work of asking and merging grows with the number of shards.",
+    ],
+  ],
+  [
+    "decision",
+    "Message ID spreads writes perfectly. Why is it the wrong key?",
+    [
+      "Spreading writes is half the job. Reads also have to find their data.",
+      "A conversation's messages are scattered over every shard.",
+      "The key should be what the common read names: here, the conversation.",
+    ],
+    "What would you check for any key before choosing it?",
+  ],
+  [
+    "decision",
+    "Why three shards by conversation?",
+    [
+      "16,000 reads a second over two shards runs each at 82%, and p99 goes over the limit.",
+      "Three run at 57%.",
+      "Four also work, and cost more than the budget.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What does splitting by conversation cost you?",
+    [
+      "A very busy conversation lands on one shard.",
+      "Search across conversations still asks every shard.",
+      "Unread counts across all of someone's conversations touch many shards.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Does the new key help keep messages in order?",
+    [
+      "Yes: a conversation's messages are on one shard, so numbering them in order is easy there.",
+      "Message IDs that start with the time sort naturally.",
+      "Order across different conversations doesn't matter.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Why not split by user ID?",
+    [
+      "A conversation has many members, so a message would be stored once per member, or read from everywhere.",
+      "Storing it per member multiplies the writes by the number of members.",
+      "The conversation is the unit people read, so it's the natural key.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a {cache} fix it without moving any data?",
+    [
+      "The latest messages in busy conversations cache well.",
+      "Every miss still asks all eight shards.",
+      "It treats the symptom and adds something else to keep in step.",
+    ],
+  ],
+  [
+    "alternative",
+    "Would a {nosql} store be the better home?",
+    [
+      "Conversation as the partition key and time as the sort key is the classic chat design.",
+      "It's the same lesson: the key has to match the read.",
+      "Worth it when you outgrow eight shards.",
+    ],
+  ],
+  [
+    "scale",
+    "Traffic doubles. Then what?",
+    [
+      "About six shards by conversation, and nothing else changes.",
+      "Watch the busiest conversation's share as it grows.",
+      "Move search to a {search-index} fed from the messages.",
+    ],
+  ],
+  [
+    "scale",
+    "A channel with 50,000 members. What breaks?",
+    [
+      "Its shard takes a lot of reads: cache that channel's latest messages.",
+      "Notifying 50,000 people is the harder part, not storing the message.",
+      "If it keeps growing, it may need a shard of its own.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Someone deletes a message. How do you find it?",
+    [
+      "By conversation ID and message ID: the conversation tells you the shard.",
+      "Split by message ID you could find it from the message alone. Now clients send both.",
+      "A delete should leave a marker, so every device hears about it.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A direct message between two people: what's its conversation ID?",
+    [
+      "One worked out from both user IDs, so either person finds the same one.",
+      "It lands on the same shard whoever writes first.",
+      "That also stops the same pair getting two conversations.",
+    ],
+  ],
+  [
+    "resilience",
+    "A primary crashes. What happens?",
+    [
+      "Its standby takes over, and a third of conversations pause briefly.",
+      "Clients retry sends with an idempotency key, so nothing is posted twice.",
+      "Two copies per shard is the minimum.",
+    ],
+  ],
+  [
+    "resilience",
+    "How do you move every message to its new shard without losing any?",
+    [
+      "Write new messages to both the old and new layout for a while.",
+      "Copy old messages across conversation by conversation.",
+      "Switch reads once the counts match, and keep the old shards until you're sure.",
+    ],
+  ],
+  [
+    "security",
+    "Does splitting by conversation change who can read what?",
+    [
+      "No: every read still checks the person is a member.",
+      "The server picks the shard. A client can't ask for a shard directly.",
+      "Every shard holds private messages, so every shard is encrypted.",
+    ],
+  ],
+  [
+    "observability",
+    "What would have shown the problem before users did?",
+    [
+      "Shards visited per read, on average and at p99.",
+      "Reads per shard next to writes per shard.",
+      "An alert when the common read visits more than one shard.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you measure after the fix?",
+    [
+      "Reads per shard: about a third each.",
+      "p99 under 300ms.",
+      "The share of reads that ask every shard: about 3%.",
+    ],
+  ],
+])
+
+export const TODAYS_SHARD = deck("todays-shard", [
+  [
+    "clarify",
+    "One shard is overloaded, and it's a different one each day. What does that tell you?",
+    [
+      "The partition key follows time.",
+      "The load isn't growing, it's moving.",
+      "So check the key before the shard count or the machine size.",
+    ],
+  ],
+  [
+    "clarify",
+    "What do customers read?",
+    [
+      "Their own usage: today, this week, this bill.",
+      "Always for one home's meter.",
+      "Reports across many homes are rare, and belong to analytics.",
+    ],
+  ],
+  [
+    "clarify",
+    "What do you ask about the readings themselves?",
+    [
+      "How often each meter sends, and whether it sends several at once.",
+      "Whether readings arrive late or out of order.",
+      "How long they must be kept, for billing and for the regulator.",
+    ],
+  ],
+  [
+    "product",
+    "What should customers see while you fix it?",
+    [
+      "That usage figures may be delayed, and bills aren't affected.",
+      "Meters keep readings until they're accepted, so nothing is lost.",
+      "No 'unusual usage' alerts based on readings that are missing.",
+    ],
+  ],
+  [
+    "decision",
+    "Why didn't the read replicas help?",
+    [
+      "A replica copies all the data and only takes reads.",
+      "The problem was writes, all landing on one primary.",
+      "Copies add read capacity and safety. Only shards add write capacity.",
+    ],
+    "When would replicas have been the right fix?",
+  ],
+  [
+    "decision",
+    "Why meter ID?",
+    [
+      "There are millions of meters, so writes spread evenly.",
+      "The app's reads name the meter, so they visit one shard.",
+      "A home's whole history stays together.",
+    ],
+  ],
+  [
+    "decision",
+    "Why not split by region?",
+    [
+      "One city has 60% of the homes, so its shard takes 3,240 writes a second.",
+      "Groups of very different sizes make shards of very different loads.",
+      "Region is good for keeping data apart, and poor for spreading load.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What gets harder with meter ID?",
+    [
+      "Reports for one hour across every home ask every shard.",
+      "Old data lives on every shard, so you can't retire a whole old shard.",
+      "Tidying up old readings needs a job on every shard.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Keep the read replicas or drop them?",
+    [
+      "Drop them: three shards take the reads easily, and it saves $800 a month.",
+      "Keep them if you need more read headroom, or a copy for reports.",
+      "Here, keeping them goes over budget.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What about meter ID, then date?",
+    [
+      "The meter decides the shard, and the date sorts readings within it.",
+      "It makes 'this week's usage' a quick, ordered read.",
+      "The writes spread exactly as with meter ID alone.",
+    ],
+  ],
+  [
+    "alternative",
+    "Would a {time-series-db} be a better store?",
+    [
+      "It's built for this: readings by series and time, compressed, with old data rolled up.",
+      "It isn't offered here. In real life it's a strong candidate.",
+      "It still splits by series, the meter, and never by time alone.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a {queue} in front smooth it out?",
+    [
+      "It evens out bursts, but every write still ends up on today's shard.",
+      "The backlog grows all day, every day.",
+      "Fix the key, not the speed of arrival.",
+    ],
+  ],
+  [
+    "scale",
+    "A million more meters next year.",
+    [
+      "Writes grow with the number of meters: add shards.",
+      "Meter ID keeps spreading them evenly.",
+      "Hash meters onto shards so adding one moves only part of the data.",
+    ],
+  ],
+  [
+    "scale",
+    "Meters switch from every 15 minutes to every minute.",
+    [
+      "Fifteen times the writes: far more shards, or several readings per message.",
+      "Each meter sending a batch every 15 minutes keeps the write count where it is.",
+      "At that rate, a {time-series-db} looks even better.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A meter is offline for a day, then sends everything at once.",
+    [
+      "Its shard gets a small burst.",
+      "Each reading carries its own time, not the time it arrived.",
+      "Usage shown for that day should say it was filled in late.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A family moves house, and someone new moves in.",
+    [
+      "The meter's readings stay where they are. What changes is who may see them.",
+      "Keying by meter rather than customer means the history never moves.",
+      "Access is checked by account and date of moving in.",
+    ],
+  ],
+  [
+    "resilience",
+    "A shard's primary crashes.",
+    [
+      "Its standby takes over in seconds.",
+      "Meters retry, and hold their readings until they're accepted.",
+      "A third of homes see a brief pause.",
+    ],
+  ],
+  [
+    "resilience",
+    "How do you move from date to meter without losing readings?",
+    [
+      "Write new readings to both layouts for a while.",
+      "Copy old days across meter by meter, and compare counts.",
+      "Switch reads, then writes, and retire the old shards last.",
+    ],
+  ],
+  [
+    "security",
+    "What's sensitive in meter readings?",
+    [
+      "Usage shows when people are home and when they're away: it's personal data.",
+      "Encrypt every shard and limit who can query them.",
+      "Customers see only their own meter, checked on every request.",
+    ],
+  ],
+  [
+    "observability",
+    "What would have caught this?",
+    [
+      "Writes per shard, not just the total.",
+      "An alert on the busiest shard's share of writes.",
+      "A chart that shows the hot shard moving each day.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch after the fix?",
+    [
+      "Shards within a few points of each other.",
+      "Failed writes at zero.",
+      "The busiest meter's share, in case one goes wrong and floods.",
+    ],
+  ],
+])
+
+export const DOUBLE_SPEND = deck("double-spend", [
+  [
+    "clarify",
+    "About 200 accounts are below zero, and nothing errored. What do you ask?",
+    [
+      "When did they go below zero? All during last Tuesday's network fault?",
+      "Which zone were those payments made in?",
+      "What's the balances store's consistency setting, and when did it last change?",
+    ],
+  ],
+  [
+    "clarify",
+    "What do you ask about the rules for balances?",
+    [
+      "May a balance ever go below zero, even briefly?",
+      "Is a refused payment acceptable, and what does the customer see?",
+      "Who reconciles the accounts, and how quickly?",
+    ],
+  ],
+  [
+    "clarify",
+    "What exactly happened in the network fault?",
+    [
+      "One zone was cut off for a few minutes, and nothing crashed.",
+      "Both sides kept serving customers.",
+      "Did the app or the store know it was cut off?",
+    ],
+  ],
+  [
+    "product",
+    "What do you do about the 200 accounts?",
+    [
+      "Don't chase customers for the system's mistake: write off small amounts.",
+      "Contact the few with larger amounts, politely.",
+      "Fix the cause first, so the number doesn't grow.",
+    ],
+  ],
+  [
+    "decision",
+    "How did eventual consistency allow a double spend?",
+    [
+      "Each side accepted a payment after checking only its own copy of the balance.",
+      "The same money was spent once on each side.",
+      "When the split healed, both payments were real, and the balance went below zero.",
+    ],
+  ],
+  [
+    "decision",
+    "What does strong consistency do during a split?",
+    [
+      "A write commits only once a majority of copies have it.",
+      "The side with one copy of three can't, so it refuses.",
+      "The side with two carries on: two thirds of customers notice nothing.",
+    ],
+  ],
+  [
+    "decision",
+    "Why three copies, not two?",
+    [
+      "With three, one side of a split always holds two: a majority.",
+      "With two, neither side does, so everything stops.",
+      "Quorums want odd numbers.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What does strong consistency cost every day?",
+    [
+      "About 5ms more per write, waiting for a copy in another zone.",
+      "Refused payments in the cut-off zone during a split.",
+      "For money, that's usually a fair price.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Strong for everything, or only for payments?",
+    [
+      "Payments and top-ups must check a majority.",
+      "The balance on the home screen can be a second old.",
+      "Separate the read people glance at from the write that moves money.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Refuse during a split, or allow a small overdraft?",
+    [
+      "Some prepaid schemes allow a small offline limit and absorb the losses.",
+      "Refusing is the simple, safe default.",
+      "It's a business decision: put the numbers in front of the people who own it.",
+    ],
+  ],
+  [
+    "alternative",
+    "Should the balances move to a {sql-primary}?",
+    [
+      "A single-leader database is consistent by design.",
+      "With three copies over three zones it costs $1,599 here, less than the {nosql} store.",
+      "It's a migration rather than a setting: the better long-term fix, and slower to ship.",
+    ],
+  ],
+  [
+    "alternative",
+    "Why not let both sides accept payments and reconcile afterwards?",
+    [
+      "You'd find the conflicting payments and reverse one.",
+      "The coffee has been drunk: there's nothing to reverse.",
+      "It works for things you can undo, like a basket.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the customers.",
+    [
+      "More blocks of the store, and the cost of a quorum write stays the same.",
+      "Split the balances by customer ID.",
+      "Each balance still lives in one place, with a majority deciding.",
+    ],
+  ],
+  [
+    "scale",
+    "Should balances run in two regions?",
+    [
+      "A strong write across regions waits for the other side: about 100ms each.",
+      "Keep each customer's balance in a home region instead.",
+      "Here, one region is enough.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A payment times out in the app, and the customer taps again.",
+    [
+      "An idempotency key makes the second tap return the first result.",
+      "Without one, even strong consistency charges them twice.",
+      "It's a different problem, and also about money.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Someone tops up on the cut-off side during a split.",
+    [
+      "It's refused too: strong refuses every write there.",
+      "If the card was already charged, reconcile with the card provider.",
+      "Make top-ups idempotent so a retry doesn't add twice.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone goes down completely, rather than being cut off.",
+    [
+      "The other two copies are a majority, so payments carry on.",
+      "The lost copy rebuilds when the zone returns.",
+      "It's the same rule as a split.",
+    ],
+  ],
+  [
+    "resilience",
+    "How do you check this before the next network fault?",
+    [
+      "Cut a zone off in a test environment on purpose.",
+      "Check the cut-off side accepts no writes.",
+      "Alert on any write accepted without a majority.",
+    ],
+  ],
+  [
+    "security",
+    "Could someone exploit a split to spend twice?",
+    [
+      "They're unlikely to cause one, but people do look for windows like this and share them.",
+      "With strong consistency there's no window.",
+      "Flag unusual spending patterns, like several payments in a few seconds.",
+    ],
+  ],
+  [
+    "observability",
+    "What would have shown this last Tuesday?",
+    [
+      "Writes accepted on the cut-off side that the others couldn't see.",
+      "An alert the moment any balance goes below zero.",
+      "An audit log of configuration changes, like the consistency setting.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch after the fix?",
+    [
+      "Refusals during a split, which should match the cut-off share.",
+      "No balances below zero.",
+      "Write p99 about 5ms higher, and steady.",
+    ],
+  ],
+])
+
+export const RESUME_POINT = deck("resume-point", [
+  [
+    "clarify",
+    "Viewers got errors, and nothing had crashed. What do you ask?",
+    [
+      "Which requests failed: pressing play, or saving the position?",
+      "Were the failing viewers all in one zone?",
+      "What's the position store's consistency mode?",
+    ],
+  ],
+  [
+    "clarify",
+    "How bad is a position that's out of date?",
+    [
+      "A few seconds back: nobody minds.",
+      "Starting from the beginning: annoying, not harmful.",
+      "An error instead of the show: the worst outcome of the three.",
+    ],
+  ],
+  [
+    "clarify",
+    "What else does pressing play depend on?",
+    [
+      "Whether they're subscribed, which does need to be right.",
+      "The video itself, from a {cdn}.",
+      "The position is a nice-to-have: play should work without it.",
+    ],
+  ],
+  [
+    "product",
+    "What should play do if the position can't be read at all?",
+    [
+      "Start from the last position the device remembers, or from the beginning.",
+      "Never block playback waiting for it.",
+      "Offer 'resume from' once it's available again.",
+    ],
+  ],
+  [
+    "decision",
+    "Why eventual here, when Double Spend needed strong?",
+    [
+      "A wrong answer here costs a few seconds of video. There, it cost money.",
+      "Here, being available matters more than being exact.",
+      "Consistency is chosen per store, by what a wrong answer costs.",
+    ],
+  ],
+  [
+    "decision",
+    "When the copies meet again, which position wins?",
+    [
+      "The one saved last.",
+      "Saved last by the player's clock, recorded when it was saved.",
+      "Or the furthest one: a product choice.",
+    ],
+  ],
+  [
+    "decision",
+    "Why did strong mode refuse a third of viewers?",
+    [
+      "The cut-off side held one copy of three: no majority.",
+      "So it refused reads as well as writes.",
+      "A third of the traffic was on that side.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What does eventual cost you?",
+    [
+      "Two devices may briefly disagree.",
+      "Positions need merging after a split.",
+      "Little else, and every write saves about 5ms.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Saved last wins, or furthest wins?",
+    [
+      "Saved last respects someone rewinding on purpose.",
+      "Furthest protects against an old device overwriting a newer position.",
+      "Pick one per product, and test it with real viewing patterns.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "Save every 5 seconds or every 30?",
+    [
+      "Every 30 is a sixth of the writes.",
+      "A crash then loses up to 30 seconds of position.",
+      "Also save on pause and when the app closes.",
+    ],
+  ],
+  [
+    "alternative",
+    "Why not keep the position only on the device?",
+    [
+      "It breaks carrying on from another device, which is the whole feature.",
+      "It's a good fallback when the store is unreachable.",
+      "Do both: save locally first, then sync.",
+    ],
+  ],
+  [
+    "alternative",
+    "Could a {cache} hold positions instead of a database?",
+    [
+      "It's fast, but a restart loses everyone's place.",
+      "Positions are worth keeping for months.",
+      "Fine as a layer in front, not as the only copy.",
+    ],
+  ],
+  [
+    "scale",
+    "A season finale: everyone presses play at 9pm.",
+    [
+      "Reads spike all at once, so add capacity before the night.",
+      "Everyone starts a new episode at zero, so the app can skip the lookup.",
+      "Saves follow a few seconds later: they're the bigger load.",
+    ],
+  ],
+  [
+    "scale",
+    "Saves are 60% of traffic. Can you cut them?",
+    [
+      "Save less often while playing normally.",
+      "Only save when the position has moved by more than a few seconds.",
+      "Always save on pause and on exit.",
+    ],
+  ],
+  [
+    "edge-case",
+    "Two people share a profile and watch different shows.",
+    [
+      "Positions are per show, so they don't clash.",
+      "Same show on two devices: one position wins.",
+      "Separate profiles are the real answer.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A device's clock is an hour wrong.",
+    [
+      "Saved last by that clock picks the wrong position.",
+      "Use the server's time with a counter from the device, or furthest wins.",
+      "Clocks that combine both, called hybrid logical clocks, are designed for this.",
+    ],
+  ],
+  [
+    "resilience",
+    "A zone goes down completely.",
+    [
+      "Eventual keeps serving from the other zones.",
+      "Saves in the lost zone that hadn't been copied are lost: a few seconds of position.",
+      "That's an acceptable loss here.",
+    ],
+  ],
+  [
+    "resilience",
+    "How do you check this works before the next fault?",
+    [
+      "Cut a zone off in a test environment.",
+      "Expect no errors, and some positions merged afterwards.",
+      "Check the merge picked the position you'd expect.",
+    ],
+  ],
+  [
+    "security",
+    "Is a viewing position sensitive?",
+    [
+      "Viewing history is personal data.",
+      "Encrypt it, and only the account can read it.",
+      "Don't write it to logs in plain text.",
+    ],
+  ],
+  [
+    "observability",
+    "What would have warned you before viewers did?",
+    [
+      "Refused requests, broken down by zone.",
+      "Play errors broken down by which dependency failed.",
+      "An audit log of configuration changes.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch after the fix?",
+    [
+      "How many positions are merged after each split.",
+      "Play errors during faults: should be zero.",
+      "How far behind the copies are during normal running.",
+    ],
+  ],
+])
+
+export const SUMMARY_ON_VIEW = deck("summary-on-view", [
+  [
+    "clarify",
+    "The model bill is exploding and pages are timing out. What do you ask first?",
+    [
+      "Did it start when the summaries launched?",
+      "How many model calls does one page view make?",
+      "What's our quota, and are we at it?",
+    ],
+  ],
+  [
+    "clarify",
+    "How often does a summary change?",
+    [
+      "Only when the article is edited.",
+      "How many times a day is an article edited, on average?",
+      "So it needs working out once per edit, not once per view.",
+    ],
+  ],
+  [
+    "clarify",
+    "What should readers see if a summary isn't ready yet?",
+    [
+      "The article without a summary.",
+      "Or the previous summary, until the new one arrives.",
+      "Not a spinner: it draws attention to something missing.",
+    ],
+  ],
+  [
+    "product",
+    "Should every article have a summary?",
+    [
+      "Long pieces, yes. A three-paragraph news item may not need one.",
+      "Fewer summaries means fewer tokens.",
+      "Ask the editors which pieces readers use them on.",
+    ],
+  ],
+  [
+    "decision",
+    "Why move the model call off the reading path?",
+    [
+      "Reads outnumber edits 4,000 to one.",
+      "The summary is the same for every reader.",
+      "Work it out once, store it, and serve it.",
+    ],
+    "What else in a typical site is computed on read and could be stored?",
+  ],
+  [
+    "decision",
+    "Why a {queue} and a {worker}, rather than calling the model when the editor saves?",
+    [
+      "The editor shouldn't wait for the model, which takes seconds.",
+      "If the model fails, the job is retried.",
+      "If the model is down, jobs wait instead of saves failing.",
+    ],
+  ],
+  [
+    "decision",
+    "Where does the summary live?",
+    [
+      "In the article's row in the {sql-primary}.",
+      "So a page view is still one read.",
+      "Alongside the article version it was made from.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "What does summarising on save cost?",
+    [
+      "A few seconds without a summary after publishing.",
+      "Every edit, even a typo, costs a new summary.",
+      "Changing the prompt means redoing every old article.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "{queue} or {event-stream} for the jobs?",
+    [
+      "A {queue}: one consumer, simple, $7,434 in all.",
+      "An {event-stream}: $7,459, and other things (search, newsletters) can react to the same publishes.",
+      "Choose the stream if more consumers are coming.",
+    ],
+  ],
+  [
+    "tradeoff",
+    "{worker} or {serverless} for the summariser?",
+    [
+      "{serverless} is $7,314 in all: paid per job, nothing running in between.",
+      "A {worker} is $120 a month whether there's work or not.",
+      "At one job every two seconds, either is fine.",
+    ],
+  ],
+  [
+    "alternative",
+    "Why not cache the model's answer instead?",
+    [
+      "Even with nine views in ten served from the cache, the rest make 200 calls a second.",
+      "That's over twice the quota, and about $3.4 million a month.",
+      "Caching helps when misses are rare. Here, nothing needs to miss at all.",
+    ],
+  ],
+  [
+    "alternative",
+    "A {llm-batch} job is half the price. Why not use it?",
+    [
+      "It returns within about a day.",
+      "A summary of today's news tomorrow is no use.",
+      "It's the right tool for summarising the archive once.",
+    ],
+  ],
+  [
+    "scale",
+    "Ten times the readers.",
+    [
+      "Model calls don't change: they follow edits, not readers.",
+      "Add {app-server} instances, or a {cdn} for whole pages.",
+      "That's the point of taking the model off the reading path.",
+    ],
+  ],
+  [
+    "scale",
+    "Summaries in five languages.",
+    [
+      "Five calls per edit: still tiny.",
+      "Translate the short summary, not the whole article: far fewer tokens.",
+      "Store each language alongside the article.",
+    ],
+  ],
+  [
+    "edge-case",
+    "An editor publishes, then fixes two typos within a minute.",
+    [
+      "Three jobs for one article: only the last result matters.",
+      "Skip jobs for versions older than the latest.",
+      "Or wait a minute after the last edit before summarising.",
+    ],
+  ],
+  [
+    "edge-case",
+    "A summary says something the article doesn't.",
+    [
+      "Editors can edit or remove it.",
+      "Store which prompt and article version produced it.",
+      "Label it clearly as machine-written.",
+    ],
+  ],
+  [
+    "resilience",
+    "The model is down for an hour.",
+    [
+      "Jobs wait in the {queue}, and articles keep their old summaries.",
+      "New articles appear without one until it's back.",
+      "Before the fix, every page view would have timed out.",
+    ],
+  ],
+  [
+    "resilience",
+    "Breaking news doubles the traffic.",
+    [
+      "The model doesn't notice.",
+      "The {app-server} tier goes from 25% to 50% busy.",
+      "Reads only touch the database.",
+    ],
+  ],
+  [
+    "security",
+    "Can a reader still make the site call the model?",
+    [
+      "No: only an editor's save starts a job.",
+      "Before, every page view was a paid call, so a bot could run up the bill.",
+      "Limit who can publish, and cap jobs per article per hour.",
+    ],
+  ],
+  [
+    "observability",
+    "What would have caught this before launch?",
+    [
+      "An estimate: calls a second × tokens × price.",
+      "A load test with the model in the path.",
+      "A budget alert on the model bill.",
+    ],
+  ],
+  [
+    "observability",
+    "What do you watch now?",
+    [
+      "Model calls per hour next to articles saved per hour.",
+      "The age of the oldest job in the {queue}.",
+      "Cost per article.",
+    ],
+  ],
+])

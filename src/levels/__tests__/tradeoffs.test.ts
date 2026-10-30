@@ -61,6 +61,7 @@ const OTHER_SIDE: Record<string, (g: Graph) => Graph> = {
   "step-counter": (g) => cacheBefore(g, "steps"),
   "ask-the-intranet": (g) => cacheBefore(g, "passages"),
   "shared-quota": (g) => cacheBefore(g, "second"),
+  "summary-on-view": (g) => cacheBefore(g, "db"),
 }
 
 describe("trade-offs", () => {

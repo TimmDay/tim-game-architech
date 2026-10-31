@@ -6,7 +6,7 @@ export const PROVIDERS: { id: Provider; label: string }[] = [
   { id: "aws", label: "AWS" },
   { id: "azure", label: "Azure" },
   { id: "gcp", label: "GCP" },
-  { id: "generic", label: "Prem" },
+  { id: "generic", label: "In house" },
 ]
 
 export type ServiceName = {

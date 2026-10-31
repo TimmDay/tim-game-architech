@@ -145,7 +145,7 @@ export function DailyCard({
       <div className="relative flex flex-col items-center">
         <CalendarCube date={date} />
         <div className="mt-1 flex items-center gap-2 font-mono text-[11px] tracking-[0.18em] text-amber-200 uppercase">
-          <CalendarDays size={14} /> Daily puzzle #{daily.number}
+          <CalendarDays size={14} /> Daily puzzle
         </div>
         <h2 className="font-display mt-1 text-2xl font-bold text-white">
           {daily.base.title}

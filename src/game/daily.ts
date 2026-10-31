@@ -158,7 +158,7 @@ function makeDaily(date: string): Daily {
     ...twisted,
     id: `daily-${date}`,
     requires: [],
-    title: `Daily #${number}: ${base.title}`,
+    title: `Daily, ${dayLabel(date)}: ${base.title}`,
     daily: { date, number, baseId: base.id, twist: twist.label },
   }
   const par = simulate(level.reference, level.load).monthlyCostUsd
@@ -166,6 +166,14 @@ function makeDaily(date: string): Daily {
 }
 
 // --- results, as markers in the review state ---------------------------------
+
+/** "31 Oct": what the daily is called, since a puzzle number says nothing. */
+export const dayLabel = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  })
 
 /** A day's best: "daily:<date>:<stars>:<cost>". Zero points; merges as a set. */
 const PREFIX = "daily:"
@@ -235,7 +243,7 @@ export function shareText(d: Daily, best: DailyBest, url: string): string {
         : `, par ${usd(d.par)}`
       : ""
   return [
-    `Architech daily #${d.number}: ${d.base.title}`,
+    `Architech daily, ${dayLabel(d.date)}: ${d.base.title}`,
     d.twist.label,
     `${stars} ${usd(best.cost)}/mo${vsPar}`,
     url,

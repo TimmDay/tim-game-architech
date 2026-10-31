@@ -460,7 +460,7 @@ function Shelf({
         </span>
         <span className="flex shrink-0 items-center gap-2 pt-1.5">
           {summary && (
-            <span className="hidden font-mono text-[12px] text-slate-400 sm:inline">
+            <span className="font-mono text-[12px] whitespace-nowrap text-slate-400">
               {summary}
             </span>
           )}
@@ -473,11 +473,6 @@ function Shelf({
           />
         </span>
       </button>
-      {summary && (
-        <p className="mt-1.5 px-4 font-mono text-[12px] text-slate-500 sm:hidden">
-          {summary}
-        </p>
-      )}
       <div id={panel} hidden={!open} className="mt-4">
         {children}
       </div>

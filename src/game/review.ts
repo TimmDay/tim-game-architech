@@ -318,6 +318,40 @@ export function normalize(s: ReviewState, device: string): ReviewState {
 }
 
 /**
+ * The daily puzzle's records, "daily:<date>:<stars>:<cost>", are worth no
+ * points, and only each day's best is ever read. Keep just that one, so a
+ * save doesn't gain a key every time a player beats their own score.
+ */
+export function bestDailyOnly(
+  awarded: Record<string, true>,
+): Record<string, true> {
+  const best = new Map<string, { key: string; stars: number; cost: number }>()
+  let extra = false
+  for (const k of Object.keys(awarded)) {
+    const m = /^daily:([^:]+):(\d+):(\d+)$/.exec(k)
+    if (!m) continue
+    const [, date = "", stars, cost] = m
+    const run = { key: k, stars: Number(stars), cost: Number(cost) }
+    const b = best.get(date)
+    if (b) extra = true
+    // More stars wins; at the same stars, cheaper wins.
+    if (
+      !b ||
+      run.stars > b.stars ||
+      (run.stars === b.stars && run.cost < b.cost)
+    )
+      best.set(date, run)
+  }
+  if (!extra) return awarded
+  const keep = new Set([...best.values()].map((b) => b.key))
+  return Object.fromEntries(
+    Object.entries(awarded).filter(
+      ([k]) => !k.startsWith("daily:") || keep.has(k),
+    ),
+  )
+}
+
+/**
  * Combine two saves of the same player from different devices. Nothing is
  * lost and nothing counts twice: awards are a set, retention is per device,
  * and each review item keeps whichever copy was reviewed most recently.
@@ -332,7 +366,7 @@ export function mergeReview(a: ReviewState, b: ReviewState): ReviewState {
   for (const [d, n] of Object.entries(b.retention ?? {}))
     retention[d] = Math.max(retention[d] ?? 0, n)
   const merged: ReviewState = {
-    awarded: { ...a.awarded, ...b.awarded },
+    awarded: bestDailyOnly({ ...a.awarded, ...b.awarded }),
     items,
     retention,
     reviewsRight: Math.max(a.reviewsRight ?? 0, b.reviewsRight ?? 0),

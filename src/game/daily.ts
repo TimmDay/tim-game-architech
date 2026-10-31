@@ -203,13 +203,15 @@ export function recordDaily(
 ): ReviewState {
   const run = { stars: g.stars, cost: Math.round(g.peak.monthlyCostUsd) }
   const best = dailyBest(s, date)
-  // Each record is a key that can never be removed (awards merge as a set),
-  // so a cheaper run only counts once it's a real step cheaper.
+  // Every new record is a save to the cloud, so a cheaper run only counts
+  // once it's a real step cheaper.
   if (best && !worthKeeping(run, best)) return s
-  const awarded = {
-    ...s.awarded,
-    [`${PREFIX}${date}:${run.stars}:${run.cost}`]: true as const,
-  }
+  // The new record replaces the day's old one: only the best is ever read.
+  const day = `${PREFIX}${date}:`
+  const awarded: Record<string, true> = Object.fromEntries(
+    Object.entries(s.awarded).filter(([k]) => !k.startsWith(day)),
+  )
+  awarded[`${day}${run.stars}:${run.cost}`] = true
   const win = run.stars === 3 && !s.awarded[dailyWinKey(date)]
   if (win) awarded[dailyWinKey(date)] = true
   return {

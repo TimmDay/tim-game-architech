@@ -12,7 +12,7 @@ import {
   shareText,
   winnableTwists,
 } from "../daily"
-import { computeTotal, EMPTY } from "../review"
+import { computeTotal, EMPTY, mergeReview } from "../review"
 
 const build = LEVELS.filter((l) => l.mode === "build")
 const days = (from: string, n: number) => {
@@ -107,13 +107,34 @@ describe("daily results", () => {
     s = recordDaily(s, date, g(3, 8000))
     s = recordDaily(s, date, g(3, 8500))
     expect(dailyBest(s, date)).toEqual({ stars: 3, cost: 8000 })
-    // A dollar cheaper isn't a new record: keys can't be taken back.
-    const keys = Object.keys(s.awarded).length
+    // A dollar cheaper isn't a new record, so it isn't another cloud save.
+    const before = s
     s = recordDaily(s, date, g(3, 7999))
-    expect(Object.keys(s.awarded).length).toBe(keys)
+    expect(s).toBe(before)
     s = recordDaily(s, date, g(3, 7700))
     expect(dailyBest(s, date)).toEqual({ stars: 3, cost: 7700 })
     expect(dailyBest(s, "2026-11-02")).toBeNull()
+    // Each new record replaces the day's last one.
+    const records = Object.keys(s.awarded).filter((k) =>
+      k.startsWith(`daily:${date}:`),
+    )
+    expect(records).toEqual([`daily:${date}:3:7700`])
+  })
+
+  it("keeps one record a day when two devices merge", () => {
+    const phone = recordDaily(EMPTY, date, g(3, 8000))
+    const laptop = recordDaily(
+      recordDaily(EMPTY, date, g(2, 4000)),
+      "2026-11-02",
+      g(1, 3000),
+    )
+    const m = mergeReview(phone, laptop)
+    expect(
+      Object.keys(m.awarded)
+        .filter((k) => k.startsWith("daily:"))
+        .sort(),
+    ).toEqual([`daily:${date}:3:8000`, "daily:2026-11-02:1:3000"])
+    expect(dailyBest(m, date)).toEqual({ stars: 3, cost: 8000 })
   })
 
   it("pays for three stars once a day, and the total agrees with the markers", () => {

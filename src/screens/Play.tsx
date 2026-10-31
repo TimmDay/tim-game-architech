@@ -32,7 +32,7 @@ import { mark } from "~/game/achievements"
 import { recordDaily } from "~/game/daily"
 import { DailyResult } from "~/ui/DailyCard"
 import { CONCEPTS, COMPONENT_CARDS, type ConceptId } from "~/levels/concepts"
-import { LEVELS, type Level } from "~/levels"
+import { LEVELS, levelById, type Level } from "~/levels"
 import type { Provider } from "~/providers/names"
 import { findings, symptomsOnly, type Finding } from "~/sim/findings"
 import { grade as gradeBuild, type Grade } from "~/sim/grade"
@@ -462,9 +462,11 @@ export function Play({
   }
 
   // --- panels --------------------------------------------------------------
+  // The daily is a level with a twist: its decks are the level's own. Its
+  // quiz is left out, since passing unlocks a solution the twist has moved.
   const study = (
     <StudyCards
-      level={level}
+      level={level.daily ? (levelById(level.daily.baseId) ?? level) : level}
       onDeck={onDeck}
       quiz={
         sandbox || !SOLUTIONS[level.id]

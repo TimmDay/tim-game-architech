@@ -130,7 +130,7 @@ describe("daily results", () => {
       { stars: 3, cost: Math.round(d.par) - 50 },
       "https://x/#/daily",
     )
-    expect(text).toContain(`daily #${d.number}`)
+    expect(text).toContain("daily, 1 Nov:")
     expect(text).toContain("★★★")
     expect(text).toContain("under par")
     expect(text).not.toMatch(/AWS|Azure|Google|Amazon/)
